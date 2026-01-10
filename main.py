@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib import patches
 from torch.utils.data import IterableDataset, DataLoader
+import imageio
+import os
 
 app = typer.Typer()
 
@@ -275,7 +277,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         return torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
 
     @torch.no_grad()
-    def sample(self, cond, steps=50, cfg_scale=1.0, shape=None):
+    def sample(
+        self, cond, steps=50, cfg_scale=1.0, shape=None, return_intermediates=False
+    ):
         """
         Euler ODE solver for sampling.
 
@@ -284,6 +288,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         cfg_scale: Classifier-free guidance scale.
                    1.0 = standard conditional, >1.0 = increased conditioning influence.
         shape: Output shape [Batch, SeqLen, Dim]. If None, inferred from cond.
+        return_intermediates: If True, returns list of intermediate states during sampling.
         """
         self.eval()
         device = cond.device
@@ -305,6 +310,10 @@ class FlowMatchingTransformer(pl.LightningModule):
         null_mask = torch.ones(
             batch_size, device=device, dtype=torch.bool
         )  # All True = All Null
+
+        intermediates = []
+        if return_intermediates:
+            intermediates.append(x.cpu().clone())
 
         for i in range(len(ts) - 1):
             t_curr = ts[i]
@@ -330,6 +339,11 @@ class FlowMatchingTransformer(pl.LightningModule):
             # Euler Step
             x = x + v_pred * dt
 
+            if return_intermediates:
+                intermediates.append(x.cpu().clone())
+
+        if return_intermediates:
+            return x, intermediates
         return x
 
 
@@ -416,27 +430,141 @@ def generate_blob_bezier(
 # --- Visualization Helper ---
 
 
-def plot_blob(segments):
-    codes = [Path.MOVETO]
-    verts = [segments[0][0]]  # Start at the first point
+def plot_blob(segments, filename="blob.png", title=None, valid_segments=None):
+    """
+    Plot blob with optional validity information.
 
-    for segment in segments:
-        # segment is (P0, CP1, CP2, P3)
-        # We only need CP1, CP2, P3 for the CURVE4 command
-        verts.extend([segment[1], segment[2], segment[3]])
-        codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
+    Args:
+        segments: List of Bezier curve segments
+        filename: Output filename
+        title: Plot title
+        valid_segments: List of booleans indicating which segments are valid.
+                       If None, all segments are considered valid.
+    """
+    if len(segments) == 0:
+        return
 
-    path = Path(verts, codes)
+    fig, ax = plt.subplots(figsize=(6, 6))
 
-    fig, ax = plt.subplots()
-    patch = patches.PathPatch(path, facecolor="orange", lw=2, alpha=0.6)
-    ax.add_patch(patch)
+    # If no validity info provided, treat all as valid
+    if valid_segments is None:
+        valid_segments = [True] * len(segments)
+
+    # Separate valid and invalid segments
+    valid_paths = []
+    invalid_paths = []
+
+    for i, segment in enumerate(segments):
+        if i < len(valid_segments) and valid_segments[i]:
+            valid_paths.append(segment)
+        else:
+            invalid_paths.append(segment)
+
+    # Plot valid segments in orange
+    if valid_paths:
+        codes = [Path.MOVETO]
+        verts = [valid_paths[0][0]]  # Start at the first point
+
+        for segment in valid_paths:
+            verts.extend([segment[1], segment[2], segment[3]])
+            codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
+
+        path = Path(verts, codes)
+        patch = patches.PathPatch(
+            path, facecolor="orange", lw=2, alpha=0.6, edgecolor="orange"
+        )
+        ax.add_patch(patch)
+
+    # Plot invalid segments in red
+    if invalid_paths:
+        for segment in invalid_paths:
+            codes = [Path.MOVETO]
+            verts = [segment[0]]
+            verts.extend([segment[1], segment[2], segment[3]])
+            codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
+
+            path = Path(verts, codes)
+            patch = patches.PathPatch(
+                path, facecolor="red", lw=2, alpha=0.6, edgecolor="red"
+            )
+            ax.add_patch(patch)
 
     # Plot formatting
     ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
     ax.set_aspect("equal")
-    plt.savefig("blob.png")
+    if title:
+        ax.set_title(title, fontsize=12)
+    plt.tight_layout()
+    plt.savefig(filename, dpi=100, bbox_inches="tight")
+    plt.close(fig)
+
+
+def create_sampling_gif(
+    module,
+    cond,
+    output_path="sampling_process.gif",
+    steps=50,
+    cfg_scale=1.0,
+    shape=None,
+    fps=10,
+):
+    """
+    Create a GIF showing the sampling process step by step.
+
+    Args:
+        module: FlowMatchingTransformer model
+        cond: Conditioning tensor
+        output_path: Path to save the GIF
+        steps: Number of sampling steps
+        cfg_scale: Classifier-free guidance scale
+        shape: Output shape
+        fps: Frames per second for the GIF
+    """
+    # Sample with intermediate states
+    final_x, intermediates = module.sample(
+        cond, steps=steps, cfg_scale=cfg_scale, shape=shape, return_intermediates=True
+    )
+
+    # Create temporary directory for frames
+    temp_dir = "temp_gif_frames"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    frame_paths = []
+    try:
+        # Generate frames
+        for i, x_intermediate in enumerate(intermediates):
+            curve, valid_segments = tensor_to_curve(
+                x_intermediate, return_validity=True
+            )
+            if len(curve) > 0:
+                frame_path = os.path.join(temp_dir, f"frame_{i:04d}.png")
+                t_value = (
+                    i / (len(intermediates) - 1) if len(intermediates) > 1 else 0.0
+                )
+                plot_blob(
+                    curve,
+                    filename=frame_path,
+                    title=f"t = {t_value:.3f}",
+                    valid_segments=valid_segments,
+                )
+                frame_paths.append(frame_path)
+
+        # Create GIF from frames
+        if frame_paths:
+            images = [imageio.imread(path) for path in frame_paths]
+            imageio.mimsave(output_path, images, fps=fps, loop=0)
+            print(f"GIF saved to {output_path}")
+        else:
+            print("No frames generated!")
+
+    finally:
+        # Clean up temporary frames
+        for path in frame_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        if os.path.exists(temp_dir):
+            os.rmdir(temp_dir)
 
 
 def curve_to_tensor(curve, max_segments=16):
@@ -458,18 +586,16 @@ def curve_to_tensor(curve, max_segments=16):
     return t
 
 
-def tensor_to_curve(t):
+def tensor_to_curve(t, return_validity=False):
     # Handle batch dimension: if t has shape (batch, segments, 9), take first batch
     if len(t.shape) == 3:
         t = t[0]  # Take first batch element, now shape is (segments, 9)
 
     curve = []
+    valid_segments = []
     for i in range(t.shape[0]):
         segment = t[i]  # shape: (9,)
         flag = segment[8].item()
-
-        if flag < 0:
-            break
 
         x0, y0 = segment[0].item(), segment[1].item()
         cp1x, cp1y = segment[2].item(), segment[3].item()
@@ -477,6 +603,14 @@ def tensor_to_curve(t):
         x1, y1 = segment[6].item(), segment[7].item()
 
         curve.append(((x0, y0), (cp1x, cp1y), (cp2x, cp2y), (x1, y1)))
+        valid_segments.append(flag >= 0)
+
+        if flag < 0:
+            # Still include invalid segments for visualization
+            pass
+
+    if return_validity:
+        return curve, valid_segments
     return curve
 
 
@@ -548,7 +682,7 @@ def app():
 
     # Load lightning checkpoint
     module = FlowMatchingTransformer.load_from_checkpoint(
-        "./lightning_logs/version_5/checkpoints/epoch=2-step=30000.ckpt"
+        "./lightning_logs/version_5/checkpoints/epoch=4-step=50000.ckpt"
     )
 
     # Test
@@ -558,6 +692,12 @@ def app():
     curve = tensor_to_curve(x)
     print(len(curve))
     plot_blob(curve)
+
+    # Create GIF of sampling process
+    print("Creating sampling GIF...")
+    create_sampling_gif(
+        module, cond, output_path="sampling_process.gif", steps=50, shape=(1, 16, 9)
+    )
 
 
 if __name__ == "__main__":
