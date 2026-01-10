@@ -9,6 +9,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib import patches
+from torch.utils.data import IterableDataset, DataLoader
 
 app = typer.Typer()
 
@@ -166,12 +167,10 @@ class FlowMatchingTransformer(pl.LightningModule):
         num_heads: int = 8,
         dropout: int = 0.1,
         cond_drop_prob: float = 0.1,  # Probability to drop conditioning
-        sigma_min: float = 1e-4,  # Min noise level
         learning_rate: float = 1e-4,
     ):
         super().__init__()
         self.save_hyperparameters()
-        self.sigma_min = sigma_min
         self.cond_drop_prob = cond_drop_prob
 
         # 1. Embeddings
@@ -239,40 +238,37 @@ class FlowMatchingTransformer(pl.LightningModule):
         return output
 
     def training_step(self, batch, batch_idx):
-        # Unpack batch (Assuming batch is a tuple: (data, cond))
-        x_1, cond = batch  # x_1 is real data (target), cond is condition sequence
-
+        # x_1: Real Data
+        # cond: Conditioning
+        x_1, cond = batch
         batch_size = x_1.size(0)
         device = x_1.device
 
-        # 1. Sample Timestep t ~ Uniform[0, 1]
+        # 1. Sample Time t ~ Uniform[0, 1]
+        # RF often suggests sampling Logit-Normal for t,
+        # but Uniform is standard for the base version.
         t = torch.rand(batch_size, device=device)
 
         # 2. Sample Noise x_0 ~ N(0, 1)
         x_0 = torch.randn_like(x_1)
 
-        # 3. Compute Flow Target (Optimal Transport)
-        # Path: x_t = (1 - (1 - sigma_min) * t) * x_0 + t * x_1
-        # Velocity Target: v_t = x_1 - (1 - sigma_min) * x_0
-        # (Simplified: if sigma_min approx 0, x_t = (1-t)x0 + t*x1, v = x1 - x0)
-
+        # 3. Rectified Flow Interpolation
+        # Formula: x_t = t * x_1 + (1 - t) * x_0
         t_reshaped = t.view(-1, 1, 1)
-        path_sigma = 1 - (1 - self.sigma_min) * t_reshaped
+        x_t = t_reshaped * x_1 + (1 - t_reshaped) * x_0
 
-        x_t = path_sigma * x_0 + t_reshaped * x_1
-        target_v = x_1 - (1 - self.sigma_min) * x_0
+        # 4. Target Velocity
+        # The vector that points directly from noise to data
+        target_v = x_1 - x_0
 
-        # 4. Classifier-Free Guidance Training
-        # Randomly mask conditioning with probability cond_drop_prob
+        # 5. Classifier-Free Guidance Masking
         mask_cond = torch.rand(batch_size, device=device) < self.cond_drop_prob
 
-        # 5. Model Prediction
+        # 6. Predict and Loss
         pred_v = self(x_t, t, cond, mask_cond=mask_cond)
-
-        # 6. Loss (MSE)
         loss = F.mse_loss(pred_v, target_v)
 
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_loss", loss)
         return loss
 
     def configure_optimizers(self):
@@ -337,12 +333,21 @@ class FlowMatchingTransformer(pl.LightningModule):
         return x
 
 
-def generate_blob_bezier(num_points=8, radius=0.5, variance=0.2, smoothness=0.2):
+def generate_blob_bezier(
+    num_points=None,
+    min_points=4,
+    max_points=16,
+    radius=0.5,
+    variance=0.2,
+    smoothness=0.2,
+):
     """
     Generates a random blob shape defined by a sequence of Cubic Bezier curves.
 
     Args:
-        num_points (int): Number of anchor points (segments).
+        num_points (int, optional): Number of anchor points (segments). If None, randomly selected between min_points and max_points.
+        min_points (int): Minimum number of anchor points when randomizing.
+        max_points (int): Maximum number of anchor points when randomizing.
         radius (float): Base radius of the blob.
         variance (float): How much the radius can vary (0.0 to 1.0).
         smoothness (float): Strength of the control point handles (0.0 to 0.5 recommended).
@@ -351,6 +356,10 @@ def generate_blob_bezier(num_points=8, radius=0.5, variance=0.2, smoothness=0.2)
         list of tuples: Each tuple is ((x0, y0), (cp1x, cp1y), (cp2x, cp2y), (x1, y1))
                         representing a Cubic Bezier segment.
     """
+
+    # Randomize number of points if not specified
+    if num_points is None:
+        num_points = random.randint(min_points, max_points)
 
     # 1. Generate random anchor points in polar coordinates
     angles = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
@@ -459,8 +468,8 @@ def tensor_to_curve(t):
         segment = t[i]  # shape: (9,)
         flag = segment[8].item()
 
-        # if flag < 0:
-        #     break
+        if flag < 0:
+            break
 
         x0, y0 = segment[0].item(), segment[1].item()
         cp1x, cp1y = segment[2].item(), segment[3].item()
@@ -471,26 +480,84 @@ def tensor_to_curve(t):
     return curve
 
 
+class SyntheticDataset(IterableDataset):
+    def __init__(
+        self,
+        num_points=None,
+        min_points=4,
+        max_points=16,
+        radius=0.5,
+        variance=0.2,
+        smoothness=0.2,
+        cond_dim=6,
+    ):
+        self.num_points = num_points
+        self.min_points = min_points
+        self.max_points = max_points
+        self.radius = radius
+        self.variance = variance
+        self.smoothness = smoothness
+        self.cond_dim = cond_dim
+
+    def __iter__(self):
+        while True:
+            curve = generate_blob_bezier(
+                num_points=self.num_points,
+                min_points=self.min_points,
+                max_points=self.max_points,
+                radius=self.radius,
+                variance=self.variance,
+                smoothness=self.smoothness,
+            )
+            curve_tensor = curve_to_tensor(curve)
+            # Empty conditioning vector: shape (1, cond_dim) -> becomes (batch_size, 1, cond_dim) when batched
+            cond_tensor = torch.zeros(1, self.cond_dim)
+            yield curve_tensor, cond_tensor
+
+
+class DataModule(pl.LightningDataModule):
+    def __init__(self, batch_size=2048, num_workers=10, cond_dim=6):
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.cond_dim = cond_dim
+
+    def train_dataloader(self):
+        dataset = SyntheticDataset(cond_dim=self.cond_dim)
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+
 @app.command()
 def app():
     torch.set_float32_matmul_precision("medium")
 
-    model = FlowMatchingTransformer(
-        input_dim=9, cond_dim=6, hidden_size=128, num_layers=2
+    module = FlowMatchingTransformer(
+        input_dim=9, cond_dim=1, hidden_size=128, num_layers=4, num_heads=4
+    )
+
+    # trainer = pl.Trainer(max_epochs=5, limit_train_batches=10000, accelerator="auto")
+    # trainer.fit(
+    #     module,
+    #     datamodule=DataModule(cond_dim=1),
+    # )
+
+    # Load lightning checkpoint
+    module = FlowMatchingTransformer.load_from_checkpoint(
+        "./lightning_logs/version_5/checkpoints/epoch=2-step=30000.ckpt"
     )
 
     # Test
-    cond = torch.randn(1, 6)
-    x = model.sample(cond, shape=(1, 16, 9))
+    cond = torch.zeros(1, 1).to(module.device)
+    x = module.sample(cond, shape=(1, 16, 9)).to("cpu")
+    print(x)
     curve = tensor_to_curve(x)
-
-    print("main")
-
-    # Generate a random blob
-    curve = generate_blob_bezier()
+    print(len(curve))
     plot_blob(curve)
-    asdf = curve_to_tensor(curve)
-    print(asdf)
 
 
 if __name__ == "__main__":

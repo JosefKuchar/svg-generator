@@ -11,3 +11,5 @@ wheels/
 
 .vscode
 *.png
+
+lightning_logs/
