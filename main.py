@@ -671,19 +671,19 @@ def app():
     torch.set_float32_matmul_precision("medium")
 
     module = FlowMatchingTransformer(
-        input_dim=9, cond_dim=1, hidden_size=128, num_layers=4, num_heads=4
+        input_dim=17, cond_dim=1, hidden_size=128, num_layers=4, num_heads=4
     )
 
-    # trainer = pl.Trainer(max_epochs=5, limit_train_batches=10000, accelerator="auto")
-    # trainer.fit(
-    #     module,
-    #     datamodule=DataModule(cond_dim=1),
-    # )
+    trainer = pl.Trainer(max_epochs=5, limit_train_batches=10000, accelerator="auto")
+    trainer.fit(
+        module,
+        datamodule=DataModule(cond_dim=1),
+    )
 
     # Load lightning checkpoint
-    module = FlowMatchingTransformer.load_from_checkpoint(
-        "./lightning_logs/version_5/checkpoints/epoch=4-step=50000.ckpt"
-    )
+    # module = FlowMatchingTransformer.load_from_checkpoint(
+    #     "./lightning_logs/version_5/checkpoints/epoch=4-step=50000.ckpt"
+    # )
 
     # Test
     cond = torch.zeros(1, 1).to(module.device)
