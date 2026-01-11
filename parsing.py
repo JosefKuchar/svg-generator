@@ -1,3 +1,7 @@
+# TODO: Handle gradient fills
+# TODO: Handle masks
+# TODO: Handle strokes by first converting them to bezier curves - this solves polylines
+
 import torch
 from io import StringIO
 from loguru import logger
@@ -420,9 +424,16 @@ def convert_svg_to_bezier_curves(svg_input):
             stroke_color = parse_color(element.stroke)
             stroke_width = getattr(element, "stroke_width", None)
             opacity = element.values.get("opacity", 1.0)
+            # TODO: This is not truly right, but works for now
+            if "fill-opacity" in element.values:
+                opacity = element.values["fill-opacity"]
             if type(opacity) == str:
                 opacity = float(opacity)
-            fill_rule = element.values.get("fill-rule", "nonzero")
+            fill_rule = (
+                element.values.get("fill-rule", "nonzero")
+                if isinstance(element.values, dict)
+                else "nonzero"
+            )
 
             path = Path(element)
             path.reify()
@@ -526,6 +537,20 @@ if __name__ == "__main__":
             logger.info("Skipping gradient fill")
             continue
 
+        # Skip if there is polyline
+        if "polyline" in data:
+            logger.info("Skipping polyline")
+            continue
+
+        # Skip if there is mask
+        if "<mask" in data:
+            logger.info("Skipping mask")
+            continue
+
+        if 'stroke-linecap="round"' in data or "stroke-linecap: round" in data:
+            logger.info("Skipping round stroke")
+            continue
+
         elements = SVG.parse(StringIO(data))
         bezier_curves = convert_svg_to_bezier_curves(elements)
 
@@ -543,7 +568,7 @@ if __name__ == "__main__":
         mse = calculate_mse(original_render, reconstructed_render)
         print(f"MSE: {mse}")
 
-        if mse > 24.0:
+        if mse > 30.0:
             print(data)
 
             reconstructed_render.save("reconstructed.png")
@@ -552,3 +577,29 @@ if __name__ == "__main__":
             with open("reconstructed.svg", "w") as f:
                 f.write(output)
             break
+
+    # with open("svgs/problematic3.svg", "r") as f:
+    #     data = f.read()
+
+    # elements = SVG.parse(StringIO(data))
+    # bezier_curves = convert_svg_to_bezier_curves(elements)
+    # print(bezier_curves)
+    # reconstructed = []
+    # for curve in bezier_curves:
+    #     t = curve.to_tensor(elements.width, elements.height)
+    #     b = BezierShape.from_tensor(elements.width, elements.height, t)
+    #     reconstructed.append(b)
+    # output = save_bezier_shapes_to_svg(reconstructed, elements.width, elements.height)
+    # original_render = render_svg(data)
+    # reconstructed_render = render_svg(output)
+    # # print(data)
+    # mse = calculate_mse(original_render, reconstructed_render)
+    # print(f"MSE: {mse}")
+
+    # print(data)
+
+    # reconstructed_render.save("reconstructed.png")
+    # original_render.save("original.png")
+
+    # with open("reconstructed.svg", "w") as f:
+    #     f.write(output)
