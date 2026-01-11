@@ -1,6 +1,7 @@
 import torch
 from io import StringIO
 from loguru import logger
+from datasets import load_dataset
 
 from svgelements import (
     SVG,
@@ -38,17 +39,17 @@ class BezierShape:
             f"stroke_width={self.stroke_width}, opacity={self.opacity})"
         )
 
-    def to_tensor(self, viewbox=None, max_seq_len=512):
+    def to_tensor(self, width, height, max_seq_len=512):
         if len(self.curves) > max_seq_len:
             logger.warning(f"Shape has more curves than max_seq_len, truncating")
             self.curves = self.curves[:max_seq_len]
 
         t = torch.zeros([max_seq_len, 17])
 
-        vx = viewbox.x
-        vy = viewbox.y
-        vw = viewbox.width
-        vh = viewbox.height
+        vx = 0
+        vy = 0
+        vw = width
+        vh = height
 
         cx = vx + (vw / 2.0)
         cy = vy + (vh / 2.0)
@@ -108,10 +109,10 @@ class BezierShape:
         return t
 
     @classmethod
-    def from_tensor(cls, viewbox, tensor):
+    def from_tensor(cls, width, height, tensor):
         # 1. Setup Denormalization Parameters
-        vx, vy = viewbox.x, viewbox.y
-        vw, vh = viewbox.width, viewbox.height
+        vx, vy = 0, 0
+        vw, vh = width, height
 
         # Recalculate center and scale exactly as done in to_tensor
         cx = vx + (vw / 2.0)
@@ -419,6 +420,8 @@ def convert_svg_to_bezier_curves(svg_input):
             stroke_color = parse_color(element.stroke)
             stroke_width = getattr(element, "stroke_width", None)
             opacity = element.values.get("opacity", 1.0)
+            if type(opacity) == str:
+                opacity = float(opacity)
             fill_rule = element.values.get("fill-rule", "nonzero")
 
             path = Path(element)
@@ -444,14 +447,10 @@ def convert_svg_to_bezier_curves(svg_input):
     return output_data
 
 
-def save_bezier_shapes_to_svg(shapes, viewbox):
-    # 1. Setup SVG Header
-    vx, vy = viewbox.x, viewbox.y
-    vw, vh = viewbox.width, viewbox.height
-
+def save_bezier_shapes_to_svg(shapes, width, height):
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="{vx} {vy} {vw} {vh}" width="{vw}" height="{vh}">'
+        f'viewBox="0 0 {width} {height}" width="{width}" height="{height}">'
     ]
 
     # 2. Helper to format colors
@@ -517,43 +516,39 @@ def save_bezier_shapes_to_svg(shapes, viewbox):
 
 # Example usage
 if __name__ == "__main__":
+    dataset = load_dataset("mikronai/svg-svgrepo", split="train")
 
-    file = "svgs/complex.svg"
+    for item in dataset:
+        data = item["item_svg"]
 
-    # Load original SVG string
-    with open(file, "r") as f:
-        original = f.read()
+        # Skip if there is gradient fill
+        if "radialGradient" in data or "linearGradient" in data:
+            logger.info("Skipping gradient fill")
+            continue
 
-    # Parse SVG
-    elements = SVG.parse(StringIO(original))
+        elements = SVG.parse(StringIO(data))
+        bezier_curves = convert_svg_to_bezier_curves(elements)
 
-    # Extract all paths and convert to bezier curves
-    bezier_curves = convert_svg_to_bezier_curves(elements)
+        reconstructed = []
+        for curve in bezier_curves:
+            t = curve.to_tensor(elements.width, elements.height)
+            b = BezierShape.from_tensor(elements.width, elements.height, t)
+            reconstructed.append(b)
+        output = save_bezier_shapes_to_svg(
+            reconstructed, elements.width, elements.height
+        )
+        original_render = render_svg(data)
+        reconstructed_render = render_svg(output)
+        # print(data)
+        mse = calculate_mse(original_render, reconstructed_render)
+        print(f"MSE: {mse}")
 
-    # Print results
-    print(f"Found {len(bezier_curves)} bezier curve(s)")
-    for curve in bezier_curves:
-        print(curve)
+        if mse > 24.0:
+            print(data)
 
-    reconstructed = []
-    for curve in bezier_curves:
-        t = curve.to_tensor(viewbox=elements.viewbox)
-        b = BezierShape.from_tensor(elements.viewbox, t)
-        reconstructed.append(b)
+            reconstructed_render.save("reconstructed.png")
+            original_render.save("original.png")
 
-    # Save reconstructed curves to SVG
-    output = save_bezier_shapes_to_svg(reconstructed, elements.viewbox)
-
-    reconstructed_image = render_svg(output)
-    original_image = render_svg(original)
-
-    # Calculate MSE
-    mse = calculate_mse(original_image, reconstructed_image)
-    print(f"MSE: {mse}")
-
-    # Save reconstructed image
-    reconstructed_image.save("reconstructed.png")
-
-    # Save reconstructed SVG
-    with open("reconstructed.svg", "w") as f:
-        f.write(output)
+            with open("reconstructed.svg", "w") as f:
+                f.write(output)
+            break
