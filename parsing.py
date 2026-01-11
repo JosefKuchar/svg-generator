@@ -12,7 +12,6 @@ from svgelements import (
     CubicBezier,
     QuadraticBezier,
     Close,
-    Color,
 )
 from raster import render_svg, calculate_mse
 
@@ -25,21 +24,18 @@ class BezierShape:
         stroke_color=None,
         stroke_width=None,
         opacity=1.0,
-        fill_rule=None,
     ):
         self.curves = curves
         self.color = color
         self.stroke_color = stroke_color
         self.stroke_width = stroke_width
         self.opacity = opacity
-        self.fill_rule = fill_rule
 
     def __repr__(self):
         return (
             f"BezierShape(curves={len(self.curves)}, "
             f"color={self.color}, stroke_color={self.stroke_color}, "
-            f"stroke_width={self.stroke_width}, opacity={self.opacity}, "
-            f"fill_rule={self.fill_rule})"
+            f"stroke_width={self.stroke_width}, opacity={self.opacity})"
         )
 
     def to_tensor(self, viewbox=None, max_seq_len=512):
@@ -181,8 +177,164 @@ class BezierShape:
             stroke_color=stroke_color,
             stroke_width=stroke_width,
             opacity=opacity,
-            fill_rule=None,
         )
+
+
+def calculate_signed_area_approx(curves):
+    """
+    Calculates approximate signed area of a list of bezier curves
+    using the Shoelace formula on control points.
+    Result < 0 usually implies Clockwise in SVG (Y-down) coordinates.
+    """
+    area = 0.0
+    # Collect all control points in order to form a polygon
+    poly = []
+    for curve in curves:
+        p0, p1, p2, p3 = curve
+        poly.extend([p0, p1, p2, p3])
+
+    # Apply Shoelace formula
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        area += (x2 - x1) * (y2 + y1)
+
+    return area / 2.0
+
+
+def point_in_bezier_path(px, py, curves, samples_per_curve=10):
+    """
+    Check if a point (px, py) is inside a closed bezier path using ray casting.
+    Samples the bezier curves to approximate them as a polyline.
+    """
+    if not curves:
+        return False
+
+    # Sample the bezier curves to create a polyline
+    polyline = []
+    for curve in curves:
+        p0, p1, p2, p3 = curve
+        for i in range(samples_per_curve):
+            t = i / samples_per_curve
+            # Cubic bezier: B(t) = (1-t)^3*p0 + 3*(1-t)^2*t*p1 + 3*(1-t)*t^2*p2 + t^3*p3
+            mt = 1 - t
+            x = (
+                mt**3 * p0[0]
+                + 3 * mt**2 * t * p1[0]
+                + 3 * mt * t**2 * p2[0]
+                + t**3 * p3[0]
+            )
+            y = (
+                mt**3 * p0[1]
+                + 3 * mt**2 * t * p1[1]
+                + 3 * mt * t**2 * p2[1]
+                + t**3 * p3[1]
+            )
+            polyline.append((x, y))
+
+    # Add the last point (t=1 of the last curve)
+    last_curve = curves[-1]
+    polyline.append(last_curve[3])
+
+    # Ray casting algorithm
+    n = len(polyline)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polyline[i]
+        xj, yj = polyline[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+
+    return inside
+
+
+def normalize_contour_winding(curves):
+    """
+    Re-orients subpaths to be compatible with non-zero fill rule.
+    Bodies (Depth 0, 2...) -> Clockwise
+    Holes (Depth 1, 3...) -> Counter-Clockwise
+    """
+    if not curves:
+        return []
+
+    # 1. Group curves into subpaths (contours)
+    subpaths = []
+    current_subpath = []
+
+    for curve in curves:
+        p0, p1, p2, p3 = curve
+        # If there is a discontinuity from the previous curve, start a new subpath
+        if current_subpath:
+            prev_p3 = current_subpath[-1][3]
+            # Use a small epsilon for float comparison if needed,
+            # but strict equality usually works for extracted chains
+            if p0 != prev_p3:
+                subpaths.append(current_subpath)
+                current_subpath = []
+        current_subpath.append(curve)
+
+    if current_subpath:
+        subpaths.append(current_subpath)
+
+    # Filter out empty subpaths
+    subpaths = [sp for sp in subpaths if sp]
+
+    # 2. Determine Nesting Depth
+    # depth[i] = number of other subpaths that contain subpath[i]
+    n = len(subpaths)
+    depths = [0] * n
+
+    for i in range(n):
+        # Sample a probe point strictly inside the curve (t=0.5 of first segment)
+        # We calculate the midpoint of the cubic bezier:
+        # B(0.5) = 0.125*p0 + 0.375*p1 + 0.375*p2 + 0.125*p3
+        c = subpaths[i][0]
+        mx = 0.125 * c[0][0] + 0.375 * c[1][0] + 0.375 * c[2][0] + 0.125 * c[3][0]
+        my = 0.125 * c[0][1] + 0.375 * c[1][1] + 0.375 * c[2][1] + 0.125 * c[3][1]
+
+        for j in range(n):
+            if i == j:
+                continue
+            # Check if subpath j contains subpath i
+            if point_in_bezier_path(mx, my, subpaths[j]):
+                depths[i] += 1
+
+    # 4. Re-orient based on depth
+    normalized_curves = []
+
+    for i, sp in enumerate(subpaths):
+        area = calculate_signed_area_approx(sp)
+
+        # SVG Y-down: Shoelace usually gives Negative for Clockwise, Positive for CCW.
+        # We want:
+        # Even Depth (Body) -> Clockwise (Negative Area)
+        # Odd Depth (Hole)  -> Counter-Clockwise (Positive Area)
+
+        is_hole = depths[i] % 2 == 1
+        is_clockwise = area < 0
+
+        should_reverse = False
+        if not is_hole and not is_clockwise:
+            should_reverse = True  # Body should be CW
+        elif is_hole and is_clockwise:
+            should_reverse = True  # Hole should be CCW
+
+        if should_reverse:
+            # To reverse a chain of beziers:
+            # 1. Reverse the order of the list
+            # 2. For each curve, swap p0/p3 and p1/p2
+            reversed_sp = []
+            for curve in reversed(sp):
+                p0, p1, p2, p3 = curve
+                reversed_sp.append((p3, p2, p1, p0))
+            normalized_curves.extend(reversed_sp)
+        else:
+            normalized_curves.extend(sp)
+
+    return normalized_curves
 
 
 def get_cubic_bezier_segments(segment):
@@ -266,8 +418,8 @@ def convert_svg_to_bezier_curves(svg_input):
             fill_color = parse_color(element.fill)
             stroke_color = parse_color(element.stroke)
             stroke_width = getattr(element, "stroke_width", None)
-            opacity = getattr(element, "opacity", 1.0)
-            fill_rule = getattr(element, "fill_rule", None)
+            opacity = element.values.get("opacity", 1.0)
+            fill_rule = element.values.get("fill-rule", "nonzero")
 
             path = Path(element)
             path.reify()
@@ -276,13 +428,15 @@ def convert_svg_to_bezier_curves(svg_input):
             for segment in path:
                 bezier_curves.extend(get_cubic_bezier_segments(segment))
 
+            if fill_rule == "evenodd":
+                bezier_curves = normalize_contour_winding(bezier_curves)
+
             shape_data = BezierShape(
                 curves=bezier_curves,
                 color=fill_color,
                 stroke_color=stroke_color,
                 stroke_width=stroke_width,
                 opacity=opacity,
-                fill_rule=fill_rule,
             )
 
             output_data.append(shape_data)
@@ -351,9 +505,6 @@ def save_bezier_shapes_to_svg(shapes, viewbox):
             f'opacity="{opacity}" '
         )
 
-        if shape.fill_rule:
-            path_tag += f'fill-rule="{shape.fill_rule}" '
-
         path_tag += "/>"
         lines.append(f"  {path_tag}")
 
@@ -367,7 +518,7 @@ def save_bezier_shapes_to_svg(shapes, viewbox):
 # Example usage
 if __name__ == "__main__":
 
-    file = "svgs/test3.svg"
+    file = "svgs/complex.svg"
 
     # Load original SVG string
     with open(file, "r") as f:
@@ -402,3 +553,7 @@ if __name__ == "__main__":
 
     # Save reconstructed image
     reconstructed_image.save("reconstructed.png")
+
+    # Save reconstructed SVG
+    with open("reconstructed.svg", "w") as f:
+        f.write(output)
