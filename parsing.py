@@ -354,6 +354,40 @@ def parse_color(svg_color):
     return (int(svg_color.red), int(svg_color.green), int(svg_color.blue))
 
 
+def parse_numeric_value(value, default=None, is_percentage_normalized=False):
+    """
+    Parse a numeric value that might be a string with percentage (e.g., '50%').
+
+    Args:
+        value: The value to parse (can be int, float, or string like '50%')
+        default: Default value if parsing fails
+        is_percentage_normalized: If True, '50%' becomes 0.5; if False, '50%' becomes 50
+
+    Returns:
+        Float value or default
+    """
+    if value is None:
+        return default
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        value = value.strip()
+        if value.endswith("%"):
+            try:
+                num = float(value[:-1])
+                return num / 100.0 if is_percentage_normalized else num
+            except ValueError:
+                return default
+        try:
+            return float(value)
+        except ValueError:
+            return default
+
+    return default
+
+
 def convert_svg_to_bezier_curves(svg_input):
     output_data = []
 
@@ -373,8 +407,9 @@ def convert_svg_to_bezier_curves(svg_input):
             opacity = element.values.get("opacity", 1.0)
             if "fill-opacity" in element.values:
                 opacity = element.values["fill-opacity"]
-            if type(opacity) == str:
-                opacity = float(opacity)
+            opacity = parse_numeric_value(
+                opacity, default=1.0, is_percentage_normalized=True
+            )
             fill_rule = (
                 element.values.get("fill-rule", "nonzero")
                 if isinstance(element.values, dict)
