@@ -351,9 +351,10 @@ def generate_blob_bezier(
     num_points=None,
     min_points=4,
     max_points=16,
-    radius=0.5,
+    radius=0.25,
     variance=0.2,
     smoothness=0.2,
+    center=(0.0, 0.0),
 ):
     """
     Generates a random blob shape defined by a sequence of Cubic Bezier curves.
@@ -365,11 +366,13 @@ def generate_blob_bezier(
         radius (float): Base radius of the blob.
         variance (float): How much the radius can vary (0.0 to 1.0).
         smoothness (float): Strength of the control point handles (0.0 to 0.5 recommended).
+        center (tuple): Center point (x, y) of the blob. Defaults to (0.0, 0.0).
 
     Returns:
         list of tuples: Each tuple is ((x0, y0), (cp1x, cp1y), (cp2x, cp2y), (x1, y1))
                         representing a Cubic Bezier segment.
     """
+    cx, cy = center
 
     # Randomize number of points if not specified
     if num_points is None:
@@ -382,8 +385,8 @@ def generate_blob_bezier(
     for angle in angles:
         # Vary the radius randomly
         r = radius * (1 + random.uniform(-variance, variance))
-        x = r * np.cos(angle)
-        y = r * np.sin(angle)
+        x = cx + r * np.cos(angle)
+        y = cy + r * np.sin(angle)
         points.append(np.array([x, y]))
 
     points = np.array(points)
@@ -620,10 +623,10 @@ class SyntheticDataset(IterableDataset):
         num_points=None,
         min_points=4,
         max_points=16,
-        radius=0.5,
+        radius=0.25,
         variance=0.2,
         smoothness=0.2,
-        cond_dim=6,
+        cond_dim=2,
     ):
         self.num_points = num_points
         self.min_points = min_points
@@ -635,6 +638,7 @@ class SyntheticDataset(IterableDataset):
 
     def __iter__(self):
         while True:
+            center = (random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5))
             curve = generate_blob_bezier(
                 num_points=self.num_points,
                 min_points=self.min_points,
@@ -642,15 +646,16 @@ class SyntheticDataset(IterableDataset):
                 radius=self.radius,
                 variance=self.variance,
                 smoothness=self.smoothness,
+                center=center,
             )
             curve_tensor = curve_to_tensor(curve)
-            # Empty conditioning vector: shape (1, cond_dim) -> becomes (batch_size, 1, cond_dim) when batched
-            cond_tensor = torch.zeros(1, self.cond_dim)
+            # [1, 2] conditioning tensor
+            cond_tensor = torch.tensor([[center[0], center[1]]])
             yield curve_tensor, cond_tensor
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, batch_size=2048, num_workers=10, cond_dim=6):
+    def __init__(self, batch_size=2048, num_workers=10, cond_dim=2):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -670,23 +675,24 @@ class DataModule(pl.LightningDataModule):
 def app():
     torch.set_float32_matmul_precision("medium")
 
-    module = FlowMatchingTransformer(
-        input_dim=17, cond_dim=1, hidden_size=128, num_layers=4, num_heads=4
-    )
-
-    trainer = pl.Trainer(max_epochs=5, limit_train_batches=10000, accelerator="auto")
-    trainer.fit(
-        module,
-        datamodule=DataModule(cond_dim=1),
-    )
-
-    # Load lightning checkpoint
-    # module = FlowMatchingTransformer.load_from_checkpoint(
-    #     "./lightning_logs/version_5/checkpoints/epoch=4-step=50000.ckpt"
+    # module = FlowMatchingTransformer(
+    #     input_dim=9, cond_dim=2, hidden_size=256, num_layers=4, num_heads=4
     # )
 
+    # trainer = pl.Trainer(max_epochs=5, limit_train_batches=10000, accelerator="auto")
+    # trainer.fit(
+    #     module,
+    #     datamodule=DataModule(cond_dim=2),
+    # )
+
+    # Load lightning checkpoint
+    module = FlowMatchingTransformer.load_from_checkpoint(
+        "./lightning_logs/version_7/checkpoints/epoch=4-step=50000.ckpt"
+    )
+
     # Test
-    cond = torch.zeros(1, 1).to(module.device)
+    # cond = torch.zeros(1, 2).to(module.device)
+    cond = torch.tensor([[0.0, 0.5]]).to(module.device)
     x = module.sample(cond, shape=(1, 16, 9)).to("cpu")
     print(x)
     curve = tensor_to_curve(x)
@@ -694,7 +700,7 @@ def app():
     plot_blob(curve)
 
     # Create GIF of sampling process
-    print("Creating sampling GIF...")
+    # print("Creating sampling GIF...")
     create_sampling_gif(
         module, cond, output_path="sampling_process.gif", steps=50, shape=(1, 16, 9)
     )
