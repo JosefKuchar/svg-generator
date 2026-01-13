@@ -3,11 +3,12 @@
 import torch
 from io import StringIO
 from loguru import logger
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 import tempfile
 import subprocess
 import pathlib
 from tqdm import tqdm
+import json
 
 from svgelements import (
     SVG,
@@ -45,7 +46,7 @@ class BezierShape:
             logger.warning(f"Shape has more curves than max_seq_len, truncating")
             self.curves = self.curves[:max_seq_len]
 
-        t = torch.zeros([max_seq_len, 17])
+        t = torch.zeros([max_seq_len, 13])
 
         vx = 0
         vy = 0
@@ -489,66 +490,95 @@ def convert_svg_strings(svg_strings):
     return processed_outputs
 
 
-# Example usage
-if __name__ == "__main__":
-    dataset = load_dataset("mikronai/svg-svgrepo", split="train")
-
-    batch_size = 100
-    batch = []
-    should_break = False
-
-    for item in tqdm(dataset):
-        data = item["item_svg"]
-        batch.append(data)
-
-        if len(batch) < batch_size:
+def process_batch(batch, converted_batch, processed_items):
+    for original_svg, data2 in zip(batch, converted_batch):
+        if data2 is None:
             continue
 
-        # Process batch
-        converted_batch = convert_svg_strings(batch)
-
-        for data, data2 in zip(batch, converted_batch):
-            # Skip if there is gradient fill
-            if "radialGradient" in data or "linearGradient" in data:
-                logger.info("Skipping gradient fill")
-                continue
-
-            # Skip if there is mask
-            if "<mask" in data:
-                logger.info("Skipping mask")
-                continue
-
-            if "<style" in data:
-                logger.info("Skipping css style")
-                continue
-
+        try:
             elements = SVG.parse(StringIO(data2))
             bezier_curves = convert_svg_to_bezier_curves(elements)
 
-            # reconstructed = []
-            # for curve in bezier_curves:
-            #     t = curve.to_tensor(elements.width, elements.height)
-            #     b = BezierShape.from_tensor(elements.width, elements.height, t)
-            #     reconstructed.append(b)
-            # output = save_bezier_shapes_to_svg(
-            #     reconstructed, elements.width, elements.height
-            # )
-            # original_render = render_svg(data)
-            # reconstructed_render = render_svg(output)
+            # Collect all shapes from this SVG
+            shapes = []
+            for shape in bezier_curves:
+                shapes.append(
+                    {
+                        "curves": shape.curves,
+                        "color": shape.color,
+                        "opacity": shape.opacity,
+                    }
+                )
 
-            # mse = calculate_mse(original_render, reconstructed_render)
-            # if mse > 70.0:
-            #     print(mse)
-            #     print(data)
+            processed_items.append(
+                {
+                    "original_svg": original_svg,
+                    "shapes": json.dumps(shapes),
+                    "width": elements.width,
+                    "height": elements.height,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Error processing SVG: {e}")
+            continue
 
-            #     reconstructed_render.save("reconstructed.png")
-            #     original_render.save("original.png")
 
-            #     with open("reconstructed.svg", "w") as f:
-            #         f.write(output)
-            #     should_break = True
-            #     break
+def process_split(dataset_split, split_name):
+    """Process a single dataset split and return the processed items."""
+    batch_size = 100
+    batch = []
+    processed_items = []
 
-        batch = []
-        if should_break:
-            break
+    for item in tqdm(dataset_split, desc=f"Processing {split_name}"):
+        data = item["item_svg"]
+
+        # Skip if there is gradient fill
+        if "radialGradient" in data or "linearGradient" in data:
+            continue
+
+        # Skip if there is mask
+        if "<mask" in data:
+            continue
+
+        # Skip if there is style
+        if "<style" in data:
+            continue
+
+        batch.append(data)
+
+        if len(batch) >= batch_size:
+            converted_batch = convert_svg_strings(batch)
+            process_batch(batch, converted_batch, processed_items)
+            batch = []
+
+    # Process remaining items
+    if batch:
+        converted_batch = convert_svg_strings(batch)
+        process_batch(batch, converted_batch, processed_items)
+
+    return processed_items
+
+
+if __name__ == "__main__":
+    from datasets import DatasetDict
+
+    # Load the full dataset with all splits
+    full_dataset = load_dataset("mikronai/svg-svgrepo")
+
+    processed_splits = {}
+
+    # Process each available split
+    for split_name in full_dataset.keys():
+        print(f"\n=== Processing {split_name} split ===")
+        processed_items = process_split(full_dataset[split_name], split_name)
+        processed_splits[split_name] = Dataset.from_list(processed_items)
+        print(f"Processed {len(processed_items)} items for {split_name} split")
+
+    # Create and save DatasetDict with all splits
+    final_dataset = DatasetDict(processed_splits)
+    final_dataset.save_to_disk("bezier_dataset")
+
+    print(f"\n=== Summary ===")
+    for split_name, split_data in final_dataset.items():
+        print(f"{split_name}: {len(split_data)} items")
+    print(f"Saved all splits to bezier_dataset")
