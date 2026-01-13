@@ -1,11 +1,13 @@
-# TODO: Handle gradient fills
-# TODO: Handle masks
-# TODO: Handle strokes by first converting them to bezier curves - this solves polylines
+# TODO: Handle gradients
 
 import torch
 from io import StringIO
 from loguru import logger
 from datasets import load_dataset
+import tempfile
+import subprocess
+import pathlib
+from tqdm import tqdm
 
 from svgelements import (
     SVG,
@@ -26,22 +28,17 @@ class BezierShape:
         self,
         curves,
         color=None,
-        stroke_color=None,
-        stroke_width=None,
         opacity=1.0,
     ):
         self.curves = curves
         self.color = color
-        self.stroke_color = stroke_color
-        self.stroke_width = stroke_width
         self.opacity = opacity
 
     def __repr__(self):
-        return (
-            f"BezierShape(curves={len(self.curves)}, "
-            f"color={self.color}, stroke_color={self.stroke_color}, "
-            f"stroke_width={self.stroke_width}, opacity={self.opacity})"
-        )
+        buf = ""
+        buf += f"BezierShape(curves={len(self.curves)}, "
+        buf += f"color={self.color}, opacity={self.opacity})"
+        return buf
 
     def to_tensor(self, width, height, max_seq_len=512):
         if len(self.curves) > max_seq_len:
@@ -64,16 +61,6 @@ class BezierShape:
             return (x - cx) * scale, (y - cy) * scale
 
         color = self.color if self.color is not None else (0, 0, 0)
-        stroke_color = self.stroke_color if self.stroke_color is not None else (0, 0, 0)
-        stroke_width = self.stroke_width if self.stroke_width is not None else 1.0
-        if self.stroke_color is None:
-            stroke_width = 0.0
-        if stroke_width >= 100.0:
-            logger.warning(f"Stroke width is greater than 100, clamping to 100")
-            stroke_width = 100.0
-        if stroke_width < 0.0:
-            logger.warning(f"Stroke width is less than 0, clamping to 0")
-            stroke_width = 0.0
         opacity = self.opacity if self.opacity is not None else 1.0
 
         for i, curve in enumerate(self.curves):
@@ -97,18 +84,13 @@ class BezierShape:
             t[i, 9] = 2 * (color[1] / 255.0) - 1
             t[i, 10] = 2 * (color[2] / 255.0) - 1
 
-            t[i, 11] = 2 * (stroke_color[0] / 255.0) - 1
-            t[i, 12] = 2 * (stroke_color[1] / 255.0) - 1
-            t[i, 13] = 2 * (stroke_color[2] / 255.0) - 1
-
-            t[i, 14] = 2 * (stroke_width / 100.0) - 1
-            t[i, 15] = 2 * opacity - 1
-            t[i, 16] = 1  # Real data flag
+            t[i, 11] = 2 * opacity - 1
+            t[i, 12] = 1  # Real data flag
 
         # Padding
         for i in range(len(self.curves), max_seq_len):
             t[i, :] = t[i - 1, :].clone()
-            t[i, 16] = -1
+            t[i, 12] = -1
 
         return t
 
@@ -138,7 +120,7 @@ class BezierShape:
         if tensor.is_cuda:
             tensor = tensor.cpu()
 
-        valid_mask = tensor[:, 16] > 0
+        valid_mask = tensor[:, 12] > 0
         valid_rows = tensor[valid_mask]
 
         if len(valid_rows) == 0:
@@ -151,17 +133,9 @@ class BezierShape:
         color = denorm_color(
             float(first_row[8]), float(first_row[9]), float(first_row[10])
         )
-        stroke_color = denorm_color(
-            float(first_row[11]), float(first_row[12]), float(first_row[13])
-        )
-
-        # Extract Stroke Width (Inverse of: 2 * (w / 100.0) - 1)
-        stroke_width_norm = float(first_row[14])
-        stroke_width = ((stroke_width_norm + 1) / 2.0) * 100.0
-        stroke_width = max(0.0, stroke_width)
 
         # Extract Opacity (Inverse of: 2 * opacity - 1)
-        opacity_norm = float(first_row[15])
+        opacity_norm = float(first_row[11])
         opacity = (opacity_norm + 1) / 2.0
         opacity = max(0.0, min(1.0, opacity))
 
@@ -179,8 +153,6 @@ class BezierShape:
         return cls(
             curves=curves,
             color=color,
-            stroke_color=stroke_color,
-            stroke_width=stroke_width,
             opacity=opacity,
         )
 
@@ -192,13 +164,12 @@ def calculate_signed_area_approx(curves):
     Result < 0 usually implies Clockwise in SVG (Y-down) coordinates.
     """
     area = 0.0
-    # Collect all control points in order to form a polygon
+
     poly = []
     for curve in curves:
         p0, p1, p2, p3 = curve
         poly.extend([p0, p1, p2, p3])
 
-    # Apply Shoelace formula
     n = len(poly)
     for i in range(n):
         x1, y1 = poly[i]
@@ -216,13 +187,11 @@ def point_in_bezier_path(px, py, curves, samples_per_curve=10):
     if not curves:
         return False
 
-    # Sample the bezier curves to create a polyline
     polyline = []
     for curve in curves:
         p0, p1, p2, p3 = curve
         for i in range(samples_per_curve):
             t = i / samples_per_curve
-            # Cubic bezier: B(t) = (1-t)^3*p0 + 3*(1-t)^2*t*p1 + 3*(1-t)*t^2*p2 + t^3*p3
             mt = 1 - t
             x = (
                 mt**3 * p0[0]
@@ -238,11 +207,9 @@ def point_in_bezier_path(px, py, curves, samples_per_curve=10):
             )
             polyline.append((x, y))
 
-    # Add the last point (t=1 of the last curve)
     last_curve = curves[-1]
     polyline.append(last_curve[3])
 
-    # Ray casting algorithm
     n = len(polyline)
     inside = False
     j = n - 1
@@ -265,17 +232,13 @@ def normalize_contour_winding(curves):
     if not curves:
         return []
 
-    # 1. Group curves into subpaths (contours)
     subpaths = []
     current_subpath = []
 
     for curve in curves:
         p0, p1, p2, p3 = curve
-        # If there is a discontinuity from the previous curve, start a new subpath
         if current_subpath:
             prev_p3 = current_subpath[-1][3]
-            # Use a small epsilon for float comparison if needed,
-            # but strict equality usually works for extracted chains
             if p0 != prev_p3:
                 subpaths.append(current_subpath)
                 current_subpath = []
@@ -284,18 +247,11 @@ def normalize_contour_winding(curves):
     if current_subpath:
         subpaths.append(current_subpath)
 
-    # Filter out empty subpaths
     subpaths = [sp for sp in subpaths if sp]
-
-    # 2. Determine Nesting Depth
-    # depth[i] = number of other subpaths that contain subpath[i]
     n = len(subpaths)
     depths = [0] * n
 
     for i in range(n):
-        # Sample a probe point strictly inside the curve (t=0.5 of first segment)
-        # We calculate the midpoint of the cubic bezier:
-        # B(0.5) = 0.125*p0 + 0.375*p1 + 0.375*p2 + 0.125*p3
         c = subpaths[i][0]
         mx = 0.125 * c[0][0] + 0.375 * c[1][0] + 0.375 * c[2][0] + 0.125 * c[3][0]
         my = 0.125 * c[0][1] + 0.375 * c[1][1] + 0.375 * c[2][1] + 0.125 * c[3][1]
@@ -303,7 +259,7 @@ def normalize_contour_winding(curves):
         for j in range(n):
             if i == j:
                 continue
-            # Check if subpath j contains subpath i
+
             if point_in_bezier_path(mx, my, subpaths[j]):
                 depths[i] += 1
 
@@ -313,24 +269,16 @@ def normalize_contour_winding(curves):
     for i, sp in enumerate(subpaths):
         area = calculate_signed_area_approx(sp)
 
-        # SVG Y-down: Shoelace usually gives Negative for Clockwise, Positive for CCW.
-        # We want:
-        # Even Depth (Body) -> Clockwise (Negative Area)
-        # Odd Depth (Hole)  -> Counter-Clockwise (Positive Area)
-
         is_hole = depths[i] % 2 == 1
         is_clockwise = area < 0
 
         should_reverse = False
         if not is_hole and not is_clockwise:
-            should_reverse = True  # Body should be CW
+            should_reverse = True
         elif is_hole and is_clockwise:
-            should_reverse = True  # Hole should be CCW
+            should_reverse = True
 
         if should_reverse:
-            # To reverse a chain of beziers:
-            # 1. Reverse the order of the list
-            # 2. For each curve, swap p0/p3 and p1/p2
             reversed_sp = []
             for curve in reversed(sp):
                 p0, p1, p2, p3 = curve
@@ -421,10 +369,7 @@ def convert_svg_to_bezier_curves(svg_input):
 
         if isinstance(element, Shape):
             fill_color = parse_color(element.fill)
-            stroke_color = parse_color(element.stroke)
-            stroke_width = getattr(element, "stroke_width", None)
             opacity = element.values.get("opacity", 1.0)
-            # TODO: This is not truly right, but works for now
             if "fill-opacity" in element.values:
                 opacity = element.values["fill-opacity"]
             if type(opacity) == str:
@@ -448,8 +393,6 @@ def convert_svg_to_bezier_curves(svg_input):
             shape_data = BezierShape(
                 curves=bezier_curves,
                 color=fill_color,
-                stroke_color=stroke_color,
-                stroke_width=stroke_width,
                 opacity=opacity,
             )
 
@@ -464,56 +407,32 @@ def save_bezier_shapes_to_svg(shapes, width, height):
         f'viewBox="0 0 {width} {height}" width="{width}" height="{height}">'
     ]
 
-    # 2. Helper to format colors
     def format_color(rgb_tuple):
         if rgb_tuple is None:
             return "none"
-        # Clamp values to 0-255 just in case
         r = max(0, min(255, int(rgb_tuple[0])))
         g = max(0, min(255, int(rgb_tuple[1])))
         b = max(0, min(255, int(rgb_tuple[2])))
         return f"#{r:02x}{g:02x}{b:02x}"
 
-    # 3. Process each shape
     for shape in shapes:
         if not shape.curves:
             continue
 
-        # Build path data string (d attribute)
         path_commands = []
         last_pos = None
 
         for p0, p1, p2, p3 in shape.curves:
-            # If the start of this curve (p0) is not where the last one ended,
-            # we must explicitly Move (M) there.
-            # We compare with a small epsilon for float stability if needed,
-            # but direct equality check usually works for generated chains.
             if last_pos != p0:
                 path_commands.append(f"M {p0[0]},{p0[1]}")
-
-            # Cubic Bezier command (C x1 y1, x2 y2, x y)
             path_commands.append(f"C {p1[0]},{p1[1]} {p2[0]},{p2[1]} {p3[0]},{p3[1]}")
-
             last_pos = p3
-
         d_str = " ".join(path_commands)
 
-        # 4. format Styles
         fill = format_color(shape.color)
-        stroke = format_color(shape.stroke_color)
-        stroke_width = shape.stroke_width if shape.stroke_width is not None else 0.0
         opacity = shape.opacity if shape.opacity is not None else 1.0
 
-        # Build the <path> element
-        # Note: If stroke color is None/transparent, stroke-width essentially doesn't matter,
-        # but we preserve it.
-        path_tag = (
-            f'<path d="{d_str}" '
-            f'fill="{fill}" '
-            f'stroke="{stroke}" '
-            f'stroke-width="{stroke_width}" '
-            f'opacity="{opacity}" '
-        )
+        path_tag = f'<path d="{d_str}" ' f'fill="{fill}" ' f'opacity="{opacity}" '
 
         path_tag += "/>"
         lines.append(f"  {path_tag}")
@@ -525,81 +444,111 @@ def save_bezier_shapes_to_svg(shapes, width, height):
     return content
 
 
+def convert_svg_strings(svg_strings):
+    processed_outputs = []
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = pathlib.Path(tmpdir)
+        commands = []
+
+        for i, svg_str in enumerate(svg_strings):
+            input_file = tmp_path / f"input_{i}.svg"
+            output_file = tmp_path / f"output_{i}.svg"
+            input_file.write_text(svg_str, encoding="utf-8")
+            cmd = (
+                f"file-open:{input_file.absolute()}; "
+                f"select-all:all; "
+                f"selection-ungroup; "
+                f"object-to-path; "
+                f"object-stroke-to-path; "
+                f"export-type:svg; "
+                f"export-filename:{output_file.absolute()}; "
+                f"export-do; "
+                f"file-close"
+            )
+            commands.append(cmd)
+
+        full_script = "\n".join(commands) + "\nquit\n"
+        process = subprocess.Popen(
+            ["/home/xkuchar/opt/inkscape", "--shell"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        stdout, stderr = process.communicate(input=full_script)
+        for i in range(len(svg_strings)):
+            output_file = tmp_path / f"output_{i}.svg"
+            if output_file.exists():
+                processed_outputs.append(output_file.read_text(encoding="utf-8"))
+            else:
+                print(f"Error processing file {i}: {stderr}")
+                processed_outputs.append(None)
+
+    return processed_outputs
+
+
 # Example usage
 if __name__ == "__main__":
     dataset = load_dataset("mikronai/svg-svgrepo", split="train")
 
-    for item in dataset:
+    batch_size = 100
+    batch = []
+    should_break = False
+
+    for item in tqdm(dataset):
         data = item["item_svg"]
+        batch.append(data)
 
-        # Skip if there is gradient fill
-        if "radialGradient" in data or "linearGradient" in data:
-            logger.info("Skipping gradient fill")
+        if len(batch) < batch_size:
             continue
 
-        # Skip if there is polyline
-        if "polyline" in data:
-            logger.info("Skipping polyline")
-            continue
+        # Process batch
+        converted_batch = convert_svg_strings(batch)
 
-        # Skip if there is mask
-        if "<mask" in data:
-            logger.info("Skipping mask")
-            continue
+        for data, data2 in zip(batch, converted_batch):
+            # Skip if there is gradient fill
+            if "radialGradient" in data or "linearGradient" in data:
+                logger.info("Skipping gradient fill")
+                continue
 
-        if 'stroke-linecap="round"' in data or "stroke-linecap: round" in data:
-            logger.info("Skipping round stroke")
-            continue
+            # Skip if there is mask
+            if "<mask" in data:
+                logger.info("Skipping mask")
+                continue
 
-        elements = SVG.parse(StringIO(data))
-        bezier_curves = convert_svg_to_bezier_curves(elements)
+            if "<style" in data:
+                logger.info("Skipping css style")
+                continue
 
-        reconstructed = []
-        for curve in bezier_curves:
-            t = curve.to_tensor(elements.width, elements.height)
-            b = BezierShape.from_tensor(elements.width, elements.height, t)
-            reconstructed.append(b)
-        output = save_bezier_shapes_to_svg(
-            reconstructed, elements.width, elements.height
-        )
-        original_render = render_svg(data)
-        reconstructed_render = render_svg(output)
-        # print(data)
-        mse = calculate_mse(original_render, reconstructed_render)
-        print(f"MSE: {mse}")
+            elements = SVG.parse(StringIO(data2))
+            bezier_curves = convert_svg_to_bezier_curves(elements)
 
-        if mse > 30.0:
-            print(data)
+            # reconstructed = []
+            # for curve in bezier_curves:
+            #     t = curve.to_tensor(elements.width, elements.height)
+            #     b = BezierShape.from_tensor(elements.width, elements.height, t)
+            #     reconstructed.append(b)
+            # output = save_bezier_shapes_to_svg(
+            #     reconstructed, elements.width, elements.height
+            # )
+            # original_render = render_svg(data)
+            # reconstructed_render = render_svg(output)
 
-            reconstructed_render.save("reconstructed.png")
-            original_render.save("original.png")
+            # mse = calculate_mse(original_render, reconstructed_render)
+            # if mse > 70.0:
+            #     print(mse)
+            #     print(data)
 
-            with open("reconstructed.svg", "w") as f:
-                f.write(output)
+            #     reconstructed_render.save("reconstructed.png")
+            #     original_render.save("original.png")
+
+            #     with open("reconstructed.svg", "w") as f:
+            #         f.write(output)
+            #     should_break = True
+            #     break
+
+        batch = []
+        if should_break:
             break
-
-    # with open("svgs/problematic3.svg", "r") as f:
-    #     data = f.read()
-
-    # elements = SVG.parse(StringIO(data))
-    # bezier_curves = convert_svg_to_bezier_curves(elements)
-    # print(bezier_curves)
-    # reconstructed = []
-    # for curve in bezier_curves:
-    #     t = curve.to_tensor(elements.width, elements.height)
-    #     b = BezierShape.from_tensor(elements.width, elements.height, t)
-    #     reconstructed.append(b)
-    # output = save_bezier_shapes_to_svg(reconstructed, elements.width, elements.height)
-    # original_render = render_svg(data)
-    # reconstructed_render = render_svg(output)
-    # # print(data)
-    # mse = calculate_mse(original_render, reconstructed_render)
-    # print(f"MSE: {mse}")
-
-    # print(data)
-
-    # reconstructed_render.save("reconstructed.png")
-    # original_render.save("original.png")
-
-    # with open("reconstructed.svg", "w") as f:
-    #     f.write(output)
