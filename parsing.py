@@ -460,15 +460,25 @@ def save_bezier_shapes_to_svg(shapes, width, height):
 
         for p0, p1, p2, p3 in shape.curves:
             if last_pos != p0:
+                if last_pos is not None:
+                    path_commands.append(f"Z")
+
                 path_commands.append(f"M {p0[0]},{p0[1]}")
             path_commands.append(f"C {p1[0]},{p1[1]} {p2[0]},{p2[1]} {p3[0]},{p3[1]}")
             last_pos = p3
+
+        if last_pos is not None:
+            path_commands.append(f"Z")
         d_str = " ".join(path_commands)
 
         fill = format_color(shape.color)
         opacity = shape.opacity if shape.opacity is not None else 1.0
 
-        path_tag = f'<path d="{d_str}" ' f'fill="{fill}" ' f'opacity="{opacity}" '
+        path_tag = (
+            f'<path d="{d_str}" '
+            f'fill="{fill}" '
+            f'opacity="{opacity}" fill-rule="nonzero" '
+        )
 
         path_tag += "/>"
         lines.append(f"  {path_tag}")
