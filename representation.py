@@ -13,8 +13,6 @@ Representation for the flow-matching model:
 - Every dimension is normalized to [-1, 1]
 """
 
-# TODO: Loss masking for padding - only flag will be trained
-
 import torch
 from loguru import logger
 
