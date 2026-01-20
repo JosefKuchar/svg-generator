@@ -9,29 +9,61 @@ Model implementation
 """
 
 
-class SinusoidalPosEmb(nn.Module):
+class RotaryPositionEmbedding(nn.Module):
     """
-    Standard sinusoidal position embedding for vector sequences.
+    Rotary Position Embedding (RoPE) for transformers.
+    Applies rotation to query/key pairs based on position.
     """
 
-    def __init__(self, dim, max_len=5000):
+    def __init__(self, dim, max_len=256, base=10000):
         super().__init__()
-        pe = torch.zeros(max_len, dim)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, dim, 2).float() * (-math.log(10000.0) / dim)
+        self.dim = dim
+        self.max_len = max_len
+        self.base = base
+
+        # Precompute inverse frequencies
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq)
+
+        # Precompute cos and sin cache
+        self._build_cache(max_len)
+
+    def _build_cache(self, seq_len):
+        t = torch.arange(
+            seq_len, device=self.inv_freq.device, dtype=self.inv_freq.dtype
+        )
+        freqs = torch.outer(t, self.inv_freq)
+        # Stack cos and sin for interleaved application
+        emb = torch.cat([freqs, freqs], dim=-1)
+        self.register_buffer("cos_cached", emb.cos().unsqueeze(0), persistent=False)
+        self.register_buffer("sin_cached", emb.sin().unsqueeze(0), persistent=False)
+
+    def forward(self, seq_len):
+        """Return cos and sin for the given sequence length."""
+        if seq_len > self.cos_cached.size(1):
+            self._build_cache(seq_len)
+        return (
+            self.cos_cached[:, :seq_len, :],
+            self.sin_cached[:, :seq_len, :],
         )
 
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
 
-        # Register as buffer (not a learnable parameter, but part of state_dict)
-        self.register_buffer("pe", pe.unsqueeze(0))
+def rotate_half(x):
+    """Rotate half the hidden dims of the input."""
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return torch.cat([-x2, x1], dim=-1)
 
-    def forward(self, x):
-        # x: [Batch, SeqLen, Dim]
-        seq_len = x.size(1)
-        return self.pe[:, :seq_len, :]
+
+def apply_rotary_pos_emb(q, k, cos, sin):
+    """Apply rotary position embedding to query and key tensors."""
+    # q, k: [Batch, NumHeads, SeqLen, HeadDim]
+    # cos, sin: [1, SeqLen, HeadDim]
+    cos = cos.unsqueeze(1)  # [1, 1, SeqLen, HeadDim]
+    sin = sin.unsqueeze(1)  # [1, 1, SeqLen, HeadDim]
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+    return q_embed, k_embed
 
 
 class TimestepEmbedder(nn.Module):
@@ -79,14 +111,19 @@ class TimestepEmbedder(nn.Module):
 class AdaLNBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, dropout=0.1):
         super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = hidden_size // num_heads
+        self.scale = self.head_dim**-0.5
 
-        # Self-Attention (for the main flow sequence)
+        # Self-Attention projections (for RoPE-based attention)
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = nn.MultiheadAttention(
-            hidden_size, num_heads, batch_first=True, dropout=dropout
-        )
+        self.q_proj = nn.Linear(hidden_size, hidden_size)
+        self.k_proj = nn.Linear(hidden_size, hidden_size)
+        self.v_proj = nn.Linear(hidden_size, hidden_size)
+        self.out_proj = nn.Linear(hidden_size, hidden_size)
+        self.attn_dropout = nn.Dropout(dropout)
 
-        # Cross-Attention (Conditioning on external vector sequence)
+        # Cross-Attention (no RoPE, using standard attention)
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.cross_attn = nn.MultiheadAttention(
             hidden_size, num_heads, batch_first=True, dropout=dropout
@@ -107,11 +144,35 @@ class AdaLNBlock(nn.Module):
             nn.SiLU(), nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
 
-    def forward(self, x, c, t_emb):
+    def _rope_attention(self, x, cos, sin):
+        """Self-attention with RoPE."""
+        B, S, D = x.shape
+
+        # Project to Q, K, V
+        q = self.q_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.k_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # Apply RoPE to Q and K
+        q, k = apply_rotary_pos_emb(q, k, cos, sin)
+
+        # Scaled dot-product attention
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = self.attn_dropout(attn_weights)
+
+        # Compute attention output
+        attn_out = torch.matmul(attn_weights, v)
+        attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, D)
+        return self.out_proj(attn_out)
+
+    def forward(self, x, c, t_emb, rope_cos, rope_sin):
         """
         x: Input sequence (Flow) [Batch, SeqLen, Dim]
         c: Conditioning sequence [Batch, CondSeqLen, Dim]
         t_emb: Timestep embedding [Batch, Dim]
+        rope_cos: RoPE cosine [1, SeqLen, HeadDim]
+        rope_sin: RoPE sine [1, SeqLen, HeadDim]
         """
         # 1. Regress modulation parameters from time embedding
         # shift_msa, scale_msa, shift_cross, scale_cross, shift_mlp, scale_mlp
@@ -122,11 +183,11 @@ class AdaLNBlock(nn.Module):
         def modulate(x, shift, scale):
             return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
-        # 2. Self-Attention Block
+        # 2. Self-Attention Block with RoPE
         x_norm = modulate(self.norm1(x), shift_msa, scale_msa)
-        x = x + self.attn(x_norm, x_norm, x_norm)[0]
+        x = x + self._rope_attention(x_norm, rope_cos, rope_sin)
 
-        # 3. Cross-Attention Block
+        # 3. Cross-Attention Block (no RoPE for cross-attention)
         x_norm = modulate(self.norm2(x), shift_cross, scale_cross)
         # Query = Flow (x), Key/Value = Conditioning (c)
         x = x + self.cross_attn(x_norm, c, c)[0]
@@ -158,7 +219,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         self.x_embedder = nn.Linear(input_dim, hidden_size)
         self.c_embedder = nn.Linear(cond_dim, hidden_size)
         self.t_embedder = TimestepEmbedder(hidden_size)
-        self.pos_emb = SinusoidalPosEmb(hidden_size)
+        # RoPE operates on head_dim, not full hidden_size
+        head_dim = hidden_size // num_heads
+        self.rope = RotaryPositionEmbedding(head_dim)
 
         # 2. Null Conditioning (Learnable vector for classifier-free guidance)
         # We learn a single token and broadcast it to the sequence length
@@ -192,9 +255,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         c = self.c_embedder(c)
         t_emb = self.t_embedder(t)
 
-        # Add Positional Embeddings
-        x = x + self.pos_emb(x)
-        c = c + self.pos_emb(c)
+        # Get RoPE embeddings for the sequence
+        seq_len = x.size(1)
+        rope_cos, rope_sin = self.rope(seq_len)
 
         # Handle Null Conditioning (Dropout)
         if mask_cond is not None:
@@ -209,7 +272,7 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         # Transformer Pass
         for block in self.blocks:
-            x = block(x, c, t_emb)
+            x = block(x, c, t_emb, rope_cos, rope_sin)
 
         # Final AdaLN & Projection
         shift, scale = self.final_adaLN(t_emb).chunk(2, dim=1)
