@@ -535,8 +535,8 @@ def convert_svg_strings(svg_strings):
     return processed_outputs
 
 
-def process_batch(batch, converted_batch, processed_items):
-    for original_svg, data2 in zip(batch, converted_batch):
+def process_batch(batch, original_items, converted_batch, processed_items):
+    for original_item, data2 in zip(original_items, converted_batch):
         if data2 is None:
             continue
 
@@ -555,14 +555,13 @@ def process_batch(batch, converted_batch, processed_items):
                     }
                 )
 
-            processed_items.append(
-                {
-                    "original_svg": original_svg,
-                    "shapes": json.dumps(shapes),
-                    "width": elements.width,
-                    "height": elements.height,
-                }
-            )
+            # Start with all original fields and add/override with processed data
+            result = dict(original_item)
+            result["shapes"] = json.dumps(shapes)
+            result["width"] = elements.width
+            result["height"] = elements.height
+
+            processed_items.append(result)
         except Exception as e:
             logger.warning(f"Error processing SVG: {e}")
             continue
@@ -572,6 +571,7 @@ def process_split(dataset_split, split_name):
     """Process a single dataset split and return the processed items."""
     batch_size = 100
     batch = []
+    original_items = []
     processed_items = []
 
     for item in tqdm(dataset_split, desc=f"Processing {split_name}"):
@@ -590,16 +590,18 @@ def process_split(dataset_split, split_name):
             continue
 
         batch.append(data)
+        original_items.append(item)
 
         if len(batch) >= batch_size:
             converted_batch = convert_svg_strings(batch)
-            process_batch(batch, converted_batch, processed_items)
+            process_batch(batch, original_items, converted_batch, processed_items)
             batch = []
+            original_items = []
 
     # Process remaining items
     if batch:
         converted_batch = convert_svg_strings(batch)
-        process_batch(batch, converted_batch, processed_items)
+        process_batch(batch, original_items, converted_batch, processed_items)
 
     return processed_items
 
@@ -621,9 +623,9 @@ if __name__ == "__main__":
 
     # Create and save DatasetDict with all splits
     final_dataset = DatasetDict(processed_splits)
-    final_dataset.save_to_disk("bezier_dataset")
+    final_dataset.save_to_disk("bezier_dataset_2")
 
     print(f"\n=== Summary ===")
     for split_name, split_data in final_dataset.items():
         print(f"{split_name}: {len(split_data)} items")
-    print(f"Saved all splits to bezier_dataset")
+    print(f"Saved all splits to bezier_dataset_2")
