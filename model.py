@@ -7,6 +7,10 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
+import wandb
+from representation import tensor_to_shapes
+from parsing import save_bezier_shapes_to_svg
+from raster import render_svg
 
 
 class RotaryPositionEmbedding(nn.Module):
@@ -336,8 +340,47 @@ class FlowMatchingTransformer(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
 
+    def validation_step(self, batch, batch_idx):
+        """Generate and save validation samples with fixed seed."""
+        VALIDATION_SEED = 42
+        SAMPLE_SIZE = 128  # Sequence length
+        IMG_SIZE = 256  # Output image size
+
+        # batch is the conditioning tensor from ValidationSamplingDataset
+        cond = batch  # Shape: [num_samples, 1, cond_dim]
+        num_samples = cond.shape[0]
+
+        # Sample from the model with fixed seed
+        samples = self.sample(
+            cond,
+            steps=50,
+            cfg_scale=1.0,
+            shape=(num_samples, SAMPLE_SIZE, self.hparams.input_dim),
+            seed=VALIDATION_SEED,
+        )
+
+        # Render and log each sample to wandb
+        images = []
+        for i in range(num_samples):
+            sample_tensor = samples[i]  # Shape: [SAMPLE_SIZE, input_dim]
+            try:
+                # Convert tensor to shapes
+                shapes = tensor_to_shapes(sample_tensor, IMG_SIZE, IMG_SIZE)
+                # Convert shapes to SVG
+                svg_content = save_bezier_shapes_to_svg(shapes, IMG_SIZE, IMG_SIZE)
+                # Render SVG to image
+                image = render_svg(svg_content)
+                images.append(wandb.Image(image, caption=f"Sample {i}"))
+
+            except Exception as e:
+                print(f"Warning: Failed to render sample {i} at epoch {self.current_epoch}: {e}")
+
+        # Log images to wandb
+        if images:
+            self.logger.experiment.log({"val_samples": images, "epoch": self.current_epoch})
+
     @torch.no_grad()
-    def sample(self, cond, steps=50, cfg_scale=1.0, shape=None):
+    def sample(self, cond, steps=50, cfg_scale=1.0, shape=None, seed=None):
         """
         Euler ODE solver for sampling.
 
@@ -346,7 +389,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         cfg_scale: Classifier-free guidance scale.
                    1.0 = standard conditional, >1.0 = increased conditioning influence.
         shape: Output shape [Batch, SeqLen, Dim]. If None, inferred from cond.
-        return_intermediates: If True, returns list of intermediate states during sampling.
+        seed: Optional random seed for reproducible sampling.
         """
         self.eval()
         device = cond.device
@@ -357,8 +400,13 @@ class FlowMatchingTransformer(pl.LightningModule):
             # Default to output length = condition length (or set manually)
             shape = (batch_size, cond.shape[1], self.hparams.input_dim)
 
+        # Set seed for reproducibility if provided
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device=device).manual_seed(seed)
+
         # 1. Initialize x_0 from Normal distribution
-        x = torch.randn(shape, device=device)
+        x = torch.randn(shape, device=device, generator=generator)
 
         # Time steps (0 to 1)
         ts = torch.linspace(0, 1, steps, device=device)

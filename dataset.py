@@ -50,12 +50,45 @@ class BezierDataset(Dataset):
         return curve_tensor, cond_tensor
 
 
+class ValidationSamplingDataset(Dataset):
+    """
+    A minimal dataset that provides fixed conditioning for validation sampling.
+    Uses a fixed seed to ensure reproducible samples across epochs.
+    """
+
+    def __init__(self, num_samples=4, cond_dim=2, seed=42):
+        self.num_samples = num_samples
+        self.cond_dim = cond_dim
+        self.seed = seed
+        # Generate fixed conditioning using the seed
+        generator = torch.Generator().manual_seed(seed)
+        self.fixed_cond = torch.zeros(num_samples, 1, cond_dim)
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, idx):
+        # Return the fixed conditioning for this sample
+        return self.fixed_cond[idx]
+
+
 class DataModule(pl.LightningDataModule):
-    def __init__(self, batch_size=512, num_workers=10, max_segments=100):
+    def __init__(
+        self,
+        batch_size=512,
+        num_workers=10,
+        max_segments=100,
+        val_num_samples=4,
+        cond_dim=2,
+        val_seed=42,
+    ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.max_segments = max_segments
+        self.val_num_samples = val_num_samples
+        self.cond_dim = cond_dim
+        self.val_seed = val_seed
 
     def train_dataloader(self):
         dataset = BezierDataset(split="train", max_segments=self.max_segments)
@@ -65,4 +98,17 @@ class DataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True,
             shuffle=True,
+        )
+
+    def val_dataloader(self):
+        dataset = ValidationSamplingDataset(
+            num_samples=self.val_num_samples,
+            cond_dim=self.cond_dim,
+            seed=self.val_seed,
+        )
+        return DataLoader(
+            dataset,
+            batch_size=self.val_num_samples,
+            num_workers=0,
+            shuffle=False,
         )
