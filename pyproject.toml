@@ -18,6 +18,7 @@ dependencies = [
   "loguru>=0.7.3",
   "datasets>=4.4.2",
   "huggingface-hub>=0.36.0",
+  "wandb>=0.24.0",
 ]
 
 [tool.uv.sources]
