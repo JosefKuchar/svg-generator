@@ -22,141 +22,7 @@ from svgelements import (
     Close,
 )
 from raster import render_svg, calculate_mse
-
-
-class BezierShape:
-    def __init__(
-        self,
-        curves,
-        color=None,
-        opacity=1.0,
-    ):
-        self.curves = curves
-        self.color = color
-        self.opacity = opacity
-
-    def __repr__(self):
-        buf = ""
-        buf += f"BezierShape(curves={len(self.curves)}, "
-        buf += f"color={self.color}, opacity={self.opacity})"
-        return buf
-
-    def to_tensor(self, width, height, max_seq_len=512):
-        if len(self.curves) > max_seq_len:
-            logger.warning(f"Shape has more curves than max_seq_len, truncating")
-            self.curves = self.curves[:max_seq_len]
-
-        t = torch.zeros([max_seq_len, 13])
-
-        vx = 0
-        vy = 0
-        vw = width
-        vh = height
-
-        cx = vx + (vw / 2.0)
-        cy = vy + (vh / 2.0)
-
-        scale = 2.0 / max(vw, vh)
-
-        def norm_point(x, y):
-            return (x - cx) * scale, (y - cy) * scale
-
-        color = self.color if self.color is not None else (0, 0, 0)
-        opacity = self.opacity if self.opacity is not None else 1.0
-
-        for i, curve in enumerate(self.curves):
-            # curve structure: ((x0,y0), (x1,y1), (x2,y2), (x3,y3))
-            p0, p1, p2, p3 = curve
-
-            # Normalize Coordinates
-            nx0, ny0 = norm_point(p0[0], p0[1])
-            nx1, ny1 = norm_point(p1[0], p1[1])
-            nx2, ny2 = norm_point(p2[0], p2[1])
-            nx3, ny3 = norm_point(p3[0], p3[1])
-
-            # Assign to Tensor
-            t[i, 0], t[i, 1] = nx0, ny0
-            t[i, 2], t[i, 3] = nx1, ny1
-            t[i, 4], t[i, 5] = nx2, ny2
-            t[i, 6], t[i, 7] = nx3, ny3
-
-            # Attributes (Normalized -1 to 1)
-            t[i, 8] = 2 * (color[0] / 255.0) - 1
-            t[i, 9] = 2 * (color[1] / 255.0) - 1
-            t[i, 10] = 2 * (color[2] / 255.0) - 1
-
-            t[i, 11] = 2 * opacity - 1
-            t[i, 12] = 1  # Real data flag
-
-        # Padding
-        for i in range(len(self.curves), max_seq_len):
-            t[i, :] = t[i - 1, :].clone()
-            t[i, 12] = -1
-
-        return t
-
-    @classmethod
-    def from_tensor(cls, width, height, tensor):
-        # 1. Setup Denormalization Parameters
-        vx, vy = 0, 0
-        vw, vh = width, height
-
-        # Recalculate center and scale exactly as done in to_tensor
-        cx = vx + (vw / 2.0)
-        cy = vy + (vh / 2.0)
-        scale = 2.0 / max(vw, vh)
-
-        def denorm_point(nx, ny):
-            return (nx / scale) + cx, (ny / scale) + cy
-
-        def denorm_color(n_r, n_g, n_b):
-            # Inverse of: 2 * (val / 255.0) - 1
-            r = int(round(((n_r + 1) / 2.0) * 255.0))
-            g = int(round(((n_g + 1) / 2.0) * 255.0))
-            b = int(round(((n_b + 1) / 2.0) * 255.0))
-            return (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
-
-        # 2. Identify Real Data
-        # Column 16 is the mask: 1.0 = Real Data, -1.0 = Padding
-        if tensor.is_cuda:
-            tensor = tensor.cpu()
-
-        valid_mask = tensor[:, 12] > 0
-        valid_rows = tensor[valid_mask]
-
-        if len(valid_rows) == 0:
-            # Return an empty shape if no valid rows found
-            return cls(curves=[])
-
-        # 3. Extract Attributes (Assumed uniform, take from first valid row)
-        first_row = valid_rows[0]
-
-        color = denorm_color(
-            float(first_row[8]), float(first_row[9]), float(first_row[10])
-        )
-
-        # Extract Opacity (Inverse of: 2 * opacity - 1)
-        opacity_norm = float(first_row[11])
-        opacity = (opacity_norm + 1) / 2.0
-        opacity = max(0.0, min(1.0, opacity))
-
-        # 4. Extract Curves
-        # Columns 0-7 contain the control points (x0, y0, x1, y1, x2, y2, x3, y3)
-        curves = []
-        for row in valid_rows:
-            p0 = denorm_point(float(row[0]), float(row[1]))
-            p1 = denorm_point(float(row[2]), float(row[3]))
-            p2 = denorm_point(float(row[4]), float(row[5]))
-            p3 = denorm_point(float(row[6]), float(row[7]))
-            curves.append((p0, p1, p2, p3))
-
-        # 5. Return new instance
-        return cls(
-            curves=curves,
-            color=color,
-            opacity=opacity,
-        )
-
+from representation import BezierPath, BezierShape
 
 def calculate_signed_area_approx(curves):
     """
@@ -426,8 +292,22 @@ def convert_svg_to_bezier_curves(svg_input):
             if fill_rule == "evenodd":
                 bezier_curves = normalize_contour_winding(bezier_curves)
 
+            # Split curves into subpaths (at discontinuities)
+            bezier_paths = []
+            current_subpath = []
+            for curve in bezier_curves:
+                if current_subpath:
+                    prev_end = current_subpath[-1][3]
+                    curr_start = curve[0]
+                    if prev_end != curr_start:
+                        bezier_paths.append(BezierPath(current_subpath))
+                        current_subpath = []
+                current_subpath.append(curve)
+            if current_subpath:
+                bezier_paths.append(BezierPath(current_subpath))
+
             shape_data = BezierShape(
-                curves=bezier_curves,
+                paths=bezier_paths,
                 color=fill_color,
                 opacity=opacity,
             )
@@ -452,20 +332,20 @@ def save_bezier_shapes_to_svg(shapes, width, height):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     for shape in shapes:
-        if not shape.curves:
+        if not shape.paths:
             continue
 
         path_commands = []
         last_pos = None
 
-        for p0, p1, p2, p3 in shape.curves:
-            if last_pos != p0:
-                if last_pos is not None:
-                    path_commands.append(f"Z")
-
-                path_commands.append(f"M {p0[0]},{p0[1]}")
-            path_commands.append(f"C {p1[0]},{p1[1]} {p2[0]},{p2[1]} {p3[0]},{p3[1]}")
-            last_pos = p3
+        for bezier_path in shape.paths:
+            for p0, p1, p2, p3 in bezier_path.curves:
+                if last_pos != p0:
+                    if last_pos is not None:
+                        path_commands.append(f"Z")
+                    path_commands.append(f"M {p0[0]},{p0[1]}")
+                path_commands.append(f"C {p1[0]},{p1[1]} {p2[0]},{p2[1]} {p3[0]},{p3[1]}")
+                last_pos = p3
 
         if last_pos is not None:
             path_commands.append(f"Z")
@@ -547,9 +427,10 @@ def process_batch(batch, original_items, converted_batch, processed_items):
             # Collect all shapes from this SVG
             shapes = []
             for shape in bezier_curves:
+                paths = [{"curves": path.curves} for path in shape.paths]
                 shapes.append(
                     {
-                        "curves": shape.curves,
+                        "paths": paths,
                         "color": shape.color,
                         "opacity": shape.opacity,
                     }
