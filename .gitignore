@@ -15,3 +15,5 @@ wheels/
 *.gif
 
 lightning_logs/
+wandb/
+*.ckpt

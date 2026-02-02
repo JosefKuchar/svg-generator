@@ -13,21 +13,23 @@ def app():
     torch.set_float32_matmul_precision("medium")
 
     module = FlowMatchingTransformer(
-        input_dim=11, cond_dim=2, hidden_size=512, num_layers=6, num_heads=8
+        input_dim=15, cond_dim=2, hidden_size=512, num_layers=6, num_heads=8, max_len=256
     )
 
     wandb_logger = WandbLogger(project="svg-generator")
     wandb_logger.watch(module)
 
     trainer = pl.Trainer(
-        max_epochs=500,
+        max_epochs=-1,
         accelerator="auto",
         gradient_clip_val=1.0,
         logger=wandb_logger,
     )
     trainer.fit(
         module,
-        datamodule=DataModule(),
+        datamodule=DataModule(
+            max_segments=256
+        ),
     )
 
 

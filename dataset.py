@@ -9,8 +9,25 @@ from representation import BezierPath, BezierShape, shapes_to_tensor
 
 class BezierDataset(Dataset):
     def __init__(self, split="train", max_segments=100):
-        self.dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
         self.max_segments = max_segments
+        raw_dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
+        
+        # Pre-filter dataset to only include items within max_segments
+        self.dataset = raw_dataset.filter(
+            lambda item: self._count_curves(item) <= max_segments,
+            num_proc=4,
+            desc=f"Filtering items with <= {max_segments} curves"
+        )
+
+    @staticmethod
+    def _count_curves(item):
+        """Count total number of curves across all shapes in an item."""
+        shapes_data = json.loads(item["shapes"])
+        total_curves = 0
+        for shape_data in shapes_data:
+            for path_data in shape_data["paths"]:
+                total_curves += len(path_data["curves"])
+        return total_curves
 
     def __len__(self):
         return len(self.dataset)
@@ -37,7 +54,7 @@ class BezierDataset(Dataset):
             # Reconstruct BezierShape with paths, color, and opacity
             bezier_shape = BezierShape(
                 paths=bezier_paths,
-                color=tuple(shape_data["color"]) if shape_data["color"] else None,
+                color=tuple(shape_data["color"]) if shape_data["color"] else (0.0, 0.0, 0.0),
                 opacity=shape_data["opacity"],
             )
             bezier_shapes.append(bezier_shape)
@@ -78,7 +95,7 @@ class ValidationSamplingDataset(Dataset):
 class DataModule(pl.LightningDataModule):
     def __init__(
         self,
-        batch_size=512,
+        batch_size=256,
         num_workers=10,
         max_segments=100,
         val_num_samples=4,

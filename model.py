@@ -209,6 +209,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         input_dim: int,
         cond_dim: int,
         hidden_size: int = 512,
+        max_len: int = 256,
         num_layers: int = 6,
         num_heads: int = 8,
         dropout: int = 0.1,
@@ -225,7 +226,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         self.t_embedder = TimestepEmbedder(hidden_size)
         # RoPE operates on head_dim, not full hidden_size
         head_dim = hidden_size // num_heads
-        self.rope = RotaryPositionEmbedding(head_dim)
+        self.rope = RotaryPositionEmbedding(head_dim, max_len=max_len)
 
         # 2. Null Conditioning (Learnable vector for classifier-free guidance)
         # We learn a single token and broadcast it to the sequence length
