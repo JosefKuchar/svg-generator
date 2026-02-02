@@ -4,6 +4,8 @@ from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 import pytorch_lightning as pl
 
+from representation import BezierPath, BezierShape, shapes_to_tensor
+
 
 class BezierDataset(Dataset):
     def __init__(self, split="train", max_segments=100):
@@ -15,34 +17,35 @@ class BezierDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.dataset[idx]
-        shapes = json.loads(item["shapes"])
+        shapes_data = json.loads(item["shapes"])
         width = item["width"]
         height = item["height"]
 
-        # Normalization parameters (same as parsing.py)
-        cx = width / 2.0
-        cy = height / 2.0
-        scale = 2.0 / max(width, height)
+        # Convert JSON shapes back to BezierShape/BezierPath objects
+        bezier_shapes = []
+        for shape_data in shapes_data:
+            # Reconstruct BezierPath objects from serialized paths
+            bezier_paths = []
+            for path_data in shape_data["paths"]:
+                # Convert curves from list format to tuple format
+                curves = [
+                    tuple(tuple(point) for point in curve)
+                    for curve in path_data["curves"]
+                ]
+                bezier_paths.append(BezierPath(curves))
 
-        def norm_point(x, y):
-            return (x - cx) * scale, (y - cy) * scale
+            # Reconstruct BezierShape with paths, color, and opacity
+            bezier_shape = BezierShape(
+                paths=bezier_paths,
+                color=tuple(shape_data["color"]) if shape_data["color"] else None,
+                opacity=shape_data["opacity"],
+            )
+            bezier_shapes.append(bezier_shape)
 
-        # Convert shapes to normalized curves
-        all_curves = []
-        for shape in shapes:
-            curves = shape["curves"]
-            normalized_curve = []
-            for curve in curves:
-                # curve is [[x0,y0], [x1,y1], [x2,y2], [x3,y3]]
-                p0 = norm_point(curve[0][0], curve[0][1])
-                p1 = norm_point(curve[1][0], curve[1][1])
-                p2 = norm_point(curve[2][0], curve[2][1])
-                p3 = norm_point(curve[3][0], curve[3][1])
-                normalized_curve.append((p0, p1, p2, p3))
-            if normalized_curve:
-                all_curves.append(normalized_curve)
-
-        curve_tensor = curves_to_tensor(all_curves, max_segments=self.max_segments)
+        # Use shapes_to_tensor from representation.py for conversion
+        curve_tensor = shapes_to_tensor(
+            bezier_shapes, width, height, max_segments=self.max_segments
+        )
 
         # Conditioning tensor (placeholder for now)
         cond_tensor = torch.tensor([[0.0, 0.0]]).float()
