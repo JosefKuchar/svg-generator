@@ -341,11 +341,156 @@ class FlowMatchingTransformer(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
 
+    def _compute_validation_metrics(self, samples: torch.Tensor) -> dict:
+        """
+        Compute validation metrics for generated samples.
+        
+        Args:
+            samples: Tensor of shape [batch, seq_len, input_dim]
+                     where input_dim = 15 (x0,y0,x1,y1,x2,y2,x3,y3,r,g,b,opacity,path_start,subpath_start,real)
+        
+        Returns:
+            Dictionary with computed metrics
+        """
+        metrics = {}
+        
+        # 1. Flag closeness to 1 or -1
+        # Flags are at indices 12 (path_start), 13 (subpath_start), 14 (real)
+        flag_indices = [12, 13, 14]
+        flag_names = ["path_start", "subpath_start", "real"]
+        
+        for idx, name in zip(flag_indices, flag_names):
+            flag_values = samples[..., idx]  # [batch, seq_len]
+            # Closeness = 1 - min(|value - 1|, |value + 1|)
+            # Perfect flags have closeness = 1, random noise has closeness ~ 0
+            dist_to_pos1 = torch.abs(flag_values - 1.0)
+            dist_to_neg1 = torch.abs(flag_values + 1.0)
+            min_dist = torch.minimum(dist_to_pos1, dist_to_neg1)
+            # Clamp closeness to [0, 1] (values outside [-1, 1] would give negative closeness)
+            closeness = torch.clamp(1.0 - min_dist, 0.0, 1.0)
+            metrics[f"flag_{name}_closeness"] = closeness.mean().item()
+        
+        # Average flag closeness
+        all_flag_closeness = []
+        for idx in flag_indices:
+            flag_values = samples[..., idx]
+            dist_to_pos1 = torch.abs(flag_values - 1.0)
+            dist_to_neg1 = torch.abs(flag_values + 1.0)
+            min_dist = torch.minimum(dist_to_pos1, dist_to_neg1)
+            closeness = torch.clamp(1.0 - min_dist, 0.0, 1.0)
+            all_flag_closeness.append(closeness)
+        metrics["flag_closeness_avg"] = torch.stack(all_flag_closeness).mean().item()
+        
+        # 2. Color and opacity consistency per shape
+        # Colors are at indices 8 (r), 9 (g), 10 (b), 11 (opacity)
+        color_opacity_stds = []
+        
+        for batch_idx in range(samples.shape[0]):
+            sample = samples[batch_idx]  # [seq_len, input_dim]
+            
+            # Find shape boundaries using path_start flag (threshold at 0)
+            path_starts = sample[:, 12] > 0  # [seq_len]
+            real_flags = sample[:, 14] > 0  # [seq_len]
+            
+            # Get indices where new shapes start
+            shape_start_indices = torch.where(path_starts & real_flags)[0]
+            
+            if len(shape_start_indices) > 0:
+                # Add end index for the last shape
+                shape_ranges = []
+                for i, start_idx in enumerate(shape_start_indices):
+                    if i + 1 < len(shape_start_indices):
+                        end_idx = shape_start_indices[i + 1]
+                    else:
+                        # Find the last real segment for the last shape
+                        end_idx = sample.shape[0]
+                    shape_ranges.append((start_idx.item(), end_idx))
+                
+                # Compute std for each shape
+                for start_idx, end_idx in shape_ranges:
+                    shape_segment = sample[start_idx:end_idx]
+                    # Filter only real segments within this shape
+                    real_mask = shape_segment[:, 14] > 0
+                    real_segments = shape_segment[real_mask]
+                    
+                    if len(real_segments) > 1:
+                        # Compute std for each color channel and opacity
+                        r_std = real_segments[:, 8].std().item()
+                        g_std = real_segments[:, 9].std().item()
+                        b_std = real_segments[:, 10].std().item()
+                        opacity_std = real_segments[:, 11].std().item()
+                        color_opacity_stds.append((r_std + g_std + b_std + opacity_std) / 4)
+        
+        if color_opacity_stds:
+            metrics["color_opacity_std_avg"] = sum(color_opacity_stds) / len(color_opacity_stds)
+        else:
+            metrics["color_opacity_std_avg"] = 0.0
+        
+        # 3. Coordinate closure - distance between end of curve and start of next curve (cyclic per subpath)
+        coord_closure_dists = []
+        
+        for batch_idx in range(samples.shape[0]):
+            sample = samples[batch_idx]  # [seq_len, input_dim]
+            real_flags = sample[:, 14] > 0
+            subpath_starts = sample[:, 13] > 0
+            
+            # Get indices of real segments
+            real_indices = torch.where(real_flags)[0]
+            
+            if len(real_indices) > 1:
+                # Find subpath boundaries
+                subpath_start_positions = torch.where(subpath_starts & real_flags)[0]
+                
+                if len(subpath_start_positions) == 0:
+                    # Treat all as one subpath
+                    subpath_ranges = [(0, len(real_indices))]
+                else:
+                    # Map subpath starts to positions in real_indices
+                    subpath_ranges = []
+                    real_indices_list = real_indices.tolist()
+                    
+                    for i, start_pos in enumerate(subpath_start_positions):
+                        start_in_real = real_indices_list.index(start_pos.item()) if start_pos.item() in real_indices_list else -1
+                        if start_in_real >= 0:
+                            if i + 1 < len(subpath_start_positions):
+                                next_start = subpath_start_positions[i + 1].item()
+                                end_in_real = real_indices_list.index(next_start) if next_start in real_indices_list else len(real_indices)
+                            else:
+                                end_in_real = len(real_indices)
+                            subpath_ranges.append((start_in_real, end_in_real))
+                
+                # For each subpath, compute cyclic closure distances
+                for start_in_real, end_in_real in subpath_ranges:
+                    subpath_real_indices = real_indices[start_in_real:end_in_real]
+                    if len(subpath_real_indices) > 1:
+                        for i in range(len(subpath_real_indices)):
+                            curr_idx = subpath_real_indices[i]
+                            next_idx = subpath_real_indices[(i + 1) % len(subpath_real_indices)]
+                            
+                            # End point of current curve (x3, y3) = indices 6, 7
+                            curr_end_x = sample[curr_idx, 6]
+                            curr_end_y = sample[curr_idx, 7]
+                            
+                            # Start point of next curve (x0, y0) = indices 0, 1
+                            next_start_x = sample[next_idx, 0]
+                            next_start_y = sample[next_idx, 1]
+                            
+                            # Euclidean distance
+                            dist = torch.sqrt((curr_end_x - next_start_x) ** 2 + (curr_end_y - next_start_y) ** 2)
+                            coord_closure_dists.append(dist.item())
+        
+        if coord_closure_dists:
+            metrics["coord_closure_dist_avg"] = sum(coord_closure_dists) / len(coord_closure_dists)
+        else:
+            metrics["coord_closure_dist_avg"] = 0.0
+        
+        return metrics
+
     def validation_step(self, batch, batch_idx):
         """Generate and save validation samples with fixed seed."""
         VALIDATION_SEED = 42
-        SAMPLE_SIZE = 128  # Sequence length
-        IMG_SIZE = 256  # Output image size
+        SAMPLE_SIZE = 256  # Sequence length
+        IMG_SIZE = 512 # Output image size
 
         # batch is the conditioning tensor from ValidationSamplingDataset
         cond = batch  # Shape: [num_samples, 1, cond_dim]
@@ -359,6 +504,11 @@ class FlowMatchingTransformer(pl.LightningModule):
             shape=(num_samples, SAMPLE_SIZE, self.hparams.input_dim),
             seed=VALIDATION_SEED,
         )
+
+        # Compute and log validation metrics
+        val_metrics = self._compute_validation_metrics(samples)
+        for metric_name, metric_value in val_metrics.items():
+            self.log(f"val/{metric_name}", metric_value)
 
         # Render and log each sample to wandb
         images = []
