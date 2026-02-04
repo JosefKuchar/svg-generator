@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 
 from representation import BezierPath, BezierShape, shapes_to_tensor
 from transformers import AutoImageProcessor
-from raster import render_svg
+from raster import render_svg_bg
 
 
 class BezierDataset(Dataset):
@@ -74,7 +74,7 @@ class BezierDataset(Dataset):
         )
 
         # Render the original svg
-        image = render_svg(item["item_svg"]).convert("RGB")
+        image = render_svg_bg(item["item_svg"]).convert("RGB")
 
         # Process the image using the DINO image processor
         # torch.Size([1, 3, 224, 224])
@@ -83,26 +83,18 @@ class BezierDataset(Dataset):
         return curve_tensor, image_tensor
 
 
-class ValidationSamplingDataset(Dataset):
+class ValidationSamplingDataset(BezierDataset):
     """
-    A minimal dataset that provides fixed conditioning for validation sampling.
-    Uses a fixed seed to ensure reproducible samples across epochs.
+    A dataset for validation sampling that uses the valid split of BezierDataset.
+    Limited to a fixed number of samples.
     """
 
-    def __init__(self, num_samples=4, cond_dim=384, seed=42):
-        self.num_samples = num_samples
-        self.cond_dim = cond_dim
-        self.seed = seed
-        # Generate fixed conditioning using the seed
-        generator = torch.Generator().manual_seed(seed)
-        self.fixed_cond = torch.zeros(num_samples, 1, cond_dim)
+    def __init__(self, num_samples=8, max_segments=100):
+        super().__init__(split="valid", max_segments=max_segments)
+        self.num_samples = min(num_samples, len(self.dataset))
 
     def __len__(self):
         return self.num_samples
-
-    def __getitem__(self, idx):
-        # Return the fixed conditioning for this sample
-        return self.fixed_cond[idx]
 
 
 class DataModule(pl.LightningDataModule):
@@ -112,17 +104,13 @@ class DataModule(pl.LightningDataModule):
         batch_size=256,
         num_workers=10,
         max_segments=100,
-        val_num_samples=4,
-        cond_dim=384,
-        val_seed=42,
+        val_num_samples=8,
     ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.max_segments = max_segments
         self.val_num_samples = val_num_samples
-        self.cond_dim = cond_dim
-        self.val_seed = val_seed
 
     def train_dataloader(self):
         dataset = BezierDataset(split="train", max_segments=self.max_segments)
@@ -137,12 +125,12 @@ class DataModule(pl.LightningDataModule):
     def val_dataloader(self):
         dataset = ValidationSamplingDataset(
             num_samples=self.val_num_samples,
-            cond_dim=self.cond_dim,
-            seed=self.val_seed,
+            max_segments=self.max_segments,
         )
         return DataLoader(
             dataset,
             batch_size=self.val_num_samples,
-            num_workers=0,
+            num_workers=self.num_workers,
+            pin_memory=True,
             shuffle=False,
         )

@@ -296,6 +296,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         nn.init.constant_(self.final_proj.weight, 0)
         nn.init.constant_(self.final_proj.bias, 0)
 
+        # Flag to track if conditioning images have been logged
+        self._cond_images_logged = False
+
     def forward(self, x, t, c, mask_cond=None):
         """
         x: Noisy input [Batch, SeqLen, Dim]
@@ -344,7 +347,6 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         with torch.inference_mode():
             cond = self.image_encoder(pixel_values=images).last_hidden_state
-        print(cond.shape)
 
         # 1. Sample Time t ~ Logit-Normal
         # Sample from normal, then apply sigmoid to get t in [0, 1]
@@ -566,9 +568,14 @@ class FlowMatchingTransformer(pl.LightningModule):
         SAMPLE_SIZE = 256  # Sequence length
         IMG_SIZE = 512  # Output image size
 
-        # batch is the conditioning tensor from ValidationSamplingDataset
-        cond = batch  # Shape: [num_samples, 1, cond_dim]
-        num_samples = cond.shape[0]
+        # batch is (curve_tensor, image_tensor) from ValidationSamplingDataset
+        _, images_input = batch
+        images_input = images_input.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
+        num_samples = images_input.shape[0]
+
+        # Encode images to get conditioning
+        with torch.inference_mode():
+            cond = self.image_encoder(pixel_values=images_input).last_hidden_state
 
         # Sample from the model with fixed seed
         samples = self.sample(
@@ -585,9 +592,22 @@ class FlowMatchingTransformer(pl.LightningModule):
             self.log(f"val/{metric_name}", metric_value)
 
         # Render and log each sample to wandb
-        images = []
+        generated_images = []
+        cond_images = []
         for i in range(num_samples):
             sample_tensor = samples[i]  # Shape: [SAMPLE_SIZE, input_dim]
+
+            # Log conditioning image only once (on first validation)
+            if not self._cond_images_logged:
+                cond_img = images_input[i].cpu()
+                # ImageNet mean and std used by DINO processor
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+                cond_img = cond_img * std + mean
+                cond_img = (cond_img.clamp(0, 1) * 255).to(torch.uint8)
+                cond_img = cond_img.permute(1, 2, 0).numpy()
+                cond_images.append(wandb.Image(cond_img, caption=f"Conditioning {i}"))
+
             try:
                 # Convert tensor to shapes
                 shapes = tensor_to_shapes(sample_tensor, IMG_SIZE, IMG_SIZE)
@@ -595,7 +615,7 @@ class FlowMatchingTransformer(pl.LightningModule):
                 svg_content = save_bezier_shapes_to_svg(shapes, IMG_SIZE, IMG_SIZE)
                 # Render SVG to image
                 image = render_svg(svg_content)
-                images.append(wandb.Image(image, caption=f"Sample {i}"))
+                generated_images.append(wandb.Image(image, caption=f"Sample {i}"))
 
             except Exception as e:
                 print(
@@ -603,10 +623,14 @@ class FlowMatchingTransformer(pl.LightningModule):
                 )
 
         # Log images to wandb
-        if images:
-            self.logger.experiment.log(
-                {"val_samples": images, "epoch": self.current_epoch}
-            )
+        log_dict = {"epoch": self.current_epoch}
+        if generated_images:
+            log_dict["val_samples"] = generated_images
+        if cond_images:
+            log_dict["val_conditioning"] = cond_images
+            self._cond_images_logged = True
+        if generated_images or cond_images:
+            self.logger.experiment.log(log_dict)
 
     @torch.no_grad()
     def sample(self, cond, steps=50, cfg_scale=1.0, shape=None, seed=None):

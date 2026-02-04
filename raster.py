@@ -24,6 +24,26 @@ def render_svg(svg_content: str | bytes) -> Image.Image:
     return image
 
 
+def render_svg_bg(svg_content: str | bytes) -> Image.Image:
+    # Convert string to bytes if needed
+    if isinstance(svg_content, str):
+        svg_content = svg_content.encode("utf-8")
+
+    result = subprocess.run(
+        ["resvg", "-", "-c", "--background", "white"],
+        input=svg_content,
+        capture_output=True,
+        check=True,
+    )
+
+    # Load the PNG bytes directly into PIL Image
+    image = Image.open(BytesIO(result.stdout))
+    # Ensure the image is loaded into memory
+    image.load()
+
+    return image
+
+
 def calculate_mse(img1: Image.Image, img2: Image.Image) -> float:
     # Convert to RGB if needed and ensure same size
     if img1.size != img2.size:
