@@ -371,24 +371,8 @@ class FlowMatchingTransformer(pl.LightningModule):
         # 6. Predict and Loss
         pred_v = self(x_t, t, cond, mask_cond=mask_cond)
 
-        # 7. Padding-aware loss computation
-        # x_1[..., -1] == -1 indicates padding tokens
-        # For padding: only compute loss on the 'real' flag (last dim)
-        # For real data: compute loss on all dimensions
-        is_padding = x_1[..., -1] < 0  # [Batch, SeqLen]
-
-        # Compute per-element squared error
-        sq_error = (pred_v - target_v) ** 2  # [Batch, SeqLen, Dim]
-
-        # Create mask: 1 for dimensions that should count, 0 for masked out
-        # For real tokens: all dims count (mask = 1 everywhere)
-        # For padding tokens: only last dim counts (mask = 0 for dims 0-13, 1 for dim 14)
-        loss_mask = torch.ones_like(sq_error)
-        # Zero out non-flag dimensions for padding tokens
-        loss_mask[is_padding, :-1] = 0.0
-
-        # Compute masked mean loss
-        loss = (sq_error * loss_mask).sum() / loss_mask.sum()
+        # 7. Loss computation (MSE on all tokens including padding)
+        loss = F.mse_loss(pred_v, target_v)
 
         self.log("train_loss", loss)
         return loss
@@ -663,7 +647,7 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         # Time steps (0 to 1)
         ts = torch.linspace(0, 1, steps, device=device)
-        dt = 1.0 / steps
+        dt = 1.0 / (steps - 1)  # Actual spacing between linspace points
 
         # Prepare null conditioning for CFG
         null_mask = torch.ones(
