@@ -5,18 +5,23 @@ from datasets import load_dataset
 import pytorch_lightning as pl
 
 from representation import BezierPath, BezierShape, shapes_to_tensor
+from transformers import AutoImageProcessor
+from raster import render_svg
 
 
 class BezierDataset(Dataset):
     def __init__(self, split="train", max_segments=100):
         self.max_segments = max_segments
+        self.processor = AutoImageProcessor.from_pretrained(
+            "facebook/dinov3-vits16-pretrain-lvd1689m"
+        )
         raw_dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
-        
+
         # Pre-filter dataset to only include items within max_segments
         self.dataset = raw_dataset.filter(
             lambda item: self._count_curves(item) <= max_segments,
             num_proc=4,
-            desc=f"Filtering items with <= {max_segments} curves"
+            desc=f"Filtering items with <= {max_segments} curves",
         )
 
     @staticmethod
@@ -54,7 +59,11 @@ class BezierDataset(Dataset):
             # Reconstruct BezierShape with paths, color, and opacity
             bezier_shape = BezierShape(
                 paths=bezier_paths,
-                color=tuple(shape_data["color"]) if shape_data["color"] else (0.0, 0.0, 0.0),
+                color=(
+                    tuple(shape_data["color"])
+                    if shape_data["color"]
+                    else (0.0, 0.0, 0.0)
+                ),
                 opacity=shape_data["opacity"],
             )
             bezier_shapes.append(bezier_shape)
@@ -64,10 +73,14 @@ class BezierDataset(Dataset):
             bezier_shapes, width, height, max_segments=self.max_segments
         )
 
-        # Conditioning tensor (placeholder for now)
-        cond_tensor = torch.tensor([[0.0, 0.0]]).float()
+        # Render the original svg
+        image = render_svg(item["item_svg"]).convert("RGB")
 
-        return curve_tensor, cond_tensor
+        # Process the image using the DINO image processor
+        # torch.Size([1, 3, 224, 224])
+        image_tensor = self.processor(images=image, return_tensors="pt")["pixel_values"]
+
+        return curve_tensor, image_tensor
 
 
 class ValidationSamplingDataset(Dataset):
@@ -76,7 +89,7 @@ class ValidationSamplingDataset(Dataset):
     Uses a fixed seed to ensure reproducible samples across epochs.
     """
 
-    def __init__(self, num_samples=4, cond_dim=2, seed=42):
+    def __init__(self, num_samples=4, cond_dim=384, seed=42):
         self.num_samples = num_samples
         self.cond_dim = cond_dim
         self.seed = seed
@@ -93,13 +106,14 @@ class ValidationSamplingDataset(Dataset):
 
 
 class DataModule(pl.LightningDataModule):
+
     def __init__(
         self,
         batch_size=256,
         num_workers=10,
         max_segments=100,
         val_num_samples=4,
-        cond_dim=2,
+        cond_dim=384,
         val_seed=42,
     ):
         super().__init__()
