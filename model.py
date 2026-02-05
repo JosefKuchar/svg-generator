@@ -136,11 +136,13 @@ class AdaLNBlock(nn.Module):
         self.out_proj = nn.Linear(hidden_size, hidden_size)
         self.attn_dropout = nn.Dropout(dropout)
 
-        # Cross-Attention (no RoPE, using standard attention)
+        # Cross-Attention (no RoPE, using flash attention when available)
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.cross_attn = nn.MultiheadAttention(
-            hidden_size, num_heads, batch_first=True, dropout=dropout
-        )
+        self.cross_q_proj = nn.Linear(hidden_size, hidden_size)
+        self.cross_k_proj = nn.Linear(hidden_size, hidden_size)
+        self.cross_v_proj = nn.Linear(hidden_size, hidden_size)
+        self.cross_out_proj = nn.Linear(hidden_size, hidden_size)
+        self.cross_attn_dropout = nn.Dropout(dropout)
 
         # Feed Forward
         self.norm3 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
@@ -151,11 +153,15 @@ class AdaLNBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-        # AdaLN Modulation: Predicts shift (beta) and scale (gamma) for all 3 norms
-        # Output dim = 6 * hidden_size because we need (gamma, beta) for 3 norms
+        # AdaLN Modulation: Predicts shift (beta), scale (gamma), and gate for all 3 sublayers
+        # Output dim = 9 * hidden_size: (shift, scale, gate) x 3 sublayers
+        # Gates are crucial for training stability (typically zero-initialized)
         self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(), nn.Linear(hidden_size, 6 * hidden_size, bias=True)
+            nn.SiLU(), nn.Linear(hidden_size, 9 * hidden_size, bias=True)
         )
+        # Zero-initialize the gate portions of the linear layer for stability
+        nn.init.zeros_(self.adaLN_modulation[1].weight[6 * hidden_size :])
+        nn.init.zeros_(self.adaLN_modulation[1].bias[6 * hidden_size :])
 
     def _rope_attention(self, x, cos, sin):
         """Self-attention with RoPE."""
@@ -210,6 +216,55 @@ class AdaLNBlock(nn.Module):
 
         return self.out_proj(attn_out)
 
+    def _cross_attention(self, q_input, kv_input):
+        """Cross-attention with flash attention support.
+
+        Args:
+            q_input: Query input (flow sequence) [Batch, SeqLen_Q, Dim]
+            kv_input: Key/Value input (conditioning) [Batch, SeqLen_KV, Dim]
+        """
+        B, S_q, D = q_input.shape
+        S_kv = kv_input.shape[1]
+
+        if FLASH_ATTN_AVAILABLE:
+            # Flash Attention expects [batch, seq_len, num_heads, head_dim] format
+            q = self.cross_q_proj(q_input).view(B, S_q, self.num_heads, self.head_dim)
+            k = self.cross_k_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim)
+            v = self.cross_v_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim)
+
+            # Flash Attention requires fp16 or bf16
+            original_dtype = q.dtype
+            if original_dtype not in (torch.float16, torch.bfloat16):
+                q = q.to(torch.bfloat16)
+                k = k.to(torch.bfloat16)
+                v = v.to(torch.bfloat16)
+
+            attn_out = flash_attn_func(
+                q,
+                k,
+                v,
+                dropout_p=self.cross_attn_dropout.p if self.training else 0.0,
+                causal=False,
+            )
+            attn_out = attn_out.to(original_dtype).view(B, S_q, D)
+        else:
+            # Standard cross-attention implementation
+            q = self.cross_q_proj(q_input).view(B, S_q, self.num_heads, self.head_dim).transpose(1, 2)
+            k = self.cross_k_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim).transpose(1, 2)
+            v = self.cross_v_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim).transpose(1, 2)
+
+            # Scaled dot-product attention
+            # q: [B, num_heads, S_q, head_dim], k: [B, num_heads, S_kv, head_dim]
+            attn_weights = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+            attn_weights = F.softmax(attn_weights, dim=-1)
+            attn_weights = self.cross_attn_dropout(attn_weights)
+
+            # Compute attention output
+            attn_out = torch.matmul(attn_weights, v)
+            attn_out = attn_out.transpose(1, 2).contiguous().view(B, S_q, D)
+
+        return self.cross_out_proj(attn_out)
+
     def forward(self, x, c, t_emb, rope_cos, rope_sin):
         """
         x: Input sequence (Flow) [Batch, SeqLen, Dim]
@@ -219,9 +274,19 @@ class AdaLNBlock(nn.Module):
         rope_sin: RoPE sine [1, SeqLen, HeadDim]
         """
         # 1. Regress modulation parameters from time embedding
-        # shift_msa, scale_msa, shift_cross, scale_cross, shift_mlp, scale_mlp
-        params = self.adaLN_modulation(t_emb).chunk(6, dim=1)
-        (shift_msa, scale_msa, shift_cross, scale_cross, shift_mlp, scale_mlp) = params
+        # For each sublayer: (shift, scale, gate) - total 9 parameters
+        params = self.adaLN_modulation(t_emb).chunk(9, dim=1)
+        (
+            shift_msa,
+            scale_msa,
+            gate_msa,
+            shift_cross,
+            scale_cross,
+            gate_cross,
+            shift_mlp,
+            scale_mlp,
+            gate_mlp,
+        ) = params
 
         # Helper for modulation
         def modulate(x, shift, scale):
@@ -229,16 +294,16 @@ class AdaLNBlock(nn.Module):
 
         # 2. Self-Attention Block with RoPE
         x_norm = modulate(self.norm1(x), shift_msa, scale_msa)
-        x = x + self._rope_attention(x_norm, rope_cos, rope_sin)
+        x = x + gate_msa.unsqueeze(1) * self._rope_attention(x_norm, rope_cos, rope_sin)
 
         # 3. Cross-Attention Block (no RoPE for cross-attention)
         x_norm = modulate(self.norm2(x), shift_cross, scale_cross)
         # Query = Flow (x), Key/Value = Conditioning (c)
-        x = x + self.cross_attn(x_norm, c, c)[0]
+        x = x + gate_cross.unsqueeze(1) * self._cross_attention(x_norm, c)
 
         # 4. Feed-Forward Block
         x_norm = modulate(self.norm3(x), shift_mlp, scale_mlp)
-        x = x + self.mlp(x_norm)
+        x = x + gate_mlp.unsqueeze(1) * self.mlp(x_norm)
 
         return x
 

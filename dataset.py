@@ -102,7 +102,7 @@ class DataModule(pl.LightningDataModule):
     def __init__(
         self,
         batch_size=256,
-        num_workers=10,
+        num_workers=20,
         max_segments=100,
         val_num_samples=8,
     ):
