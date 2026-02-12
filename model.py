@@ -648,7 +648,11 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Compute and log metrics
         metrics = self._compute_validation_metrics(samples)
         for metric_name, metric_value in metrics.items():
-            self.log(f"{prefix}/{metric_name}", metric_value)
+            self.log(
+                f"{prefix}/{metric_name}",
+                metric_value,
+                add_dataloader_idx=False,
+            )
 
         # Render and log each sample to wandb
         generated_images = []
@@ -694,7 +698,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Log MSE between conditioning and generated images
         if mse_values:
             avg_mse = sum(mse_values) / len(mse_values)
-            self.log(f"{prefix}/image_mse", avg_mse)
+            self.log(f"{prefix}/image_mse", avg_mse, add_dataloader_idx=False)
 
         # Log images to wandb
         log_dict = {"epoch": self.current_epoch}

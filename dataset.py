@@ -1,6 +1,6 @@
 import json
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, RandomSampler
 from datasets import load_dataset
 import pytorch_lightning as pl
 
@@ -10,19 +10,24 @@ from raster import render_svg_bg
 
 
 class BezierDataset(Dataset):
-    def __init__(self, split="train", max_segments=100):
+    def __init__(self, split="train", max_segments=100, max_samples=None):
         self.max_segments = max_segments
+        self.max_samples = max_samples
         self.processor = AutoImageProcessor.from_pretrained(
             "facebook/dinov3-vits16-pretrain-lvd1689m"
         )
         raw_dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
 
         # Pre-filter dataset to only include items within max_segments
-        self.dataset = raw_dataset.filter(
+        filtered = raw_dataset.filter(
             lambda item: self._count_curves(item) <= max_segments,
             num_proc=4,
             desc=f"Filtering items with <= {max_segments} curves",
         )
+        # Limit to max_samples if specified
+        if max_samples is not None:
+            filtered = filtered.select(range(min(max_samples, len(filtered))))
+        self.dataset = filtered
 
     @staticmethod
     def _count_curves(item):
@@ -119,15 +124,36 @@ class DataModule(pl.LightningDataModule):
         num_workers=20,
         max_segments=100,
         val_num_samples=8,
+        max_samples=None,
+        train_samples_per_epoch=None,
     ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.max_segments = max_segments
         self.val_num_samples = val_num_samples
+        self.max_samples = max_samples
+        self.train_samples_per_epoch = train_samples_per_epoch
 
     def train_dataloader(self):
-        dataset = BezierDataset(split="train", max_segments=self.max_segments)
+        dataset = BezierDataset(
+            split="train",
+            max_segments=self.max_segments,
+            max_samples=self.max_samples,
+        )
+        if self.train_samples_per_epoch is not None:
+            sampler = RandomSampler(
+                dataset,
+                replacement=True,
+                num_samples=self.train_samples_per_epoch,
+            )
+            return DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=True,
+                sampler=sampler,
+            )
         return DataLoader(
             dataset,
             batch_size=self.batch_size,

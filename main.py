@@ -1,5 +1,6 @@
 import typer
 import torch
+from typing import Optional
 from model import FlowMatchingTransformer
 from dataset import DataModule
 import pytorch_lightning as pl
@@ -10,7 +11,16 @@ app = typer.Typer()
 
 
 @app.command()
-def app():
+def train(
+    max_samples: Optional[int] = typer.Option(
+        None, help="Limit training dataset size (e.g. 32 for overfit test)"
+    ),
+    train_samples_per_epoch: Optional[int] = typer.Option(
+        None,
+        min=1,
+        help="If set, sample with replacement and use this many train samples per epoch",
+    ),
+):
     torch.set_float32_matmul_precision("medium")
 
     module = FlowMatchingTransformer(
@@ -34,7 +44,11 @@ def app():
     )
     trainer.fit(
         module,
-        datamodule=DataModule(max_segments=256),
+        datamodule=DataModule(
+            max_segments=256,
+            max_samples=max_samples,
+            train_samples_per_epoch=train_samples_per_epoch,
+        ),
     )
 
 
