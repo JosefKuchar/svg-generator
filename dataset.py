@@ -97,6 +97,20 @@ class ValidationSamplingDataset(BezierDataset):
         return self.num_samples
 
 
+class TrainSamplingDataset(BezierDataset):
+    """
+    A dataset for inference sampling on training data.
+    Uses the train split, limited to a fixed number of samples.
+    """
+
+    def __init__(self, num_samples=8, max_segments=100):
+        super().__init__(split="train", max_segments=max_segments)
+        self.num_samples = min(num_samples, len(self.dataset))
+
+    def __len__(self):
+        return self.num_samples
+
+
 class DataModule(pl.LightningDataModule):
 
     def __init__(
@@ -123,14 +137,21 @@ class DataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self):
-        dataset = ValidationSamplingDataset(
+        val_dataset = ValidationSamplingDataset(
             num_samples=self.val_num_samples,
             max_segments=self.max_segments,
         )
-        return DataLoader(
-            dataset,
+        train_sample_dataset = TrainSamplingDataset(
+            num_samples=self.val_num_samples,
+            max_segments=self.max_segments,
+        )
+        loader_kwargs = dict(
             batch_size=self.val_num_samples,
             num_workers=self.num_workers,
             pin_memory=True,
             shuffle=False,
         )
+        return [
+            DataLoader(val_dataset, **loader_kwargs),
+            DataLoader(train_sample_dataset, **loader_kwargs),
+        ]

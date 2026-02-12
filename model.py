@@ -361,8 +361,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         nn.init.constant_(self.final_proj.weight, 0)
         nn.init.constant_(self.final_proj.bias, 0)
 
-        # Flag to track if conditioning images have been logged
-        self._cond_images_logged = False
+        # Flags to track if conditioning images have been logged (per prefix)
+        self._val_cond_images_logged = False
+        self._train_inference_cond_images_logged = False
 
     def forward(self, x, t, c, mask_cond=None):
         """
@@ -611,13 +612,21 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         return metrics
 
-    def validation_step(self, batch, batch_idx):
-        """Generate and save validation samples with fixed seed."""
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        """Generate and save validation samples with fixed seed.
+
+        dataloader_idx 0: validation data, dataloader_idx 1: train data inference.
+        """
+        prefix = "val" if dataloader_idx == 0 else "train_inference"
+        self._run_inference_step(batch, prefix)
+
+    def _run_inference_step(self, batch, prefix):
+        """Run inference sampling and log metrics/images with the given prefix."""
         VALIDATION_SEED = 42
         SAMPLE_SIZE = 256  # Sequence length
         IMG_SIZE = 512  # Output image size
 
-        # batch is (curve_tensor, image_tensor) from ValidationSamplingDataset
+        # batch is (curve_tensor, image_tensor)
         _, images_input = batch
         images_input = images_input.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         num_samples = images_input.shape[0]
@@ -635,19 +644,20 @@ class FlowMatchingTransformer(pl.LightningModule):
             seed=VALIDATION_SEED,
         )
 
-        # Compute and log validation metrics
-        val_metrics = self._compute_validation_metrics(samples)
-        for metric_name, metric_value in val_metrics.items():
-            self.log(f"val/{metric_name}", metric_value)
+        # Compute and log metrics
+        metrics = self._compute_validation_metrics(samples)
+        for metric_name, metric_value in metrics.items():
+            self.log(f"{prefix}/{metric_name}", metric_value)
 
         # Render and log each sample to wandb
         generated_images = []
         cond_images = []
+        cond_logged_attr = f"_{prefix}_cond_images_logged"
         for i in range(num_samples):
             sample_tensor = samples[i]  # Shape: [SAMPLE_SIZE, input_dim]
 
-            # Log conditioning image only once (on first validation)
-            if not self._cond_images_logged:
+            # Log conditioning image only once (on first run for this prefix)
+            if not getattr(self, cond_logged_attr, False):
                 cond_img = images_input[i].cpu()
                 # ImageNet mean and std used by DINO processor
                 mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -674,10 +684,10 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Log images to wandb
         log_dict = {"epoch": self.current_epoch}
         if generated_images:
-            log_dict["val_samples"] = generated_images
+            log_dict[f"{prefix}_samples"] = generated_images
         if cond_images:
-            log_dict["val_conditioning"] = cond_images
-            self._cond_images_logged = True
+            log_dict[f"{prefix}_conditioning"] = cond_images
+            setattr(self, cond_logged_attr, True)
         if generated_images or cond_images:
             self.logger.experiment.log(log_dict)
 
