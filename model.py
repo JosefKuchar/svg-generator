@@ -11,7 +11,8 @@ import wandb
 from transformers import AutoModel, BitsAndBytesConfig
 from representation import tensor_to_shapes
 from parsing import save_bezier_shapes_to_svg
-from raster import render_svg
+from PIL import Image
+from raster import render_svg, render_svg_bg, calculate_mse
 
 try:
     from flash_attn import flash_attn_func
@@ -652,34 +653,48 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Render and log each sample to wandb
         generated_images = []
         cond_images = []
+        mse_values = []
         cond_logged_attr = f"_{prefix}_cond_images_logged"
         for i in range(num_samples):
             sample_tensor = samples[i]  # Shape: [SAMPLE_SIZE, input_dim]
 
+            # Denormalize conditioning image for logging and MSE comparison
+            cond_img = images_input[i].cpu()
+            # ImageNet mean and std used by DINO processor
+            mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+            std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+            cond_img = cond_img * std + mean
+            cond_img = (cond_img.clamp(0, 1) * 255).to(torch.uint8)
+            cond_img_np = cond_img.permute(1, 2, 0).numpy()
+            cond_pil = Image.fromarray(cond_img_np)
+
             # Log conditioning image only once (on first run for this prefix)
             if not getattr(self, cond_logged_attr, False):
-                cond_img = images_input[i].cpu()
-                # ImageNet mean and std used by DINO processor
-                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-                cond_img = cond_img * std + mean
-                cond_img = (cond_img.clamp(0, 1) * 255).to(torch.uint8)
-                cond_img = cond_img.permute(1, 2, 0).numpy()
-                cond_images.append(wandb.Image(cond_img, caption=f"Conditioning {i}"))
+                cond_images.append(wandb.Image(cond_img_np, caption=f"Conditioning {i}"))
 
             try:
                 # Convert tensor to shapes
                 shapes = tensor_to_shapes(sample_tensor, IMG_SIZE, IMG_SIZE)
                 # Convert shapes to SVG
                 svg_content = save_bezier_shapes_to_svg(shapes, IMG_SIZE, IMG_SIZE)
-                # Render SVG to image
-                image = render_svg(svg_content)
+                # Render SVG to image with white background (matching conditioning)
+                image = render_svg_bg(svg_content)
                 generated_images.append(wandb.Image(image, caption=f"Sample {i}"))
+
+                # Resize generated image to conditioning image size for MSE
+                gen_resized = image.resize(cond_pil.size, Image.LANCZOS)
+                mse_val = calculate_mse(cond_pil, gen_resized)
+                mse_values.append(mse_val)
 
             except Exception as e:
                 print(
                     f"Warning: Failed to render sample {i} at epoch {self.current_epoch}: {e}"
                 )
+
+        # Log MSE between conditioning and generated images
+        if mse_values:
+            avg_mse = sum(mse_values) / len(mse_values)
+            self.log(f"{prefix}/image_mse", avg_mse)
 
         # Log images to wandb
         log_dict = {"epoch": self.current_epoch}
@@ -689,7 +704,7 @@ class FlowMatchingTransformer(pl.LightningModule):
             log_dict[f"{prefix}_conditioning"] = cond_images
             setattr(self, cond_logged_attr, True)
         if generated_images or cond_images:
-            self.logger.experiment.log(log_dict)
+            self.logger.experiment.log(log_dict, step=self.global_step)
 
     @torch.no_grad()
     def sample(self, cond, steps=50, cfg_scale=1.0, shape=None, seed=None):
