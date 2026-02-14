@@ -250,9 +250,21 @@ class AdaLNBlock(nn.Module):
             attn_out = attn_out.to(original_dtype).view(B, S_q, D)
         else:
             # Standard cross-attention implementation
-            q = self.cross_q_proj(q_input).view(B, S_q, self.num_heads, self.head_dim).transpose(1, 2)
-            k = self.cross_k_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim).transpose(1, 2)
-            v = self.cross_v_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim).transpose(1, 2)
+            q = (
+                self.cross_q_proj(q_input)
+                .view(B, S_q, self.num_heads, self.head_dim)
+                .transpose(1, 2)
+            )
+            k = (
+                self.cross_k_proj(kv_input)
+                .view(B, S_kv, self.num_heads, self.head_dim)
+                .transpose(1, 2)
+            )
+            v = (
+                self.cross_v_proj(kv_input)
+                .view(B, S_kv, self.num_heads, self.head_dim)
+                .transpose(1, 2)
+            )
 
             # Scaled dot-product attention
             # q: [B, num_heads, S_q, head_dim], k: [B, num_heads, S_kv, head_dim]
@@ -366,10 +378,15 @@ class FlowMatchingTransformer(pl.LightningModule):
         t: Timesteps [Batch]
         c: Conditioning Vector Sequence [Batch, CondLen, CondDim]
         """
-        # Embedding inputs
-        x = self.x_embedder(x)
-        c = self.c_embedder(c)
-        t_emb = self.t_embedder(t)
+        x = x.float()
+        t = t.float()
+        c = c.float()
+
+        # Embedding inputs in explicit fp32
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x = self.x_embedder(x)
+            c = self.c_embedder(c)
+            t_emb = self.t_embedder(t)
 
         # Get RoPE embeddings for the sequence
         seq_len = x.size(1)
@@ -379,10 +396,23 @@ class FlowMatchingTransformer(pl.LightningModule):
         for block in self.blocks:
             x = block(x, c, t_emb, rope_cos, rope_sin)
 
-        # Final AdaLN & Projection
-        shift, scale = self.final_adaLN(t_emb).chunk(2, dim=1)
-        x = self.final_norm(x) * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
-        output = self.final_proj(x)
+        # Final AdaLN & Projection in explicit fp32
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x_fp32 = x.float()
+            t_emb_fp32 = t_emb.float()
+            shift, scale = self.final_adaLN(t_emb_fp32).chunk(2, dim=1)
+            x_fp32 = self.final_norm(x_fp32) * (
+                1 + scale.unsqueeze(1)
+            ) + shift.unsqueeze(1)
+            output = F.linear(
+                x_fp32,
+                self.final_proj.weight.float(),
+                (
+                    self.final_proj.bias.float()
+                    if self.final_proj.bias is not None
+                    else None
+                ),
+            )
 
         return output
 
@@ -394,7 +424,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         batch_size = x_1.size(0)
         device = x_1.device
 
-        with torch.inference_mode():
+        # Use no_grad (not inference_mode) so cond can still be used in autograd graph
+        # for downstream trainable layers (e.g., c_embedder weight gradients).
+        with torch.no_grad():
             cond = self.image_encoder(pixel_values=images).last_hidden_state
 
         # 1. Sample Time t ~ Logit-Normal
@@ -416,6 +448,8 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         # 5. Predict and Loss
         pred_v = self(x_t, t, cond)
+
+        print("target_v", target_v.dtype)
 
         # 6. Loss computation (MSE on all tokens including padding)
         loss = F.mse_loss(pred_v, target_v)
@@ -470,7 +504,9 @@ class FlowMatchingTransformer(pl.LightningModule):
             metrics[f"flag_{name}_closeness"] = metric_val
             flag_metric_values.append(metric_val)
 
-        metrics["flag_closeness_avg"] = sum(flag_metric_values) / len(flag_metric_values)
+        metrics["flag_closeness_avg"] = sum(flag_metric_values) / len(
+            flag_metric_values
+        )
 
         # 2. Color and opacity consistency per shape
         # Colors are at indices 8 (r), 9 (g), 10 (b), 11 (opacity)
@@ -656,7 +692,9 @@ class FlowMatchingTransformer(pl.LightningModule):
 
             # Log conditioning image only once (on first run for this prefix)
             if not getattr(self, cond_logged_attr, False):
-                cond_images.append(wandb.Image(cond_img_np, caption=f"Conditioning {i}"))
+                cond_images.append(
+                    wandb.Image(cond_img_np, caption=f"Conditioning {i}")
+                )
 
             try:
                 # Convert tensor to shapes
@@ -727,9 +765,7 @@ class FlowMatchingTransformer(pl.LightningModule):
             t_next = ts[i + 1]
             dt = t_next - t_curr
             t_curr_tensor = torch.full((batch_size,), t_curr, device=device)
-            t_mid_tensor = torch.full(
-                (batch_size,), t_curr + 0.5 * dt, device=device
-            )
+            t_mid_tensor = torch.full((batch_size,), t_curr + 0.5 * dt, device=device)
             t_next_tensor = torch.full((batch_size,), t_next, device=device)
 
             # RK4 integration
