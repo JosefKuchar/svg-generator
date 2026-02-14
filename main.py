@@ -24,7 +24,7 @@ def train(
     torch.set_float32_matmul_precision("medium")
 
     module = FlowMatchingTransformer(
-        input_dim=15,
+        input_dim=13,
         cond_dim=384,
         hidden_size=512,
         num_layers=6,
