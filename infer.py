@@ -19,6 +19,7 @@ app = typer.Typer()
 @app.command()
 def main(
     steps: int = typer.Option(50, help="Number of sampling steps"),
+    cfg_scale: float = typer.Option(1.0, help="Classifier-free guidance scale"),
     seed: int = typer.Option(42, help="Random seed for reproducibility"),
     output_svg: str = typer.Option("output.svg", help="Output SVG file path"),
     output_png: str = typer.Option("output.png", help="Output PNG file path"),
@@ -67,10 +68,11 @@ def main(
     print(f"Conditioning shape: {cond.shape}")
 
     # Sample from the model
-    print(f"Sampling with {steps} steps, seed {seed}...")
+    print(f"Sampling with {steps} steps, CFG scale {cfg_scale}, seed {seed}...")
     samples = module.sample(
         cond,
         steps=steps,
+        cfg_scale=cfg_scale,
         shape=(1, max_segments, module.hparams.input_dim),
         seed=seed,
     )

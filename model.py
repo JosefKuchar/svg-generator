@@ -331,10 +331,12 @@ class FlowMatchingTransformer(pl.LightningModule):
         num_layers: int = 6,
         num_heads: int = 8,
         dropout: int = 0.1,
+        cond_drop_prob: float = 0.1,  # Probability to drop conditioning
         learning_rate: float = 1e-4,
     ):
         super().__init__()
         self.save_hyperparameters()
+        self.cond_drop_prob = cond_drop_prob
 
         self.image_encoder = AutoModel.from_pretrained(
             "facebook/dinov3-vits16-pretrain-lvd1689m",
@@ -352,12 +354,16 @@ class FlowMatchingTransformer(pl.LightningModule):
         head_dim = hidden_size // num_heads
         self.rope = RotaryPositionEmbedding(head_dim, max_len=max_len)
 
-        # 2. Transformer Backbone
+        # 2. Null Conditioning (Learnable vector for classifier-free guidance)
+        # We learn a single token and broadcast it to the sequence length
+        self.null_cond_emb = nn.Parameter(torch.randn(1, 1, hidden_size))
+
+        # 3. Transformer Backbone
         self.blocks = nn.ModuleList(
             [AdaLNBlock(hidden_size, num_heads, dropout) for _ in range(num_layers)]
         )
 
-        # 3. Final Layer (Standard DiT final block)
+        # 4. Final Layer (Standard DiT final block)
         self.final_norm = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.final_adaLN = nn.Sequential(
             nn.SiLU(), nn.Linear(hidden_size, 2 * hidden_size, bias=True)
@@ -372,11 +378,12 @@ class FlowMatchingTransformer(pl.LightningModule):
         self._val_cond_images_logged = False
         self._train_inference_cond_images_logged = False
 
-    def forward(self, x, t, c):
+    def forward(self, x, t, c, mask_cond=None):
         """
         x: Noisy input [Batch, SeqLen, Dim]
         t: Timesteps [Batch]
         c: Conditioning Vector Sequence [Batch, CondLen, CondDim]
+        mask_cond: Boolean tensor [Batch]. If True, drop conditioning for that sample.
         """
         x = x.float()
         t = t.float()
@@ -391,6 +398,17 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Get RoPE embeddings for the sequence
         seq_len = x.size(1)
         rope_cos, rope_sin = self.rope(seq_len)
+
+        # Handle Null Conditioning (Dropout)
+        if mask_cond is not None:
+            # mask_cond is [Batch], True means drop
+            # We construct a batch of null tokens
+            null_emb_expanded = self.null_cond_emb.expand(c.shape[0], c.shape[1], -1)
+
+            # Use where to swap: if mask_cond is True, use null, else use c
+            # Need to reshape mask for broadcasting: [Batch, 1, 1]
+            mask_reshaped = mask_cond.view(-1, 1, 1).float()
+            c = (1.0 - mask_reshaped) * c + mask_reshaped * null_emb_expanded
 
         # Transformer Pass
         for block in self.blocks:
@@ -446,12 +464,13 @@ class FlowMatchingTransformer(pl.LightningModule):
         # The vector that points directly from noise to data
         target_v = x_1 - x_0
 
-        # 5. Predict and Loss
-        pred_v = self(x_t, t, cond)
+        # 5. Classifier-Free Guidance Masking
+        mask_cond = torch.rand(batch_size, device=device) < self.cond_drop_prob
 
-        print("target_v", target_v.dtype)
+        # 6. Predict and Loss
+        pred_v = self(x_t, t, cond, mask_cond=mask_cond)
 
-        # 6. Loss computation (MSE on all tokens including padding)
+        # 7. Loss computation (MSE on all tokens including padding)
         loss = F.mse_loss(pred_v, target_v)
 
         self.log("train_loss", loss)
@@ -659,6 +678,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         samples = self.sample(
             cond,
             steps=50,
+            cfg_scale=1.0,
             shape=(num_samples, SAMPLE_SIZE, self.hparams.input_dim),
             seed=VALIDATION_SEED,
         )
@@ -731,12 +751,14 @@ class FlowMatchingTransformer(pl.LightningModule):
             self.logger.experiment.log(log_dict, step=self.global_step)
 
     @torch.no_grad()
-    def sample(self, cond, steps=50, shape=None, seed=None):
+    def sample(self, cond, steps=50, cfg_scale=1.0, shape=None, seed=None):
         """
         RK4 ODE solver for sampling.
 
         cond: Conditioning sequence [Batch, CondLen, CondDim]
         steps: Number of integration steps
+        cfg_scale: Classifier-free guidance scale.
+                   1.0 = standard conditional, >1.0 = increased conditioning influence.
         shape: Output shape [Batch, SeqLen, Dim]. If None, inferred from cond.
         seed: Optional random seed for reproducible sampling.
         """
@@ -760,6 +782,25 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Time steps (0 to 1)
         ts = torch.linspace(0, 1, steps, device=device)
 
+        # Prepare null conditioning mask for CFG
+        null_mask = torch.ones(
+            batch_size, device=device, dtype=torch.bool
+        )  # All True = All Null
+
+        def _velocity(x, t_tensor):
+            """Compute velocity with optional CFG."""
+            if cfg_scale == 1.0:
+                # Standard conditional sampling
+                return self(x, t_tensor, cond, mask_cond=None)
+            else:
+                # Classifier-Free Guidance
+                # Conditional Pass (mask_cond=False)
+                v_cond = self(x, t_tensor, cond, mask_cond=torch.zeros_like(null_mask))
+                # Unconditional Pass (mask_cond=True)
+                v_uncond = self(x, t_tensor, cond, mask_cond=null_mask)
+                # Combine
+                return v_uncond + cfg_scale * (v_cond - v_uncond)
+
         for i in range(len(ts) - 1):
             t_curr = ts[i]
             t_next = ts[i + 1]
@@ -769,10 +810,10 @@ class FlowMatchingTransformer(pl.LightningModule):
             t_next_tensor = torch.full((batch_size,), t_next, device=device)
 
             # RK4 integration
-            k1 = self(x, t_curr_tensor, cond)
-            k2 = self(x + 0.5 * dt * k1, t_mid_tensor, cond)
-            k3 = self(x + 0.5 * dt * k2, t_mid_tensor, cond)
-            k4 = self(x + dt * k3, t_next_tensor, cond)
+            k1 = _velocity(x, t_curr_tensor)
+            k2 = _velocity(x + 0.5 * dt * k1, t_mid_tensor)
+            k3 = _velocity(x + 0.5 * dt * k2, t_mid_tensor)
+            k4 = _velocity(x + dt * k3, t_next_tensor)
 
             x = x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         return x
