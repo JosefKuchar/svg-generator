@@ -8,7 +8,6 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
 import wandb
-from transformers import AutoModel, BitsAndBytesConfig
 from representation import tensor_to_shapes
 from parsing import save_bezier_shapes_to_svg
 from PIL import Image
@@ -338,14 +337,6 @@ class FlowMatchingTransformer(pl.LightningModule):
         self.save_hyperparameters()
         self.cond_drop_prob = cond_drop_prob
 
-        self.image_encoder = AutoModel.from_pretrained(
-            "facebook/dinov3-vits16-pretrain-lvd1689m",
-            dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        self.image_encoder.requires_grad_(False)
-        self.image_encoder.eval()
-
         # 1. Embeddings
         self.x_embedder = nn.Linear(input_dim, hidden_size)
         self.c_embedder = nn.Linear(cond_dim, hidden_size)
@@ -377,6 +368,26 @@ class FlowMatchingTransformer(pl.LightningModule):
         # Flags to track if conditioning images have been logged (per prefix)
         self._val_cond_images_logged = False
         self._train_inference_cond_images_logged = False
+
+    @staticmethod
+    def patchify_images(images: torch.Tensor, patch_size: int = 16) -> torch.Tensor:
+        """Convert [B, 3, 224, 224] images to [B, 196, 768] patch tokens."""
+        if images.ndim != 4:
+            raise ValueError(
+                f"Expected image batch [B, C, H, W], got shape {tuple(images.shape)}"
+            )
+
+        bsz, channels, height, width = images.shape
+        if channels != 3:
+            raise ValueError(f"Expected 3 channels, got {channels}")
+        if height % patch_size != 0 or width % patch_size != 0:
+            raise ValueError(
+                f"Image size ({height}, {width}) must be divisible by patch size {patch_size}"
+            )
+
+        patches = images.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
+        patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()
+        return patches.view(bsz, -1, channels * patch_size * patch_size)
 
     def forward(self, x, t, c, mask_cond=None):
         """
@@ -438,14 +449,9 @@ class FlowMatchingTransformer(pl.LightningModule):
         # x_1: Real Data
         # cond: Conditioning
         x_1, images = batch
-        images = images.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         batch_size = x_1.size(0)
         device = x_1.device
-
-        # Use no_grad (not inference_mode) so cond can still be used in autograd graph
-        # for downstream trainable layers (e.g., c_embedder weight gradients).
-        with torch.no_grad():
-            cond = self.image_encoder(pixel_values=images).last_hidden_state
+        cond = self.patchify_images(images)
 
         # 1. Sample Time t ~ Logit-Normal
         # Sample from normal, then apply sigmoid to get t in [0, 1]
@@ -594,12 +600,10 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         # batch is (curve_tensor, image_tensor)
         _, images_input = batch
-        images_input = images_input.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         num_samples = images_input.shape[0]
 
-        # Encode images to get conditioning
-        with torch.inference_mode():
-            cond = self.image_encoder(pixel_values=images_input).last_hidden_state
+        # Convert images to patch tokens for conditioning.
+        cond = self.patchify_images(images_input)
 
         # Sample from the model with fixed seed
         samples = self.sample(
@@ -627,13 +631,10 @@ class FlowMatchingTransformer(pl.LightningModule):
         for i in range(num_samples):
             sample_tensor = samples[i]  # Shape: [SAMPLE_SIZE, input_dim]
 
-            # Denormalize conditioning image for logging and MSE comparison
+            # Convert conditioning image for logging and MSE comparison.
             cond_img = images_input[i].cpu()
-            # ImageNet mean and std used by DINO processor
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-            cond_img = cond_img * std + mean
-            cond_img = (cond_img.clamp(0, 1) * 255).to(torch.uint8)
+            cond_img = ((cond_img + 1.0) * 0.5).clamp(0, 1)
+            cond_img = (cond_img * 255).to(torch.uint8)
             cond_img_np = cond_img.permute(1, 2, 0).numpy()
             cond_pil = Image.fromarray(cond_img_np)
 

@@ -3,9 +3,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader, RandomSampler
 from datasets import load_dataset
 import pytorch_lightning as pl
+from torchvision import transforms
 
 from representation import BezierPath, BezierShape, shapes_to_tensor
-from transformers import AutoImageProcessor
 from raster import render_svg_bg
 
 
@@ -13,8 +13,12 @@ class BezierDataset(Dataset):
     def __init__(self, split="train", max_segments=100, max_samples=None):
         self.max_segments = max_segments
         self.max_samples = max_samples
-        self.processor = AutoImageProcessor.from_pretrained(
-            "facebook/dinov3-vits16-pretrain-lvd1689m"
+        self.image_transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            ]
         )
         raw_dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
 
@@ -81,9 +85,8 @@ class BezierDataset(Dataset):
         # Render the original svg
         image = render_svg_bg(item["item_svg"]).convert("RGB")
 
-        # Process the image using the DINO image processor
-        # torch.Size([1, 3, 224, 224])
-        image_tensor = self.processor(images=image, return_tensors="pt")["pixel_values"]
+        # Preprocess for 16x16 patch conditioning and normalize to [-1, 1].
+        image_tensor = self.image_transform(image)
 
         return curve_tensor, image_tensor
 

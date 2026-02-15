@@ -1,7 +1,4 @@
-"""
-Inference script for sampling from the FlowMatchingTransformer model.
-Loads the first image from the training dataset and uses it as conditioning.
-"""
+"""Inference script for sampling from the FlowMatchingTransformer model."""
 
 import typer
 import torch
@@ -57,14 +54,11 @@ def main(
         f"Loaded first training image. Curve tensor shape: {curve_tensor.shape}, Image tensor shape: {image_tensor.shape}"
     )
 
-    # Move image tensor to device and get DINO embeddings
-    image_tensor = image_tensor.to(device)  # Shape: [1, 3, 224, 224]
+    # Move image tensor to device and convert to patch conditioning.
+    image_tensor = image_tensor.unsqueeze(0).to(device)  # Shape: [1, 3, 224, 224]
 
-    print("Encoding image with DINO...")
-    with torch.inference_mode():
-        cond = module.image_encoder(pixel_values=image_tensor).last_hidden_state
-        # Convert to float32 to match model weights
-        cond = cond.float()
+    print("Building 16x16 patch conditioning...")
+    cond = module.patchify_images(image_tensor)
     print(f"Conditioning shape: {cond.shape}")
 
     # Sample from the model
@@ -94,12 +88,10 @@ def main(
     image.save(output_png)
     print(f"Saved PNG to: {output_png}")
 
-    # Save the original conditioning image (denormalize from DINO preprocessing)
-    # ImageNet mean and std used by DINO processor
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-    original_img = image_tensor[0].cpu() * std + mean
-    original_img = (original_img.clamp(0, 1) * 255).to(torch.uint8)
+    # Save the original conditioning image.
+    original_img = image_tensor[0].cpu()
+    original_img = ((original_img + 1.0) * 0.5).clamp(0, 1)
+    original_img = (original_img * 255).to(torch.uint8)
     original_img = original_img.permute(1, 2, 0).numpy()
     from PIL import Image
 
