@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import torch
 from datasets import DatasetDict, get_dataset_split_names, load_dataset
@@ -54,6 +55,12 @@ def parse_args():
         default=None,
         help="Optional limit per split (useful for quick tests)",
     )
+    parser.add_argument(
+        "--max-segments",
+        type=int,
+        default=256,
+        help="Keep only items with this many or fewer Bezier segments",
+    )
     return parser.parse_args()
 
 
@@ -70,6 +77,15 @@ def first_caption(captions):
     return ""
 
 
+def count_curves(shapes_json: str) -> int:
+    shapes_data = json.loads(shapes_json)
+    total_curves = 0
+    for shape_data in shapes_data:
+        for path_data in shape_data["paths"]:
+            total_curves += len(path_data["curves"])
+    return total_curves
+
+
 def main():
     args = parse_args()
     target_dtype = torch.float16 if args.dtype == "float16" else torch.float32
@@ -81,8 +97,23 @@ def main():
     for split in split_names:
         print(f"Loading split: {split}")
         ds = load_dataset(args.dataset, split=split)
+
+        if "shapes" not in ds.column_names:
+            raise ValueError(
+                f"Column 'shapes' not found in split '{split}'. "
+                f"Available columns: {ds.column_names}"
+            )
+
+        print(f"Filtering split: {split} to <= {args.max_segments} segments")
+        ds = ds.filter(
+            lambda item: count_curves(item["shapes"]) <= args.max_segments,
+            num_proc=4,
+            desc=f"Filtering items with <= {args.max_segments} curves",
+        )
+
         if args.max_samples is not None:
             ds = ds.select(range(min(args.max_samples, len(ds))))
+
         if args.caption_column not in ds.column_names:
             raise ValueError(
                 f"Column '{args.caption_column}' not found in split '{split}'. "

@@ -16,9 +16,11 @@ class SanaBezierDataset(Dataset):
         max_segments=100,
         max_samples=None,
         dataset_name_or_path="bezier_dataset_with_text_embeddings",
+        caption_column="caption_texts",
     ):
         self.max_segments = max_segments
         self.max_samples = max_samples
+        self.caption_column = caption_column
 
         dataset_path = Path(dataset_name_or_path)
         if dataset_path.exists() and dataset_path.is_dir():
@@ -34,25 +36,9 @@ class SanaBezierDataset(Dataset):
                 "Dataset is missing required precomputed text-conditioning columns: "
                 f"{missing}."
             )
-
-        filtered = raw_dataset.filter(
-            lambda item: self._count_curves(item) <= max_segments,
-            num_proc=4,
-            desc=f"Filtering items with <= {max_segments} curves",
-        )
-
         if max_samples is not None:
-            filtered = filtered.select(range(min(max_samples, len(filtered))))
-        self.dataset = filtered
-
-    @staticmethod
-    def _count_curves(item):
-        shapes_data = json.loads(item["shapes"])
-        total_curves = 0
-        for shape_data in shapes_data:
-            for path_data in shape_data["paths"]:
-                total_curves += len(path_data["curves"])
-        return total_curves
+            raw_dataset = raw_dataset.select(range(min(max_samples, len(raw_dataset))))
+        self.dataset = raw_dataset
 
     @staticmethod
     def _shapes_from_json(shapes_data):
@@ -100,11 +86,20 @@ class SanaBezierDataset(Dataset):
             item["text_attention_mask"], dtype=torch.long
         )
 
-        return curve_tensor, text_embeddings, text_attention_mask
+        caption_text = ""
+        if self.caption_column in item:
+            captions = item[self.caption_column]
+            if isinstance(captions, list) and captions:
+                first = captions[0]
+                caption_text = first if isinstance(first, str) else ""
+            elif isinstance(captions, str):
+                caption_text = captions
+
+        return curve_tensor, text_embeddings, text_attention_mask, caption_text
 
 
 def sana_bezier_collate_fn(batch):
-    curve_tensors, text_embeddings, text_attention_masks = zip(*batch)
+    curve_tensors, text_embeddings, text_attention_masks, captions = zip(*batch)
 
     curves = torch.stack(curve_tensors)
     max_text_len = max(embedding.shape[0] for embedding in text_embeddings)
@@ -127,7 +122,7 @@ def sana_bezier_collate_fn(batch):
         embeddings[i, -seq_len:] = embedding
         attention_mask[i, -seq_len:] = mask
 
-    return curves, embeddings, attention_mask
+    return curves, embeddings, attention_mask, list(captions)
 
 
 class SanaValidationSamplingDataset(SanaBezierDataset):
