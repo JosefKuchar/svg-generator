@@ -13,3 +13,6 @@ This project is a raster to bezier curve vectorizer. The model is flow matching 
 - `infer.py` - inference script for testing trained models
 - `raster.py` - utilities for raster image processing
 - `parsing.py` - utilities for creating dataset from SVG files
+
+## Code verification
+Use `uv` to run your own code

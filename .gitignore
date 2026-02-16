@@ -17,3 +17,5 @@ wheels/
 lightning_logs/
 wandb/
 *.ckpt
+
+bezier_dataset_with_text_embeddings/

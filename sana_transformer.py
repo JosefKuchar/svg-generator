@@ -417,17 +417,7 @@ class SanaTransformer2DModel(
 
         out_channels = out_channels or in_channels
         inner_dim = num_attention_heads * attention_head_dim
-
-        # 1. Patch Embedding
-        self.patch_embed = PatchEmbed(
-            height=sample_size,
-            width=sample_size,
-            patch_size=patch_size,
-            in_channels=in_channels,
-            embed_dim=inner_dim,
-            interpolation_scale=interpolation_scale,
-            pos_embed_type="sincos" if interpolation_scale is not None else None,
-        )
+        self.x_embedder = nn.Linear(in_channels, inner_dim)
 
         # 2. Additional condition embeddings
         if guidance_embeds:
@@ -478,8 +468,6 @@ class SanaTransformer2DModel(
         guidance: torch.Tensor | None = None,
         encoder_attention_mask: torch.Tensor | None = None,
         attention_mask: torch.Tensor | None = None,
-        attention_kwargs: dict[str, Any] | None = None,
-        controlnet_block_samples: tuple[torch.Tensor] | None = None,
         return_dict: bool = True,
     ) -> tuple[torch.Tensor, ...] | Transformer2DModelOutput:
         # ensure attention_mask is a bias, and give it a singleton query_tokens dimension.
@@ -508,11 +496,13 @@ class SanaTransformer2DModel(
             encoder_attention_mask = encoder_attention_mask.unsqueeze(1)
 
         # 1. Input
-        batch_size, num_channels, height, width = hidden_states.shape
-        p = self.config.patch_size
-        post_patch_height, post_patch_width = height // p, width // p
+        if hidden_states.ndim != 3:
+            raise ValueError(
+                "Expected sequence input with shape [batch, seq_len, in_channels]"
+            )
 
-        hidden_states = self.patch_embed(hidden_states)
+        batch_size, sequence_length, _ = hidden_states.shape
+        hidden_states = self.x_embedder(hidden_states)
 
         if guidance is not None:
             timestep, embedded_timestep = self.time_embed(
@@ -531,63 +521,23 @@ class SanaTransformer2DModel(
         encoder_hidden_states = self.caption_norm(encoder_hidden_states)
 
         # 2. Transformer blocks
-        if torch.is_grad_enabled() and self.gradient_checkpointing:
-            for index_block, block in enumerate(self.transformer_blocks):
-                hidden_states = self._gradient_checkpointing_func(
-                    block,
-                    hidden_states,
-                    attention_mask,
-                    encoder_hidden_states,
-                    encoder_attention_mask,
-                    timestep,
-                    post_patch_height,
-                    post_patch_width,
-                )
-                if controlnet_block_samples is not None and 0 < index_block <= len(
-                    controlnet_block_samples
-                ):
-                    hidden_states = (
-                        hidden_states + controlnet_block_samples[index_block - 1]
-                    )
-
-        else:
-            for index_block, block in enumerate(self.transformer_blocks):
-                hidden_states = block(
-                    hidden_states,
-                    attention_mask,
-                    encoder_hidden_states,
-                    encoder_attention_mask,
-                    timestep,
-                    post_patch_height,
-                    post_patch_width,
-                )
-                if controlnet_block_samples is not None and 0 < index_block <= len(
-                    controlnet_block_samples
-                ):
-                    hidden_states = (
-                        hidden_states + controlnet_block_samples[index_block - 1]
-                    )
+        for block in self.transformer_blocks:
+            hidden_states = block(
+                hidden_states,
+                attention_mask,
+                encoder_hidden_states,
+                encoder_attention_mask,
+                timestep,
+                1,
+                sequence_length,
+            )
 
         # 3. Normalization
         hidden_states = self.norm_out(
             hidden_states, embedded_timestep, self.scale_shift_table
         )
 
-        hidden_states = self.proj_out(hidden_states)
-
-        # 5. Unpatchify
-        hidden_states = hidden_states.reshape(
-            batch_size,
-            post_patch_height,
-            post_patch_width,
-            self.config.patch_size,
-            self.config.patch_size,
-            -1,
-        )
-        hidden_states = hidden_states.permute(0, 5, 1, 3, 2, 4)
-        output = hidden_states.reshape(
-            batch_size, -1, post_patch_height * p, post_patch_width * p
-        )
+        output = self.proj_out(hidden_states)
 
         if not return_dict:
             return (output,)
