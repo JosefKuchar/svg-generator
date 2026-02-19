@@ -102,7 +102,8 @@ def sana_bezier_collate_fn(batch):
     curve_tensors, text_embeddings, text_attention_masks, captions = zip(*batch)
 
     curves = torch.stack(curve_tensors)
-    max_text_len = max(embedding.shape[0] for embedding in text_embeddings)
+
+    max_text_len = 300
     embed_dim = text_embeddings[0].shape[1]
 
     embeddings = torch.zeros(
@@ -118,9 +119,9 @@ def sana_bezier_collate_fn(batch):
     )
 
     for i, (embedding, mask) in enumerate(zip(text_embeddings, text_attention_masks)):
-        seq_len = embedding.shape[0]
-        embeddings[i, -seq_len:] = embedding
-        attention_mask[i, -seq_len:] = mask
+        seq_len = min(embedding.shape[0], mask.shape[0], max_text_len)
+        embeddings[i, :seq_len] = embedding[:seq_len]
+        attention_mask[i, :seq_len] = mask[:seq_len]
 
     return curves, embeddings, attention_mask, list(captions)
 

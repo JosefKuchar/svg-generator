@@ -15,6 +15,7 @@ def get_device() -> str:
 
 def load_text_encoder(model_id: str = MODEL_ID, device: str | None = None):
     tokenizer = AutoTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+    tokenizer.padding_side = "right"
     model = AutoModel.from_pretrained(model_id, subfolder="text_encoder")
     resolved_device = device or get_device()
     model = model.to(resolved_device)
@@ -23,13 +24,14 @@ def load_text_encoder(model_id: str = MODEL_ID, device: str | None = None):
 
 
 @torch.no_grad()
-def encode_prompts(prompts, tokenizer, model, device, max_length: int = 128):
+def encode_prompts(prompts, tokenizer, model, device, max_length: int = 300):
     inputs = tokenizer(
         prompts,
         return_tensors="pt",
         truncation=True,
         padding=True,
         max_length=max_length,
+        add_special_tokens=True,
     )
     attention_mask = inputs["attention_mask"]
     inputs = {name: tensor.to(device) for name, tensor in inputs.items()}
@@ -43,7 +45,5 @@ if __name__ == "__main__":
 
     print(f"device={device}")
     print(f"attention_mask_shape={tuple(attention_mask.shape)}")
-    print(
-        f"attention_tokens_per_prompt={attention_mask.sum(dim=1).tolist()}"
-    )
+    print(f"attention_tokens_per_prompt={attention_mask.sum(dim=1).tolist()}")
     print(f"last_hidden_state_shape={tuple(embeddings.shape)}")

@@ -2,6 +2,8 @@ import typer
 import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 
@@ -10,9 +12,27 @@ from raster import render_svg_bg
 from representation import tensor_to_shapes
 from sana_dataset import SanaDataModule
 from sana_transformer import SanaTransformer2DModel
+from text_encoder import encode_prompts, load_text_encoder
 
 
 app = typer.Typer()
+
+
+class StopOnNaNCallback(Callback):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        if isinstance(outputs, torch.Tensor) and not torch.isfinite(outputs).all():
+            trainer.should_stop = True
+            raise RuntimeError(
+                f"Stopping training: non-finite train loss at step {trainer.global_step}."
+            )
+
+    def on_validation_end(self, trainer, pl_module):
+        val_loss = trainer.callback_metrics.get("val/loss")
+        if isinstance(val_loss, torch.Tensor) and not torch.isfinite(val_loss).all():
+            trainer.should_stop = True
+            raise RuntimeError(
+                f"Stopping training: non-finite val/loss at step {trainer.global_step}."
+            )
 
 
 class SanaFlowMatching(pl.LightningModule):
@@ -22,19 +42,29 @@ class SanaFlowMatching(pl.LightningModule):
         learning_rate: float = 5e-5,
         warmup_steps: float = 1000.0,
         cond_drop_prob: float = 0.1,
+        text_max_length: int = 300,
         sample_steps: int = 30,
         validation_num_images: int = 8,
         validation_seed: int = 42,
         render_size: int = 512,
+        reset_model: bool = False,
+        train_new_layers_only: bool = False,
+        train_first_n_layers: int = 0,
+        train_last_n_layers: int = 0,
     ):
         super().__init__()
         self.learning_rate = learning_rate
         self.warmup_steps = warmup_steps
         self.cond_drop_prob = cond_drop_prob
+        self.text_max_length = text_max_length
         self.sample_steps = sample_steps
         self.validation_num_images = validation_num_images
         self.validation_seed = validation_seed
         self.render_size = render_size
+        self.reset_model = reset_model
+        self.train_new_layers_only = train_new_layers_only
+        self.train_first_n_layers = max(0, int(train_first_n_layers))
+        self.train_last_n_layers = max(0, int(train_last_n_layers))
 
         self.transformer = SanaTransformer2DModel.from_pretrained(
             "Efficient-Large-Model/Sana_600M_512px_diffusers",
@@ -44,8 +74,121 @@ class SanaFlowMatching(pl.LightningModule):
             ignore_mismatched_sizes=True,
             low_cpu_mem_usage=False,
         )
+
+        if self.reset_model:
+            self._reset_transformer_parameters()
+        else:
+            self.transformer.x_embedder.reset_parameters()
+            self.transformer.proj_out.reset_parameters()
+
+        if (
+            self.train_new_layers_only
+            or self.train_first_n_layers > 0
+            or self.train_last_n_layers > 0
+        ):
+            self._freeze_for_targeted_training(
+                train_first_n_layers=self.train_first_n_layers,
+                train_last_n_layers=self.train_last_n_layers,
+                include_new_layers=True,
+            )
+
+        self._init_unconditional_conditioning()
+
         self.transformer.train()
         self._logged_image_steps: set[tuple[str, int]] = set()
+
+    @torch.no_grad()
+    def _init_unconditional_conditioning(self):
+        tokenizer, text_encoder, text_device = load_text_encoder(device="cpu")
+        empty_embeds, empty_mask = encode_prompts(
+            [""],
+            tokenizer,
+            text_encoder,
+            text_device,
+            max_length=self.text_max_length,
+        )
+        self.register_buffer(
+            "empty_prompt_embedding",
+            empty_embeds[0].detach().to(dtype=torch.float32, device="cpu"),
+            persistent=False,
+        )
+        self.register_buffer(
+            "empty_prompt_attention_mask",
+            empty_mask[0].detach().to(dtype=torch.long, device="cpu"),
+            persistent=False,
+        )
+        del text_encoder
+
+    def _get_empty_conditioning(
+        self, seq_len: int, embed_dim: int, device: torch.device
+    ):
+        empty_embedding = self.empty_prompt_embedding
+        empty_mask = self.empty_prompt_attention_mask
+
+        if empty_embedding.shape[1] != embed_dim:
+            raise ValueError(
+                f"Empty prompt embedding dim mismatch: expected {embed_dim}, got {empty_embedding.shape[1]}"
+            )
+
+        if empty_embedding.shape[0] != seq_len:
+            adjusted_embedding = torch.zeros(
+                seq_len,
+                embed_dim,
+                dtype=empty_embedding.dtype,
+                device=empty_embedding.device,
+            )
+            adjusted_mask = torch.zeros(
+                seq_len,
+                dtype=empty_mask.dtype,
+                device=empty_mask.device,
+            )
+            copy_len = min(seq_len, empty_embedding.shape[0])
+            adjusted_embedding[:copy_len] = empty_embedding[:copy_len]
+            adjusted_mask[:copy_len] = empty_mask[:copy_len]
+            empty_embedding = adjusted_embedding
+            empty_mask = adjusted_mask
+
+        return empty_embedding.to(device=device), empty_mask.to(device=device)
+
+    def _reset_transformer_parameters(self):
+        def _reset(module):
+            if hasattr(module, "reset_parameters"):
+                module.reset_parameters()
+
+        self.transformer.apply(_reset)
+
+    def _freeze_for_targeted_training(
+        self,
+        train_first_n_layers: int,
+        train_last_n_layers: int,
+        include_new_layers: bool,
+    ):
+        for parameter in self.transformer.parameters():
+            parameter.requires_grad = False
+
+        # norm_parameter_keywords = ("norm", "scale_shift_table")
+        # for parameter_name, parameter in self.transformer.named_parameters():
+        #     if any(keyword in parameter_name.lower() for keyword in norm_parameter_keywords):
+        #         parameter.requires_grad = True
+
+        if include_new_layers:
+            for parameter in self.transformer.x_embedder.parameters():
+                parameter.requires_grad = True
+
+            for parameter in self.transformer.proj_out.parameters():
+                parameter.requires_grad = True
+
+        num_blocks = len(self.transformer.transformer_blocks)
+        first_n = min(max(0, train_first_n_layers), num_blocks)
+        last_n = min(max(0, train_last_n_layers), num_blocks)
+
+        selected_indices = set(range(first_n))
+        selected_indices.update(range(max(0, num_blocks - last_n), num_blocks))
+
+        for block_idx, block in enumerate(self.transformer.transformer_blocks):
+            if block_idx in selected_indices:
+                for parameter in block.parameters():
+                    parameter.requires_grad = True
 
     def forward(self, x, t, cond, cond_attention_mask, mask_cond=None):  # type: ignore[override]
         x = x.float()
@@ -54,8 +197,15 @@ class SanaFlowMatching(pl.LightningModule):
         cond_attention_mask = cond_attention_mask.long()
 
         if mask_cond is not None:
+            cond = cond.clone()
+            empty_embedding, empty_mask = self._get_empty_conditioning(
+                seq_len=cond.shape[1],
+                embed_dim=cond.shape[2],
+                device=cond.device,
+            )
+            cond[mask_cond] = empty_embedding
             cond_attention_mask = cond_attention_mask.clone()
-            cond_attention_mask[mask_cond] = 0
+            cond_attention_mask[mask_cond] = empty_mask
 
         return self.transformer(
             hidden_states=x,
@@ -242,16 +392,17 @@ def train(
         "bezier_dataset_with_text_embeddings",
         help="HF dataset id or local save_to_disk directory with text embeddings",
     ),
-    max_samples=typer.Option(
+    max_samples: int | None = typer.Option(
         None,
+        min=1,
         help="Limit training dataset size (useful for overfit/debug)",
     ),
-    train_samples_per_epoch=typer.Option(
+    train_samples_per_epoch: int | None = typer.Option(
         None,
         min=1,
         help="If set, sample with replacement and use this many train samples per epoch",
     ),
-    learning_rate=typer.Option(1e-4, help="Peak learning rate after warmup"),
+    learning_rate=typer.Option(5e-5, help="Peak learning rate after warmup"),
     warmup_steps=typer.Option(
         1000,
         min=0,
@@ -272,6 +423,45 @@ def train(
         min=1,
         help="Run validation every N training steps",
     ),
+    max_epochs: int = typer.Option(
+        -1,
+        help="Maximum number of training epochs (-1 for no limit)",
+    ),
+    reset_model: bool = typer.Option(
+        False,
+        help="Reset all transformer weights before training (ignore pretrained init)",
+    ),
+    train_new_layers_only: bool = typer.Option(
+        False,
+        help="Train only newly initialized layers (x_embedder and proj_out)",
+    ),
+    train_first_n_layers: int = typer.Option(
+        0,
+        min=0,
+        help="Train first N transformer blocks (in addition to x_embedder/proj_out when targeted training is enabled)",
+    ),
+    train_last_n_layers: int = typer.Option(
+        0,
+        min=0,
+        help="Train last N transformer blocks (in addition to x_embedder/proj_out when targeted training is enabled)",
+    ),
+    checkpoint_dir: str = typer.Option(
+        "checkpoints/sana",
+        help="Directory to save model checkpoints",
+    ),
+    checkpoint_top_k: int = typer.Option(
+        3,
+        min=1,
+        help="How many best checkpoints to keep based on val/loss",
+    ),
+    resume_from_ckpt: str | None = typer.Option(
+        None,
+        help="Path to a Lightning checkpoint (.ckpt) to resume training",
+    ),
+    init_from_ckpt: str | None = typer.Option(
+        None,
+        help="Path to checkpoint (.ckpt) to load weights only and start from epoch 0",
+    ),
 ):
     torch.set_float32_matmul_precision("medium")
 
@@ -284,18 +474,45 @@ def train(
         warmup_steps=warmup_steps_value,
         sample_steps=sample_steps,
         validation_num_images=validation_num_images,
+        reset_model=reset_model,
+        train_new_layers_only=train_new_layers_only,
+        train_first_n_layers=train_first_n_layers,
+        train_last_n_layers=train_last_n_layers,
     )
+
+    if init_from_ckpt is not None:
+        checkpoint = torch.load(init_from_ckpt, map_location="cpu")
+        state_dict = (
+            checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
+        )
+        missing_keys, unexpected_keys = module.load_state_dict(state_dict, strict=False)
+        print(
+            f"Initialized weights from {init_from_ckpt}. "
+            f"Missing keys: {len(missing_keys)}, Unexpected keys: {len(unexpected_keys)}"
+        )
 
     wandb_logger = WandbLogger(project="svg-generator-sana")
     wandb_logger.watch(module)
 
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=checkpoint_dir,
+        filename="epoch{epoch:03d}-step{step:08d}-val_loss{val/loss:.4f}",
+        monitor="val/loss",
+        mode="min",
+        save_top_k=checkpoint_top_k,
+        save_last=True,
+        auto_insert_metric_name=False,
+    )
+    nan_callback = StopOnNaNCallback()
+
     trainer = pl.Trainer(
-        max_epochs=-1,
+        max_epochs=max_epochs,
         accelerator="auto",
-        precision="bf16-mixed",
+        precision="32",
         gradient_clip_val=1.0,
         accumulate_grad_batches=accumulate_grad_batches,
         val_check_interval=validation_interval_steps,
+        callbacks=[checkpoint_callback, nan_callback],
         logger=wandb_logger,
     )
 
@@ -308,6 +525,7 @@ def train(
             train_samples_per_epoch=train_samples_per_epoch,
             dataset_name_or_path=str(dataset_name_or_path),
         ),
+        ckpt_path=resume_from_ckpt,
     )
 
 
