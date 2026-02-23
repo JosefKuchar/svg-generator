@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from representation import BezierPath, BezierShape, shapes_to_tensor
 from transformers import AutoImageProcessor
 from raster import render_svg_bg
+from synthetic import SyntheticBezierDataset, SyntheticSamplingDataset
 
 
 class BezierDataset(Dataset):
@@ -126,6 +127,11 @@ class DataModule(pl.LightningDataModule):
         val_num_samples=8,
         max_samples=None,
         train_samples_per_epoch=None,
+        synthetic=False,
+        synthetic_length=100_000,
+        synthetic_min_shapes=1,
+        synthetic_max_shapes=10,
+        synthetic_canvas_size=256,
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -134,13 +140,27 @@ class DataModule(pl.LightningDataModule):
         self.val_num_samples = val_num_samples
         self.max_samples = max_samples
         self.train_samples_per_epoch = train_samples_per_epoch
+        self.synthetic = synthetic
+        self.synthetic_length = synthetic_length
+        self.synthetic_min_shapes = synthetic_min_shapes
+        self.synthetic_max_shapes = synthetic_max_shapes
+        self.synthetic_canvas_size = synthetic_canvas_size
 
     def train_dataloader(self):
-        dataset = BezierDataset(
-            split="train",
-            max_segments=self.max_segments,
-            max_samples=self.max_samples,
-        )
+        if self.synthetic:
+            dataset = SyntheticBezierDataset(
+                length=self.synthetic_length,
+                canvas_size=self.synthetic_canvas_size,
+                max_segments=self.max_segments,
+                min_shapes=self.synthetic_min_shapes,
+                max_shapes=self.synthetic_max_shapes,
+            )
+        else:
+            dataset = BezierDataset(
+                split="train",
+                max_segments=self.max_segments,
+                max_samples=self.max_samples,
+            )
         if self.train_samples_per_epoch is not None:
             sampler = RandomSampler(
                 dataset,
@@ -163,14 +183,32 @@ class DataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self):
-        val_dataset = ValidationSamplingDataset(
-            num_samples=self.val_num_samples,
-            max_segments=self.max_segments,
-        )
-        train_sample_dataset = TrainSamplingDataset(
-            num_samples=self.val_num_samples,
-            max_segments=self.max_segments,
-        )
+        if self.synthetic:
+            val_dataset = SyntheticSamplingDataset(
+                num_samples=self.val_num_samples,
+                canvas_size=self.synthetic_canvas_size,
+                max_segments=self.max_segments,
+                min_shapes=self.synthetic_min_shapes,
+                max_shapes=self.synthetic_max_shapes,
+                base_seed=999_999,
+            )
+            train_sample_dataset = SyntheticSamplingDataset(
+                num_samples=self.val_num_samples,
+                canvas_size=self.synthetic_canvas_size,
+                max_segments=self.max_segments,
+                min_shapes=self.synthetic_min_shapes,
+                max_shapes=self.synthetic_max_shapes,
+                base_seed=888_888,
+            )
+        else:
+            val_dataset = ValidationSamplingDataset(
+                num_samples=self.val_num_samples,
+                max_segments=self.max_segments,
+            )
+            train_sample_dataset = TrainSamplingDataset(
+                num_samples=self.val_num_samples,
+                max_segments=self.max_segments,
+            )
         loader_kwargs = dict(
             batch_size=self.val_num_samples,
             num_workers=self.num_workers,

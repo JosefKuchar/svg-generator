@@ -20,6 +20,18 @@ def train(
         min=1,
         help="If set, sample with replacement and use this many train samples per epoch",
     ),
+    synthetic: bool = typer.Option(
+        False, help="Use synthetic dataset of random geometric shapes"
+    ),
+    synthetic_length: int = typer.Option(
+        100_000, help="Number of samples per epoch for synthetic dataset"
+    ),
+    synthetic_min_shapes: int = typer.Option(
+        1, help="Minimum shapes per synthetic scene"
+    ),
+    synthetic_max_shapes: int = typer.Option(
+        10, help="Maximum shapes per synthetic scene"
+    ),
 ):
     torch.set_float32_matmul_precision("medium")
 
@@ -48,6 +60,10 @@ def train(
             max_segments=256,
             max_samples=max_samples,
             train_samples_per_epoch=train_samples_per_epoch,
+            synthetic=synthetic,
+            synthetic_length=synthetic_length,
+            synthetic_min_shapes=synthetic_min_shapes,
+            synthetic_max_shapes=synthetic_max_shapes,
         ),
     )
 
