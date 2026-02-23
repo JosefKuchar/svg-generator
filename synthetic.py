@@ -1,217 +1,6 @@
 """
 Synthetic dataset generator for random geometric shapes.
 
-Generates random scenes of circles, ovals, rectangles, and squares
-as BezierShape objects, compatible with the existing representation pipeline.
-"""
-
-import math
-import random
-
-import torch
-from torch.utils.data import Dataset
-from transformers import AutoImageProcessor
-
-from parsing import save_bezier_shapes_to_svg
-from raster import render_svg_bg
-from representation import BezierPath, BezierShape, Curve, Point, shapes_to_tensor
-
-# Kappa for approximating a circle with 4 cubic bezier curves
-# This gives < 0.027% error
-KAPPA = 0.5522847498
-
-
-def _rotate_point(x: float, y: float, angle: float, cx: float, cy: float) -> Point:
-    """Rotate point (x, y) by angle (radians) around center (cx, cy)."""
-    cos_a = math.cos(angle)
-    sin_a = math.sin(angle)
-    dx = x - cx
-    dy = y - cy
-    return (cx + dx * cos_a - dy * sin_a, cy + dx * sin_a + dy * cos_a)
-
-
-def _rotate_curves(
-    curves: list[Curve], angle: float, cx: float, cy: float
-) -> list[Curve]:
-    """Rotate all control points in a list of curves around (cx, cy)."""
-    rotated = []
-    for p0, p1, p2, p3 in curves:
-        rotated.append(
-            (
-                _rotate_point(*p0, angle, cx, cy),
-                _rotate_point(*p1, angle, cx, cy),
-                _rotate_point(*p2, angle, cx, cy),
-                _rotate_point(*p3, angle, cx, cy),
-            )
-        )
-    return rotated
-
-
-def _line_to_cubic(p0: Point, p3: Point) -> Curve:
-    """Convert a line segment to a cubic bezier (control points at 1/3 and 2/3)."""
-    p1 = (p0[0] + (p3[0] - p0[0]) / 3, p0[1] + (p3[1] - p0[1]) / 3)
-    p2 = (p0[0] + 2 * (p3[0] - p0[0]) / 3, p0[1] + 2 * (p3[1] - p0[1]) / 3)
-    return (p0, p1, p2, p3)
-
-
-def make_ellipse(
-    cx: float, cy: float, rx: float, ry: float, angle: float = 0.0
-) -> list[Curve]:
-    """
-    Create an ellipse as 4 cubic bezier curves.
-
-    Args:
-        cx, cy: Center position.
-        rx, ry: Radii along x and y axes (before rotation).
-        angle: Rotation angle in radians.
-
-    Returns:
-        List of 4 Curve tuples forming a closed ellipse.
-    """
-    kx = KAPPA * rx
-    ky = KAPPA * ry
-
-    # 4 quadrants, starting from rightmost point, going clockwise
-    curves = [
-        # Right to bottom
-        ((cx + rx, cy), (cx + rx, cy + ky), (cx + kx, cy + ry), (cx, cy + ry)),
-        # Bottom to left
-        ((cx, cy + ry), (cx - kx, cy + ry), (cx - rx, cy + ky), (cx - rx, cy)),
-        # Left to top
-        ((cx - rx, cy), (cx - rx, cy - ky), (cx - kx, cy - ry), (cx, cy - ry)),
-        # Top to right
-        ((cx, cy - ry), (cx + kx, cy - ry), (cx + rx, cy - ky), (cx + rx, cy)),
-    ]
-
-    if angle != 0.0:
-        curves = _rotate_curves(curves, angle, cx, cy)
-
-    return curves
-
-
-def make_rectangle(
-    cx: float, cy: float, w: float, h: float, angle: float = 0.0
-) -> list[Curve]:
-    """
-    Create a rectangle as 4 cubic bezier line segments.
-
-    Args:
-        cx, cy: Center position.
-        w, h: Width and height.
-        angle: Rotation angle in radians.
-
-    Returns:
-        List of 4 Curve tuples forming a closed rectangle.
-    """
-    hw, hh = w / 2, h / 2
-    corners = [
-        (cx - hw, cy - hh),  # top-left
-        (cx + hw, cy - hh),  # top-right
-        (cx + hw, cy + hh),  # bottom-right
-        (cx - hw, cy + hh),  # bottom-left
-    ]
-
-    curves = []
-    for i in range(4):
-        curves.append(_line_to_cubic(corners[i], corners[(i + 1) % 4]))
-
-    if angle != 0.0:
-        curves = _rotate_curves(curves, angle, cx, cy)
-
-    return curves
-
-
-def make_triangle(
-    cx: float, cy: float, size: float, angle: float = 0.0
-) -> list[Curve]:
-    """
-    Create an equilateral triangle as 3 cubic bezier line segments.
-
-    Args:
-        cx, cy: Center position.
-        size: Distance from center to vertices.
-        angle: Rotation angle in radians.
-
-    Returns:
-        List of 3 Curve tuples forming a closed triangle.
-    """
-    vertices = []
-    for i in range(3):
-        a = angle + i * 2 * math.pi / 3 - math.pi / 2  # start from top
-        vertices.append((cx + size * math.cos(a), cy + size * math.sin(a)))
-
-    curves = []
-    for i in range(3):
-        curves.append(_line_to_cubic(vertices[i], vertices[(i + 1) % 3]))
-
-    return curves
-
-
-def make_regular_polygon(
-    cx: float, cy: float, size: float, n_sides: int, angle: float = 0.0
-) -> list[Curve]:
-    """
-    Create a regular polygon as cubic bezier line segments.
-
-    Args:
-        cx, cy: Center position.
-        size: Distance from center to vertices.
-        n_sides: Number of sides (3=triangle, 5=pentagon, 6=hexagon, etc.).
-        angle: Rotation angle in radians.
-
-    Returns:
-        List of n_sides Curve tuples forming a closed polygon.
-    """
-    vertices = []
-    for i in range(n_sides):
-        a = angle + i * 2 * math.pi / n_sides - math.pi / 2
-        vertices.append((cx + size * math.cos(a), cy + size * math.sin(a)))
-
-    curves = []
-    for i in range(n_sides):
-        curves.append(_line_to_cubic(vertices[i], vertices[(i + 1) % n_sides]))
-
-    return curves
-
-
-def make_star(
-    cx: float,
-    cy: float,
-    outer_r: float,
-    inner_r: float,
-    n_points: int,
-    angle: float = 0.0,
-) -> list[Curve]:
-    """
-    Create a star shape as cubic bezier line segments.
-
-    Args:
-        cx, cy: Center position.
-        outer_r: Outer radius (tips of the star).
-        inner_r: Inner radius (indentations).
-        n_points: Number of points on the star.
-        angle: Rotation angle in radians.
-
-    Returns:
-        List of 2*n_points Curve tuples forming a closed star.
-    """
-    vertices = []
-    for i in range(2 * n_points):
-        a = angle + i * math.pi / n_points - math.pi / 2
-        r = outer_r if i % 2 == 0 else inner_r
-        vertices.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-
-    curves = []
-    n = len(vertices)
-    for i in range(n):
-        curves.append(_line_to_cubic(vertices[i], vertices[(i + 1) % n]))
-
-    return curves
-
-
-"""
-Synthetic dataset generator for random geometric shapes.
-
 Generates random scenes of geometric primitives, organic blobs, and compound
 shapes as BezierShape objects, compatible with the existing representation pipeline.
 """
@@ -274,6 +63,55 @@ def _polygon_to_curves(vertices: list[Point]) -> list[Curve]:
     """Convert a closed polygon (vertex list) to cubic bezier line segments."""
     n = len(vertices)
     return [_line_to_cubic(vertices[i], vertices[(i + 1) % n]) for i in range(n)]
+
+
+def _reverse_curves(curves: list[Curve]) -> list[Curve]:
+    """
+    Reverse the winding direction of a closed curve loop.
+
+    Each cubic bezier (p0, p1, p2, p3) becomes (p3, p2, p1, p0), and the
+    order of curves in the list is reversed. This flips CW <-> CCW.
+    """
+    return [(p3, p2, p1, p0) for p0, p1, p2, p3 in reversed(curves)]
+
+
+def _curves_signed_area(curves: list[Curve]) -> float:
+    """
+    Compute the signed area enclosed by a closed bezier curve loop using
+    the shoelace formula on segment endpoints. Positive = CCW, negative = CW.
+    """
+    area = 0.0
+    for p0, _, _, p3 in curves:
+        area += p0[0] * p3[1] - p3[0] * p0[1]
+    return area / 2.0
+
+
+def _ensure_ccw(curves: list[Curve]) -> list[Curve]:
+    """Ensure curves wind counter-clockwise (positive signed area)."""
+    if _curves_signed_area(curves) < 0:
+        return _reverse_curves(curves)
+    return curves
+
+
+def _ensure_cw(curves: list[Curve]) -> list[Curve]:
+    """Ensure curves wind clockwise (negative signed area) -- used for holes."""
+    if _curves_signed_area(curves) > 0:
+        return _reverse_curves(curves)
+    return curves
+
+
+def _curves_bounding_box(curves: list[Curve]) -> tuple[float, float, float, float]:
+    """
+    Compute axis-aligned bounding box of curves from endpoint positions.
+    Returns (min_x, min_y, max_x, max_y).
+    """
+    xs = []
+    ys = []
+    for p0, p1, p2, p3 in curves:
+        for p in (p0, p1, p2, p3):
+            xs.append(p[0])
+            ys.append(p[1])
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 def _arc_points(
@@ -830,6 +668,144 @@ def _estimate_extent(shape_type: str, params: dict) -> float:
     return params.get("size", params.get("base_radius", 50))
 
 
+# ---------------------------------------------------------------------------
+# Hole generation
+# ---------------------------------------------------------------------------
+
+# Shape types suitable for use as holes (must be simple closed contours).
+# Crescents and ring_sectors are excluded -- they have concavities that make
+# containment harder to guarantee.
+HOLE_SHAPES = [
+    "circle", "oval", "square", "rectangle", "triangle",
+    "pentagon", "hexagon", "star",
+    "blob_smooth", "blob_rough",
+    "rounded_rect", "trapezoid", "parallelogram",
+]
+
+
+def _generate_hole_curves(
+    outer_curves: list[Curve],
+    rng: random.Random,
+    max_scale: float = 0.55,
+    min_scale: float = 0.15,
+) -> list[Curve] | None:
+    """
+    Generate a hole shape that fits inside the outer contour.
+
+    Strategy:
+      1. Compute bounding box of the outer contour.
+      2. Pick a random hole shape type.
+      3. Generate the hole at the center of the bounding box with a size
+         that is a random fraction (min_scale..max_scale) of the outer bbox.
+      4. Apply a random sub-offset so the hole isn't always dead-center,
+         but stays well within the outer bounds.
+      5. Ensure the hole winds CW (opposite of the CCW outer contour) so
+         the nonzero fill rule cuts it out.
+
+    Returns:
+        CW-wound curve list for the hole, or None if the outer shape is
+        too small.
+    """
+    min_x, min_y, max_x, max_y = _curves_bounding_box(outer_curves)
+    bbox_w = max_x - min_x
+    bbox_h = max_y - min_y
+
+    if bbox_w < 4 or bbox_h < 4:
+        return None
+
+    # Center of the outer shape's bounding box
+    bbox_cx = (min_x + max_x) / 2
+    bbox_cy = (min_y + max_y) / 2
+
+    # Hole size relative to outer bbox
+    scale = rng.uniform(min_scale, max_scale)
+    hole_extent = min(bbox_w, bbox_h) * scale / 2  # half-size
+
+    # Random offset from center, constrained so hole stays inside outer bbox.
+    # The hole's bbox half-size is roughly hole_extent, so keep the center
+    # within (bbox_center +/- (bbox_half - hole_extent * margin)).
+    margin = 1.3  # safety factor
+    max_dx = max(0.0, bbox_w / 2 - hole_extent * margin)
+    max_dy = max(0.0, bbox_h / 2 - hole_extent * margin)
+    hole_cx = bbox_cx + rng.uniform(-max_dx, max_dx)
+    hole_cy = bbox_cy + rng.uniform(-max_dy, max_dy)
+
+    angle = rng.uniform(0, 2 * math.pi)
+    hole_type = rng.choice(HOLE_SHAPES)
+
+    # Generate hole curves centered at (hole_cx, hole_cy)
+    if hole_type == "circle":
+        curves = make_ellipse(hole_cx, hole_cy, hole_extent, hole_extent)
+
+    elif hole_type == "oval":
+        rx = hole_extent * rng.uniform(0.5, 1.0)
+        ry = hole_extent * rng.uniform(0.5, 1.0)
+        curves = make_ellipse(hole_cx, hole_cy, rx, ry, angle=angle)
+
+    elif hole_type == "square":
+        # Side length: hole_extent * sqrt(2) would touch bbox corners, so
+        # use hole_extent directly for a safe inscribed square.
+        curves = make_rectangle(hole_cx, hole_cy, hole_extent * 1.3, hole_extent * 1.3, angle=angle)
+
+    elif hole_type == "rectangle":
+        w = hole_extent * rng.uniform(1.0, 1.6)
+        h = hole_extent * rng.uniform(1.0, 1.6)
+        curves = make_rectangle(hole_cx, hole_cy, w, h, angle=angle)
+
+    elif hole_type == "triangle":
+        curves = make_triangle(hole_cx, hole_cy, hole_extent, angle=angle)
+
+    elif hole_type == "pentagon":
+        curves = make_regular_polygon(hole_cx, hole_cy, hole_extent, 5, angle=angle)
+
+    elif hole_type == "hexagon":
+        curves = make_regular_polygon(hole_cx, hole_cy, hole_extent, 6, angle=angle)
+
+    elif hole_type == "star":
+        inner_r = hole_extent * rng.uniform(0.3, 0.6)
+        n_points = rng.choice([4, 5, 6])
+        curves = make_star(hole_cx, hole_cy, hole_extent, inner_r, n_points, angle=angle)
+
+    elif hole_type == "blob_smooth":
+        n_pts = rng.randint(5, 10)
+        curves = make_blob(hole_cx, hole_cy, hole_extent * 0.8, n_pts,
+                           irregularity=rng.uniform(0.0, 0.3),
+                           spikiness=rng.uniform(0.05, 0.2),
+                           angle=angle, rng=rng)
+
+    elif hole_type == "blob_rough":
+        n_pts = rng.randint(6, 12)
+        curves = make_blob(hole_cx, hole_cy, hole_extent * 0.7, n_pts,
+                           irregularity=rng.uniform(0.2, 0.5),
+                           spikiness=rng.uniform(0.15, 0.4),
+                           angle=angle, rng=rng)
+
+    elif hole_type == "rounded_rect":
+        w = hole_extent * rng.uniform(1.0, 1.5)
+        h = hole_extent * rng.uniform(1.0, 1.5)
+        cr = min(w, h) * rng.uniform(0.1, 0.4)
+        curves = make_rounded_rectangle(hole_cx, hole_cy, w, h, cr, angle=angle)
+
+    elif hole_type == "trapezoid":
+        tw = hole_extent * rng.uniform(0.6, 1.2)
+        bw = hole_extent * rng.uniform(0.8, 1.4)
+        th = hole_extent * rng.uniform(0.8, 1.4)
+        curves = make_trapezoid(hole_cx, hole_cy, tw, bw, th, angle=angle)
+
+    elif hole_type == "parallelogram":
+        w = hole_extent * rng.uniform(1.0, 1.5)
+        h = hole_extent * rng.uniform(0.6, 1.2)
+        skew = w * rng.uniform(0.1, 0.3)
+        curves = make_parallelogram(hole_cx, hole_cy, w, h, skew, angle=angle)
+
+    else:
+        return None
+
+    # Ensure hole winds CW (opposite of CCW outer contour)
+    curves = _ensure_cw(curves)
+    return curves
+
+
 def generate_random_shape(
     canvas_w: float, canvas_h: float, rng: random.Random | None = None
 ) -> BezierShape:
@@ -999,8 +975,21 @@ def generate_random_shape(
     else:
         raise ValueError(f"Unknown shape type: {shape_type}")
 
-    path = BezierPath(curves)
-    return BezierShape(paths=[path], color=color, opacity=opacity)
+    # Ensure outer contour is CCW
+    curves = _ensure_ccw(curves)
+
+    # Randomly add holes (~25% chance, skip for very small or concave shapes)
+    paths = [BezierPath(curves)]
+    # Shapes that are already concave or thin — holes would look odd or escape
+    skip_holes = {"crescent", "ring_sector", "star", "cross", "arrow", "l_shape"}
+    if shape_type not in skip_holes and r.random() < 0.25:
+        n_holes = r.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
+        for _ in range(n_holes):
+            hole_curves = _generate_hole_curves(curves, rng=r)
+            if hole_curves is not None:
+                paths.append(BezierPath(hole_curves))
+
+    return BezierShape(paths=paths, color=color, opacity=opacity)
 
 
 def generate_random_scene(
