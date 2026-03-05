@@ -1046,6 +1046,7 @@ class SyntheticBezierDataset(Dataset):
         min_shapes: int = 1,
         max_shapes: int = 10,
         base_seed: int = 42,
+        epoch: int = 0,
     ):
         """
         Args:
@@ -1055,6 +1056,7 @@ class SyntheticBezierDataset(Dataset):
             min_shapes: Minimum shapes per scene.
             max_shapes: Maximum shapes per scene.
             base_seed: Base seed; each index gets seed = base_seed + idx.
+            epoch: Epoch offset used for seeding synthetic scenes.
         """
         self.length = length
         self.canvas_size = canvas_size
@@ -1062,6 +1064,7 @@ class SyntheticBezierDataset(Dataset):
         self.min_shapes = min_shapes
         self.max_shapes = max_shapes
         self.base_seed = base_seed
+        self.epoch = epoch
 
         self.processor = AutoImageProcessor.from_pretrained(
             "facebook/dinov3-vits16-pretrain-lvd1689m"
@@ -1070,9 +1073,13 @@ class SyntheticBezierDataset(Dataset):
     def __len__(self):
         return self.length
 
+    def set_epoch(self, epoch: int):
+        print(f"Setting SyntheticBezierDataset epoch to {epoch}")
+        self.epoch = epoch
+
     def __getitem__(self, idx):
-        # Deterministic per-index seed for reproducibility within an epoch
-        seed = self.base_seed + idx
+        # Deterministic per-index seed, shifted each epoch.
+        seed = self.base_seed + idx + self.epoch * self.length
 
         shapes = generate_random_scene(
             canvas_w=self.canvas_size,

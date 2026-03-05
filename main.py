@@ -38,9 +38,9 @@ def train(
     module = FlowMatchingTransformer(
         input_dim=13,
         cond_dim=384,
-        hidden_size=512,
-        num_layers=6,
-        num_heads=8,
+        hidden_size=768,
+        num_layers=16,
+        num_heads=12,
         max_len=256,
     )
 

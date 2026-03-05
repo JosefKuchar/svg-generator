@@ -476,6 +476,11 @@ class FlowMatchingTransformer(pl.LightningModule):
         self.log("train_loss", loss)
         return loss
 
+    def on_train_epoch_start(self):
+        datamodule = self.trainer.datamodule
+        if hasattr(datamodule, "set_synthetic_epoch"):
+            datamodule.set_synthetic_epoch(self.current_epoch)
+
     def configure_optimizers(self):
         return torch.optim.AdamW(
             self.parameters(), lr=self.hparams.learning_rate, eps=1e-5

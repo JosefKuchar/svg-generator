@@ -145,16 +145,26 @@ class DataModule(pl.LightningDataModule):
         self.synthetic_min_shapes = synthetic_min_shapes
         self.synthetic_max_shapes = synthetic_max_shapes
         self.synthetic_canvas_size = synthetic_canvas_size
+        self.synthetic_epoch = 0
+        self._train_synthetic_dataset = None
+
+    def set_synthetic_epoch(self, epoch: int):
+        self.synthetic_epoch = epoch
+        if self._train_synthetic_dataset is not None:
+            self._train_synthetic_dataset.set_epoch(epoch)
 
     def train_dataloader(self):
         if self.synthetic:
-            dataset = SyntheticBezierDataset(
-                length=self.synthetic_length,
-                canvas_size=self.synthetic_canvas_size,
-                max_segments=self.max_segments,
-                min_shapes=self.synthetic_min_shapes,
-                max_shapes=self.synthetic_max_shapes,
-            )
+            if self._train_synthetic_dataset is None:
+                self._train_synthetic_dataset = SyntheticBezierDataset(
+                    length=self.synthetic_length,
+                    canvas_size=self.synthetic_canvas_size,
+                    max_segments=self.max_segments,
+                    min_shapes=self.synthetic_min_shapes,
+                    max_shapes=self.synthetic_max_shapes,
+                )
+            self._train_synthetic_dataset.set_epoch(self.synthetic_epoch)
+            dataset = self._train_synthetic_dataset
         else:
             dataset = BezierDataset(
                 split="train",
@@ -184,13 +194,9 @@ class DataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         if self.synthetic:
-            val_dataset = SyntheticSamplingDataset(
+            val_dataset = ValidationSamplingDataset(
                 num_samples=self.val_num_samples,
-                canvas_size=self.synthetic_canvas_size,
                 max_segments=self.max_segments,
-                min_shapes=self.synthetic_min_shapes,
-                max_shapes=self.synthetic_max_shapes,
-                base_seed=999_999,
             )
             train_sample_dataset = SyntheticSamplingDataset(
                 num_samples=self.val_num_samples,
