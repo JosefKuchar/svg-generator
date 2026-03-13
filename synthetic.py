@@ -1105,9 +1105,10 @@ class SyntheticBezierDataset(Dataset):
         image = render_svg_bg(svg_content).convert("RGB")
 
         # Process through DINOv3 image processor
+        # squeeze(0) removes the batch dim added by return_tensors="pt"
         image_tensor = self.processor(images=image, return_tensors="pt")[
             "pixel_values"
-        ]
+        ].squeeze(0)
 
         return curve_tensor, image_tensor
 
