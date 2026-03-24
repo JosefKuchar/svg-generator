@@ -4,6 +4,7 @@ from typing import Optional
 from model import FlowMatchingTransformer
 from dataset import DataModule
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
 
@@ -32,6 +33,11 @@ def train(
     synthetic_max_shapes: int = typer.Option(
         10, help="Maximum shapes per synthetic scene"
     ),
+    keep_n_checkpoints: int = typer.Option(
+        5,
+        min=1,
+        help="Keep best N checkpoints by train inference image MSE",
+    ),
 ):
     torch.set_float32_matmul_precision("medium")
 
@@ -47,12 +53,21 @@ def train(
     wandb_logger = WandbLogger(project="svg-generator")
     wandb_logger.watch(module)
 
+    checkpoint_callback = ModelCheckpoint(
+        monitor="train_inference/image_mse",
+        mode="min",
+        save_top_k=keep_n_checkpoints,
+        filename="epoch{epoch:04d}",
+        auto_insert_metric_name=False,
+    )
+
     trainer = pl.Trainer(
         max_epochs=-1,
         accelerator="auto",
         precision="bf16-mixed",
         gradient_clip_val=1.0,
         logger=wandb_logger,
+        callbacks=[checkpoint_callback],
     )
     trainer.fit(
         module,
