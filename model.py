@@ -333,6 +333,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         dropout: int = 0.1,
         cond_drop_prob: float = 0.1,  # Probability to drop conditioning
         learning_rate: float = 1e-4,
+        image_encoder_learning_rate: float = 1e-5,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -343,8 +344,6 @@ class FlowMatchingTransformer(pl.LightningModule):
             dtype=torch.bfloat16,
             device_map="auto",
         )
-        self.image_encoder.requires_grad_(False)
-        self.image_encoder.eval()
 
         # 1. Embeddings
         self.x_embedder = nn.Linear(input_dim, hidden_size)
@@ -442,10 +441,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         batch_size = x_1.size(0)
         device = x_1.device
 
-        # Use no_grad (not inference_mode) so cond can still be used in autograd graph
-        # for downstream trainable layers (e.g., c_embedder weight gradients).
-        with torch.no_grad():
-            cond = self.image_encoder(pixel_values=images).last_hidden_state
+        cond = self.image_encoder(pixel_values=images).last_hidden_state
 
         # 1. Sample Time t ~ Logit-Normal
         # Sample from normal, then apply sigmoid to get t in [0, 1]
@@ -482,8 +478,23 @@ class FlowMatchingTransformer(pl.LightningModule):
             datamodule.set_synthetic_epoch(self.current_epoch)
 
     def configure_optimizers(self):
+        image_encoder_param_ids = {id(p) for p in self.image_encoder.parameters()}
+        other_params = [
+            p for p in self.parameters() if id(p) not in image_encoder_param_ids
+        ]
+
         return torch.optim.AdamW(
-            self.parameters(), lr=self.hparams.learning_rate, eps=1e-5
+            [
+                {
+                    "params": other_params,
+                    "lr": self.hparams.learning_rate,
+                },
+                {
+                    "params": self.image_encoder.parameters(),
+                    "lr": self.hparams.image_encoder_learning_rate,
+                },
+            ],
+            eps=1e-5,
         )
 
     def _compute_validation_metrics(self, samples: torch.Tensor) -> dict:
