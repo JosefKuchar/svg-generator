@@ -434,6 +434,11 @@ class FlowMatchingTransformer(pl.LightningModule):
         return output
 
     def training_step(self, batch, batch_idx):
+        loss = self._compute_flow_matching_loss(batch, use_cond_dropout=True)
+        self.log("train_loss", loss)
+        return loss
+
+    def _compute_flow_matching_loss(self, batch, use_cond_dropout):
         # x_1: Real Data
         # cond: Conditioning
         x_1, images = batch
@@ -461,15 +466,16 @@ class FlowMatchingTransformer(pl.LightningModule):
         target_v = x_1 - x_0
 
         # 5. Classifier-Free Guidance Masking
-        mask_cond = torch.rand(batch_size, device=device) < self.cond_drop_prob
+        if use_cond_dropout:
+            mask_cond = torch.rand(batch_size, device=device) < self.cond_drop_prob
+        else:
+            mask_cond = torch.zeros(batch_size, device=device, dtype=torch.bool)
 
         # 6. Predict and Loss
         pred_v = self(x_t, t, cond, mask_cond=mask_cond)
 
         # 7. Loss computation (MSE on all tokens including padding)
         loss = F.mse_loss(pred_v, target_v)
-
-        self.log("train_loss", loss)
         return loss
 
     def on_train_epoch_start(self):
@@ -600,6 +606,8 @@ class FlowMatchingTransformer(pl.LightningModule):
         dataloader_idx 0: validation data, dataloader_idx 1: train data inference.
         """
         prefix = "val" if dataloader_idx == 0 else "train_inference"
+        loss = self._compute_flow_matching_loss(batch, use_cond_dropout=False)
+        self.log(f"{prefix}/loss", loss, add_dataloader_idx=False)
         self._run_inference_step(batch, prefix)
 
     def _run_inference_step(self, batch, prefix):
@@ -609,7 +617,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         IMG_SIZE = 512  # Output image size
 
         # batch is (curve_tensor, image_tensor)
-        _, images_input = batch
+        target_curves, images_input = batch
         images_input = images_input.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         num_samples = images_input.shape[0]
 
@@ -625,6 +633,10 @@ class FlowMatchingTransformer(pl.LightningModule):
             shape=(num_samples, SAMPLE_SIZE, self.hparams.input_dim),
             seed=VALIDATION_SEED,
         )
+
+        # Curve-space L2/MSE against target curves
+        curve_l2_mse = F.mse_loss(samples, target_curves)
+        self.log(f"{prefix}/curve_l2_mse", curve_l2_mse, add_dataloader_idx=False)
 
         # Compute and log metrics
         metrics = self._compute_validation_metrics(samples)
