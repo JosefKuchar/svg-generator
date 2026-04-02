@@ -1,13 +1,10 @@
-"""
-Inference script for sampling from the FlowMatchingTransformer model.
-Loads the first image from the training dataset and uses it as conditioning.
-"""
+"""Inference script for the autoregressive bezier model."""
 
 import typer
 import torch
 import glob
 import os
-from model import FlowMatchingTransformer
+from model import AutoregressiveTransformer
 from dataset import BezierDataset
 from representation import tensor_to_shapes
 from parsing import save_bezier_shapes_to_svg
@@ -18,8 +15,6 @@ app = typer.Typer()
 
 @app.command()
 def main(
-    steps: int = typer.Option(50, help="Number of sampling steps"),
-    cfg_scale: float = typer.Option(1.0, help="Classifier-free guidance scale"),
     seed: int = typer.Option(42, help="Random seed for reproducibility"),
     output_svg: str = typer.Option("output.svg", help="Output SVG file path"),
     output_png: str = typer.Option("output.png", help="Output PNG file path"),
@@ -29,7 +24,7 @@ def main(
     img_size: int = typer.Option(512, help="Output image size"),
     max_segments: int = typer.Option(256, help="Maximum number of segments"),
 ):
-    """Sample from the FlowMatchingTransformer model using the first training image as conditioning."""
+    """Sample from the autoregressive model using a training image as conditioning."""
 
     torch.set_float32_matmul_precision("medium")
 
@@ -44,7 +39,7 @@ def main(
     print(f"Loading checkpoint: {latest_ckpt}")
 
     # Load model from checkpoint
-    module = FlowMatchingTransformer.load_from_checkpoint(latest_ckpt)
+    module = AutoregressiveTransformer.load_from_checkpoint(latest_ckpt)
     module.eval()
     device = next(module.parameters()).device
     print(f"Model loaded on device: {device}")
@@ -68,11 +63,9 @@ def main(
     print(f"Conditioning shape: {cond.shape}")
 
     # Sample from the model
-    print(f"Sampling with {steps} steps, CFG scale {cfg_scale}, seed {seed}...")
+    print(f"Sampling autoregressively with seed {seed}...")
     samples = module.sample(
         cond,
-        steps=steps,
-        cfg_scale=cfg_scale,
         shape=(1, max_segments, module.hparams.input_dim),
         seed=seed,
     )

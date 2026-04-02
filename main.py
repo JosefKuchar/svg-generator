@@ -1,7 +1,7 @@
 import typer
 import torch
 from typing import Optional
-from model import FlowMatchingTransformer
+from model import AutoregressiveTransformer
 from dataset import DataModule
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -41,7 +41,7 @@ def train(
 ):
     torch.set_float32_matmul_precision("medium")
 
-    module = FlowMatchingTransformer(
+    module = AutoregressiveTransformer(
         input_dim=13,
         cond_dim=384,
         hidden_size=768,
@@ -54,7 +54,7 @@ def train(
     wandb_logger.watch(module)
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="train_inference/image_mse",
+        monitor="val/image_mse",
         mode="min",
         save_top_k=keep_n_checkpoints,
         filename="epoch{epoch:04d}",
