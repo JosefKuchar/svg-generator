@@ -13,6 +13,16 @@ app = typer.Typer()
 
 @app.command()
 def train(
+    batch_size: int = typer.Option(
+        32,
+        min=1,
+        help="Per-step training batch size",
+    ),
+    accumulate_grad_batches: int = typer.Option(
+        8,
+        min=1,
+        help="Gradient accumulation steps to preserve effective batch size",
+    ),
     max_samples: Optional[int] = typer.Option(
         None, help="Limit training dataset size (e.g. 32 for overfit test)"
     ),
@@ -66,12 +76,14 @@ def train(
         accelerator="auto",
         precision="bf16-mixed",
         gradient_clip_val=1.0,
+        accumulate_grad_batches=accumulate_grad_batches,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
     )
     trainer.fit(
         module,
         datamodule=DataModule(
+            batch_size=batch_size,
             max_segments=256,
             max_samples=max_samples,
             train_samples_per_epoch=train_samples_per_epoch,
