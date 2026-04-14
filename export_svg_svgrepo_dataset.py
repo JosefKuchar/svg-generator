@@ -30,6 +30,7 @@ def main(
     height: int = typer.Option(1024, help="Rendered PNG height"),
     start_index: int = typer.Option(0, help="Train split start index"),
     seed: int = typer.Option(42, help="Shuffle seed"),
+    caption_prefix: str = typer.Option("", help="String prefixed to each caption"),
 ):
     """Export mikronai/svg-svgrepo train samples to numbered PNG/TXT pairs."""
 
@@ -57,7 +58,7 @@ def main(
         item = dataset[item_idx]
         stem = f"{output_idx:0{pad_width}d}"
 
-        prompt = _select_largest_prompt(item).strip()
+        prompt = f"{caption_prefix}{_select_largest_prompt(item).strip()}"
         image = render_svg_bg(item["item_svg"], width=width, height=height).convert("RGB")
 
         image.save(out_path / f"{stem}.png")
