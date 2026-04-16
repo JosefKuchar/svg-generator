@@ -1,47 +1,55 @@
 import subprocess
 from io import BytesIO
+
 import numpy as np
 from PIL import Image
 
 
-def render_svg(svg_content: str | bytes) -> Image.Image:
-    # Convert string to bytes if needed
+def _render_svg(
+    svg_content: str | bytes,
+    width: int | None = None,
+    height: int | None = None,
+    background: str | None = None,
+) -> Image.Image:
     if isinstance(svg_content, str):
         svg_content = svg_content.encode("utf-8")
 
+    command = ["resvg", "-"]
+    if width is not None:
+        command.extend(["--width", str(width)])
+    if height is not None:
+        command.extend(["--height", str(height)])
+    if background is not None:
+        command.extend(["--background", background])
+    command.append("-c")
+
     result = subprocess.run(
-        ["resvg", "-", "-c"],
+        command,
         input=svg_content,
         capture_output=True,
         check=True,
     )
 
-    # Load the PNG bytes directly into PIL Image
     image = Image.open(BytesIO(result.stdout))
-    # Ensure the image is loaded into memory
     image.load()
 
     return image
 
 
-def render_svg_bg(svg_content: str | bytes) -> Image.Image:
-    # Convert string to bytes if needed
-    if isinstance(svg_content, str):
-        svg_content = svg_content.encode("utf-8")
+def render_svg(
+    svg_content: str | bytes,
+    width: int | None = None,
+    height: int | None = None,
+) -> Image.Image:
+    return _render_svg(svg_content, width=width, height=height)
 
-    result = subprocess.run(
-        ["resvg", "-", "-c", "--background", "white"],
-        input=svg_content,
-        capture_output=True,
-        check=True,
-    )
 
-    # Load the PNG bytes directly into PIL Image
-    image = Image.open(BytesIO(result.stdout))
-    # Ensure the image is loaded into memory
-    image.load()
-
-    return image
+def render_svg_bg(
+    svg_content: str | bytes,
+    width: int | None = None,
+    height: int | None = None,
+) -> Image.Image:
+    return _render_svg(svg_content, width=width, height=height, background="white")
 
 
 def calculate_mse(img1: Image.Image, img2: Image.Image) -> float:

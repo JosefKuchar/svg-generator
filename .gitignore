@@ -18,3 +18,4 @@ lightning_logs/
 wandb/
 *.ckpt
 bezier_dataset_*/
+z-image-renders/
