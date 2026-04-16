@@ -22,6 +22,19 @@ def _select_largest_prompt(item: dict) -> str:
     return max(texts, key=len)
 
 
+def _select_prompt(item: dict, caption_index: int | None) -> str:
+    texts = item.get("caption_texts") or []
+    if caption_index is None:
+        return _select_largest_prompt(item)
+    if not texts:
+        return item.get("item_title") or item.get("item_slug") or ""
+    if not 0 <= caption_index < len(texts):
+        raise typer.BadParameter(
+            f"caption_index must be between 0 and {len(texts) - 1} for this dataset"
+        )
+    return texts[caption_index]
+
+
 @app.command()
 def main(
     output_dir: str = typer.Option("exports/svg-svgrepo", help="Output directory"),
@@ -31,6 +44,12 @@ def main(
     start_index: int = typer.Option(0, help="Train split start index"),
     seed: int = typer.Option(42, help="Shuffle seed"),
     caption_prefix: str = typer.Option("", help="String prefixed to each caption"),
+    caption_index: int | None = typer.Option(
+        None,
+        min=0,
+        max=3,
+        help="Caption index to export (0-3). Defaults to the longest caption.",
+    ),
 ):
     """Export mikronai/svg-svgrepo train samples to numbered PNG/TXT pairs."""
 
@@ -58,7 +77,7 @@ def main(
         item = dataset[item_idx]
         stem = f"{output_idx:0{pad_width}d}"
 
-        prompt = f"{caption_prefix}{_select_largest_prompt(item).strip()}"
+        prompt = f"{caption_prefix}{_select_prompt(item, caption_index).strip()}"
         image = render_svg_bg(item["item_svg"], width=width, height=height).convert("RGB")
 
         image.save(out_path / f"{stem}.png")

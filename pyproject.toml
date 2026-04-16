@@ -22,6 +22,8 @@ dependencies = [
   "ipykernel>=7.1.0",
   "ipywidgets>=8.1.8",
   "pydantic>=2.12.5",
+  "diffusers>=0.37.1",
+  "peft>=0.19.0",
 ]
 
 [tool.uv.sources]
@@ -31,6 +33,7 @@ torch = [
 torchvision = [
   { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+diffusers = { git = "https://github.com/huggingface/diffusers" }
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
