@@ -1,5 +1,6 @@
 import subprocess
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -50,6 +51,21 @@ def render_svg_bg(
     height: int | None = None,
 ) -> Image.Image:
     return _render_svg(svg_content, width=width, height=height, background="white")
+
+
+def vectorize_image(image_path: str | Path, output_svg_path: str | Path) -> None:
+    subprocess.run(
+        [
+            "vtracer",
+            "--input",
+            str(image_path),
+            "--output",
+            str(output_svg_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def calculate_mse(img1: Image.Image, img2: Image.Image) -> float:
