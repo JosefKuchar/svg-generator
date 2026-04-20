@@ -13,6 +13,7 @@ from raster import render_svg_bg, vectorize_image
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+DEFAULT_METRICS = ["clip_similarity", "dino_similarity", "vectorization_mse"]
 
 app = typer.Typer()
 
@@ -256,9 +257,9 @@ def main(
         ..., exists=True, file_okay=False, dir_okay=True, readable=True
     ),
     metrics: list[str] = typer.Option(
-        ["clip_similarity", "dino_similarity"],
+        DEFAULT_METRICS,
         "--metric",
-        help="Metric to compute. Repeat the option to choose a subset.",
+        help="Metric to compute. Defaults to all metrics; repeat the option to choose a subset.",
     ),
     clip_model: str = typer.Option(
         "openai/clip-vit-base-patch32",
