@@ -1,5 +1,6 @@
 import os
 import subprocess
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
@@ -11,6 +12,7 @@ def has_raster_tool(command: str) -> bool:
     return _resolve_raster_tool(command) is not None
 
 
+@lru_cache(maxsize=None)
 def _resolve_raster_tool(command: str) -> str | None:
     command_path = Path(command).expanduser()
     if command_path.parent != Path("."):
@@ -29,6 +31,7 @@ def _resolve_raster_tool(command: str) -> str | None:
     return None
 
 
+@lru_cache(maxsize=None)
 def _require_raster_tool(command: str) -> str:
     resolved_command = _resolve_raster_tool(command)
     if resolved_command is not None:

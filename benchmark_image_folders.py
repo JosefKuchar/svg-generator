@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
+import os
 from pathlib import Path
 import tempfile
 
@@ -144,20 +146,25 @@ class VectorizationMSEMetric(Metric):
     name = "vectorization_mse"
     input_kind = "folder_b"
 
-    def __init__(self):
+    def __init__(self, workers: int = 1):
         self.total = 0.0
         self.count = 0
+        self.workers = max(1, workers)
 
     def update_folder_image(self, image_path: Path) -> None:
-        original = _open_rgb_image(image_path)
-
-        with tempfile.TemporaryDirectory(prefix="vtracer-") as temp_dir:
-            svg_path = Path(temp_dir) / f"{image_path.stem}.svg"
-            vectorize_image(image_path, svg_path)
-            rerendered = _rasterize_svg(svg_path, width=original.width, height=original.height)
-
-        self.total += _calculate_mse(original, rerendered)
+        mse = _vectorization_mse_for_image(image_path)
+        self.total += mse
         self.count += 1
+
+    def update_folder_batch(self, image_paths: list[Path]) -> None:
+        if self.workers == 1 or len(image_paths) == 1:
+            mses = [_vectorization_mse_for_image(image_path) for image_path in image_paths]
+        else:
+            with ThreadPoolExecutor(max_workers=min(self.workers, len(image_paths))) as executor:
+                mses = list(executor.map(_vectorization_mse_for_image, image_paths))
+
+        self.total += sum(mses)
+        self.count += len(mses)
 
     def compute(self) -> float:
         return self.total / self.count if self.count else 0.0
@@ -170,6 +177,17 @@ def _open_rgb_image(image_path: Path) -> Image.Image:
 def _rasterize_svg(svg_path: Path, width: int, height: int) -> Image.Image:
     svg_content = svg_path.read_bytes()
     return render_svg_bg(svg_content, width=width, height=height).convert("RGB")
+
+
+def _vectorization_mse_for_image(image_path: Path) -> float:
+    original = _open_rgb_image(image_path)
+
+    with tempfile.TemporaryDirectory(prefix="vtracer-") as temp_dir:
+        svg_path = Path(temp_dir) / f"{image_path.stem}.svg"
+        vectorize_image(image_path, svg_path)
+        rerendered = _rasterize_svg(svg_path, width=original.width, height=original.height)
+
+    return _calculate_mse(original, rerendered)
 
 
 def _calculate_mse(image_a: Image.Image, image_b: Image.Image) -> float:
@@ -220,6 +238,7 @@ def _build_metrics(
     device: str,
     clip_model: str,
     dino_model: str,
+    vectorization_workers: int,
     *,
     using_default_metrics: bool,
 ) -> list[Metric]:
@@ -244,7 +263,7 @@ def _build_metrics(
         elif metric_name == "dino_similarity":
             metrics.append(DinoV3SimilarityMetric(device=device, model_name=dino_model))
         elif metric_name == VECTORIZATION_METRIC:
-            metrics.append(VectorizationMSEMetric())
+            metrics.append(VectorizationMSEMetric(workers=vectorization_workers))
         else:
             raise typer.BadParameter(f"Unsupported metric: {metric_name}")
     return metrics
@@ -298,6 +317,11 @@ def main(
         min=1,
         help="How many matching image pairs to process per batch.",
     ),
+    vectorization_workers: int = typer.Option(
+        max(1, min(8, os.cpu_count() or 1)),
+        min=1,
+        help="How many folder_b images to vectorize in parallel for vectorization_mse.",
+    ),
 ):
     """Compare matching images in two folders and print average metrics."""
 
@@ -311,6 +335,7 @@ def main(
         device=device,
         clip_model=clip_model,
         dino_model=dino_model,
+        vectorization_workers=vectorization_workers,
         using_default_metrics=using_default_metrics,
     )
     pair_metrics = [metric for metric in metric_instances if metric.input_kind == "pair"]
