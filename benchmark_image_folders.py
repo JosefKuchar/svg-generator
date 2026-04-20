@@ -9,11 +9,12 @@ import typer
 from PIL import Image
 from tqdm.auto import tqdm
 
-from raster import render_svg_bg, vectorize_image
+from raster import has_raster_tool, render_svg_bg, vectorize_image
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
-DEFAULT_METRICS = ["clip_similarity", "dino_similarity", "vectorization_mse"]
+VECTORIZATION_METRIC = "vectorization_mse"
+DEFAULT_METRICS = ["clip_similarity", "dino_similarity", VECTORIZATION_METRIC]
 
 app = typer.Typer()
 
@@ -215,15 +216,34 @@ def _collect_images(folder: Path) -> dict[str, Path]:
 
 
 def _build_metrics(
-    metric_names: list[str], device: str, clip_model: str, dino_model: str
+    metric_names: list[str],
+    device: str,
+    clip_model: str,
+    dino_model: str,
+    *,
+    using_default_metrics: bool,
 ) -> list[Metric]:
+    requested_vectorization_metric = VECTORIZATION_METRIC in metric_names
+    if requested_vectorization_metric and not using_default_metrics and not has_raster_tool("vtracer"):
+        raise typer.BadParameter(
+            "Metric 'vectorization_mse' requires the 'vtracer' binary on PATH."
+        )
+
+    effective_metric_names = list(metric_names)
+    if using_default_metrics and not has_raster_tool("vtracer"):
+        effective_metric_names = [
+            metric_name
+            for metric_name in effective_metric_names
+            if metric_name != VECTORIZATION_METRIC
+        ]
+
     metrics: list[Metric] = []
-    for metric_name in metric_names:
+    for metric_name in effective_metric_names:
         if metric_name == "clip_similarity":
             metrics.append(ClipSimilarityMetric(device=device, model_name=clip_model))
         elif metric_name == "dino_similarity":
             metrics.append(DinoV3SimilarityMetric(device=device, model_name=dino_model))
-        elif metric_name == "vectorization_mse":
+        elif metric_name == VECTORIZATION_METRIC:
             metrics.append(VectorizationMSEMetric())
         else:
             raise typer.BadParameter(f"Unsupported metric: {metric_name}")
@@ -256,8 +276,8 @@ def main(
     folder_b: Path = typer.Argument(
         ..., exists=True, file_okay=False, dir_okay=True, readable=True
     ),
-    metrics: list[str] = typer.Option(
-        DEFAULT_METRICS,
+    metrics: list[str] | None = typer.Option(
+        None,
         "--metric",
         help="Metric to compute. Defaults to all metrics; repeat the option to choose a subset.",
     ),
@@ -281,11 +301,17 @@ def main(
 ):
     """Compare matching images in two folders and print average metrics."""
 
+    using_default_metrics = metrics is None
+    selected_metrics = list(DEFAULT_METRICS if metrics is None else metrics)
+    if using_default_metrics and not has_raster_tool("vtracer"):
+        print("Skipping vectorization_mse: 'vtracer' is not installed or not on PATH")
+
     metric_instances = _build_metrics(
-        metrics,
+        selected_metrics,
         device=device,
         clip_model=clip_model,
         dino_model=dino_model,
+        using_default_metrics=using_default_metrics,
     )
     pair_metrics = [metric for metric in metric_instances if metric.input_kind == "pair"]
     folder_b_metrics = [metric for metric in metric_instances if metric.input_kind == "folder_b"]
