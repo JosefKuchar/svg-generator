@@ -516,11 +516,166 @@ meta:
   version: "1.0"
 ```
 
+```
+---
+job: "extension"
+config:
+  name: "svg-lora-ablation-4"
+  process:
+    - type: "diffusion_trainer"
+      training_folder: "/var/tmp/xkuchar/ai-toolkit/output"
+      sqlite_db_path: "./aitk_db.db"
+      device: "cuda"
+      trigger_word: null
+      performance_log_every: 10
+      network:
+        type: "lora"
+        linear: 4
+        linear_alpha: 4
+        conv: 16
+        conv_alpha: 16
+        lokr_full_rank: true
+        lokr_factor: -1
+        network_kwargs:
+          ignore_if_contains: []
+      save:
+        dtype: "bf16"
+        save_every: 500
+        max_step_saves_to_keep: 10
+        save_format: "diffusers"
+        push_to_hub: false
+      datasets:
+        - folder_path: "/var/tmp/xkuchar/ai-toolkit/datasets/svg-svgrepo-8000"
+          mask_path: null
+          mask_min_value: 0.1
+          default_caption: ""
+          caption_ext: "txt"
+          caption_dropout_rate: 0.05
+          cache_latents_to_disk: false
+          is_reg: false
+          network_weight: 1
+          resolution:
+            - 1024
+          controls: []
+          shrink_video_to_frames: true
+          num_frames: 1
+          flip_x: false
+          flip_y: false
+          num_repeats: 1
+      train:
+        batch_size: 2
+        bypass_guidance_embedding: false
+        steps: 4000
+        gradient_accumulation: 1
+        train_unet: true
+        train_text_encoder: false
+        gradient_checkpointing: true
+        noise_scheduler: "flowmatch"
+        optimizer: "adamw"
+        timestep_type: "weighted"
+        content_or_style: "balanced"
+        optimizer_params:
+          weight_decay: 0.0001
+        unload_text_encoder: false
+        cache_text_embeddings: false
+        lr: 0.0001
+        ema_config:
+          use_ema: false
+          ema_decay: 0.99
+        skip_first_sample: false
+        force_first_sample: false
+        disable_sampling: false
+        dtype: "bf16"
+        diff_output_preservation: false
+        diff_output_preservation_multiplier: 1
+        diff_output_preservation_class: "person"
+        switch_boundary_every: 1
+        loss_type: "mse"
+      logging:
+        log_every: 1
+        use_ui_logger: true
+      model:
+        name_or_path: "Tongyi-MAI/Z-Image"
+        quantize: false
+        qtype: "qfloat8"
+        quantize_te: false
+        qtype_te: "qfloat8"
+        arch: "zimage"
+        low_vram: false
+        model_kwargs: {}
+        layer_offloading: false
+        layer_offloading_text_encoder_percent: 1
+        layer_offloading_transformer_percent: 1
+      sample:
+        sampler: "flowmatch"
+        sample_every: 500
+        width: 1024
+        height: 1024
+        samples:
+          - prompt: "SVG illustration with white background. Create a simple, minimalist stethoscope design with black tubing, gray earpieces, and a chest piece, embodying medical professionalism and clarity."
+          - prompt: "SVG illustration with white background. Create a sleek, dark gray disc with a white central hole and two small rectangles, accompanied by a bold black downward arrow, symbolizing download."
+          - prompt: "SVG illustration with white background. Create a minimalist design featuring black Tetris blocks stacked unevenly, with a small square piece precariously balanced above, hinting at imminent collapse."
+          - prompt: "SVG illustration with white background. A black silhouette of a person paddling a kayak, with simple waves and a paddle mid-motion, capturing the essence of water sports and recreation."
+          - prompt: "SVG illustration with white background. Create a bold, black silhouette of a single human footprint with four toe circles, emphasizing simplicity and clarity."
+          - prompt: "SVG illustration with white background. Create a minimalist chandelier design with two dark blue glass shades hanging from a central bar, emphasizing clean lines and modern simplicity."
+          - prompt: "SVG illustration with white background. Create a minimalist blue memory card icon with a light blue label and dark blue notches, emphasizing clean lines and simplicity."
+          - prompt: "SVG illustration with white background. Create a bold, red lipstick kiss mark with intricate texture, featuring overlapping lips in a circular pattern, showcasing a vibrant gradient effect."
+        neg: ""
+        seed: 42
+        walk_seed: true
+        guidance_scale: 4
+        sample_steps: 50
+        num_frames: 1
+        fps: 1
+meta:
+  name: "[name]"
+  version: "1.0"
+```
 
 ### EVal
 ```sh
-uv run render_svg_svgrepo_valid.py --batch-size 8 --caption-index 1 --prompt-prefix "SVG illustration with white background. " --output-dir ./z-image-renders/caption-1-prefixed
+uv run z-image-dataset.py --batch-size 8 --caption-index 1 --prompt-prefix "SVG illustration with white background. " --output-dir ./z-image-renders/caption-1-prefixed
+# Base
+uv run z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0
+# Base prefixed
+uv run z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base-prefixed --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0 --prompt-prefix "SVG illustration with white background. "
 ```
 ```sh
 uv run python render_svg_svgrepo_valid_raster.py  --output-dir ./raster/reference
 ```
+
+```sh
+# Metrics
+# Base
+uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/base
+clip_similarity: 0.818210
+dino_similarity: 0.509159
+vectorization_mse: 266.565137
+
+# Base prefixed
+uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/base-prefixed
+clip_similarity: 0.819865
+dino_similarity: 0.545802
+vectorization_mse: 230.160058
+
+# Turbo
+uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo
+clip_similarity: 0.826786
+dino_similarity: 0.509892
+vectorization_mse: 227.691742
+
+# Turbo prefixed
+uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo-prefixed
+clip_similarity: 0.871237
+dino_similarity: 0.583856
+vectorization_mse: 142.711678
+
+# Turbo prefixed with LORA - provisional
+clip_similarity: 0.879104
+dino_similarity: 0.600208
+vectorization_mse: 143.174617
+
+```
+
+LORA transfer
+https://arxiv.org/html/2503.10637v4
