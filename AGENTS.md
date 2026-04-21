@@ -13,3 +13,9 @@ This project is a raster to bezier curve vectorizer. The model is flow matching 
 - `infer.py` - inference script for testing trained models
 - `raster.py` - utilities for raster image processing
 - `parsing.py` - utilities for creating dataset from SVG files
+
+## Thesis text
+This project also includes a thesis text.
+The text is written in Typst, a modern typesetting system. The source files for the text are located in the `text/` directory.
+When writing, use academic style and ensure that the text is well-structured and clear.
+Use `typst compile text/main.typ` to check that the text compiles correctly.
