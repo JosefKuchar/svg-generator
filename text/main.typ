@@ -122,7 +122,7 @@ text-to-image model once a suitable image distribution has been established.
 
 The first stage is based on the pretrained `z-image` family of image-generation
 models. In this work, the goal is not to train such a model from scratch, but
-to adapt it to the target visual domain through low-rank adaptation. A LoRA
+to adapt it to the target visual domain through low-rank adaptation @hu2022lowrank. A LoRA
 module is trained on a dataset of image-text pairs so that the model learns to
 produce raster outputs that better match the desired properties of vector-like
 illustrations. These properties may include simplified composition, cleaner
