@@ -1,4 +1,285 @@
-= Bezier representation
+= Thesis scaffold
+
+This thesis studies a two-stage pipeline for text-driven vector graphics
+generation. In the first stage, a pretrained text-to-image model is adapted to
+generate raster images in a visual domain suitable for subsequent
+vectorization. In the second stage, a custom model is trained from scratch to
+convert the generated raster image into a structured Bezier-based vector
+representation. The main motivation for this decomposition is that high-quality
+text-conditioned image synthesis and topology-aware vector generation pose
+different modeling challenges. Instead of solving both problems inside a single
+model, the proposed approach separates them into two tractable components.
+
+= Introduction
+
+The goal of the work is to generate vector graphics from textual input. Direct
+text-to-vector generation is difficult because the model must simultaneously
+learn semantic grounding, visual composition, geometric structure, and the
+syntactic constraints of vector graphics. A two-stage pipeline offers a more
+modular alternative. First, a text prompt is converted into a raster image by a
+large pretrained generative model. Second, the raster image is translated into
+a vector representation composed of Bezier curves. This separation makes it
+possible to exploit the strengths of modern text-to-image models while
+developing a specialized vectorizer that operates in a well-defined geometric
+output space.
+
+= Prior work
+
+This thesis is related to several research directions at the intersection of
+generative modeling, vector graphics, and multimodal learning. The most
+relevant prior work can be grouped into the following categories.
+
+== Text-to-SVG generation
+
+The closest line of work aims to generate SVG content directly from textual
+descriptions. These approaches typically formulate the problem either as code
+generation, where the model predicts SVG tokens or commands autoregressively,
+or as structured graphics generation, where the model predicts vector objects
+and their attributes in a more constrained representation. The main advantage
+of direct text-to-SVG generation is that it avoids an intermediate raster
+representation and can therefore produce editable vector output in a single
+stage. However, this formulation is challenging because the model must jointly
+learn semantic alignment with text and the geometric and syntactic regularities
+of valid SVG documents.
+
+From the perspective of this thesis, direct text-to-SVG methods are important
+as a conceptual baseline. They address the same end goal as the proposed
+system, but differ in where the complexity is handled. In the direct setting,
+semantic generation and vector-structure generation are solved simultaneously.
+In the present work, these two difficulties are separated into a raster
+generation stage and a dedicated vectorization stage.
+
+// TODO: Add key text-to-SVG papers and compare their output representation,
+// training objective, and editing capabilities.
+
+== Image-to-SVG and vectorization methods
+
+A second related area consists of methods that convert raster images into
+vector graphics. Classical vectorization systems rely on contour extraction,
+polygon fitting, spline fitting, or optimization-based refinement. More recent
+learning-based approaches predict vector primitives directly from raster input,
+often using transformers, diffusion models, or autoregressive decoders. These
+methods are highly relevant to the second stage of the proposed pipeline,
+because they focus on the structured reconstruction problem independently of
+text conditioning.
+
+The model proposed in this thesis belongs primarily to this category, but it
+differs in the use of flow matching and in the specific Bezier-segment
+representation employed for training and decoding.
+
+// TODO: Add representative classical and neural vectorization methods.
+
+== Text-to-image models adapted for vector graphics
+
+Another important line of prior work concerns large text-to-image models that
+are adapted to generate images in a style suitable for graphic design,
+illustration, icons, or symbol-like imagery. Even when such models do not
+produce vector output directly, they can provide strong semantic grounding and
+composition capabilities. This idea motivates the first stage of the proposed
+pipeline, where a pretrained text-to-image model is adapted through LoRA and
+used as a controllable raster generator.
+
+This category is important because it justifies the decomposition adopted in
+this thesis. If a text-to-image model can be specialized to generate
+vectorization-friendly raster images, then the semantic burden of text
+understanding can be largely delegated to that model, while the second stage
+can focus on geometric reconstruction.
+
+// TODO: Add references on LoRA adaptation and text-to-image models used for
+// stylized or domain-specific generation.
+
+== Position of this work
+
+The proposed method combines ideas from the above areas but occupies a distinct
+position. It is not a direct text-to-SVG generator, because it introduces an
+intermediate raster representation. It is also not a generic text-to-image
+system, because its raster output is explicitly optimized for subsequent
+vectorization. Finally, although the second stage is a vectorization model, it
+is designed as part of a larger multimodal pipeline rather than as an isolated
+image-processing tool. This combination defines the main contribution of the
+thesis: a modular text-to-vector pipeline in which semantic generation and
+structured geometric generation are addressed by separate but compatible models.
+
+= Proposed pipeline
+
+The proposed system consists of the following two stages:
+
+- Stage 1: text-to-raster generation. A pretrained `z-image` model is adapted
+  with a LoRA module so that it produces images with characteristics suitable
+  for vector graphics generation. The adapted weights are then applied in the
+  accelerated `Z-Image-Turbo` pipeline for efficient inference.
+- Stage 2: raster-to-vector generation. A custom conditional flow-matching
+  model is trained from scratch to convert the raster image into a sequence of
+  Bezier-segment descriptors, which can then be decoded into SVG paths.
+
+From a methodological perspective, the first stage addresses semantic image
+synthesis from text, while the second stage addresses structured geometric
+reconstruction. The interface between the two stages is the raster image
+itself, which allows the vectorization model to be trained independently of the
+text-to-image model once a suitable image distribution has been established.
+
+= Stage 1: Text-to-raster generation
+
+The first stage is based on the pretrained `z-image` family of image-generation
+models. In this work, the goal is not to train such a model from scratch, but
+to adapt it to the target visual domain through low-rank adaptation. A LoRA
+module is trained on a dataset of image-text pairs so that the model learns to
+produce raster outputs that better match the desired properties of vector-like
+illustrations. These properties may include simplified composition, cleaner
+silhouettes, reduced texture complexity, and visual styles that are easier to
+approximate by Bezier curves.
+
+The LoRA adaptation was trained using the AI-Toolkit framework with the AdamW
+optimizer and a learning rate of $1 times 10^(-4)$. This configuration was used
+as the default starting point for the Stage 1 adaptation experiments.
+
+For inference, the base `z-image` model and the accelerated `Z-Image-Turbo`
+model were evaluated with different sampling settings. The base model was
+sampled with 50 denoising steps and classifier-free guidance scale 4. By
+contrast, `Z-Image-Turbo` was sampled with 8 denoising steps and without
+classifier-free guidance, because the turbo model is guidance-distilled and is
+intended to operate without an explicit CFG term at inference time.
+
+After training, the learned LoRA weights are loaded into the `Z-Image-Turbo`
+pipeline for fast sampling. This design preserves the knowledge of the original
+pretrained model while making inference substantially more efficient than full
+base-model fine-tuning. The first stage of the thesis should therefore explain
+the following aspects:
+
+- the choice of the base `z-image` model,
+- the motivation for LoRA-based adaptation,
+- the training data used for adaptation,
+- the prompt design and inference configuration, including the prompt prefix
+  `SVG illustration with white background. `,
+- the transfer of the learned LoRA weights to `Z-Image-Turbo`.
+
+At this point, this section serves primarily as structural scaffolding. The
+detailed experimental and implementation description of the LoRA training
+procedure can be filled in later.
+
+A preliminary comparison of several Stage 1 variants is shown in the following
+table. The compared variants include the base `z-image` model, prompt-prefixing
+strategies, the accelerated `Z-Image-Turbo` model, and a provisional LoRA
+adaptation applied to the turbo pipeline. Higher CLIP and DINO similarity
+indicate better alignment with the reference images, whereas lower
+vectorization MSE indicates that the generated raster outputs are easier to
+convert in the second stage. CLIP-based and DINO-based similarity measures are
+also relevant because they have been reported to correlate well with human
+preference in vector-graphics evaluation @rodriguez2024starvector.
+
+#figure(
+  table(
+    columns: (2.5fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center),
+    inset: 6pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Variant],
+      [CLIP similarity ↑],
+      [DINO similarity ↑],
+      [Vectorization MSE ↓],
+    ),
+    [Base],
+    [0.818210],
+    [0.509159],
+    [266.565137],
+    [Base prefixed],
+    [0.819865],
+    [0.545802],
+    [230.160058],
+    [Turbo],
+    [0.826786],
+    [0.509892],
+    [227.691742],
+    [Turbo prefixed],
+    [0.871237],
+    [0.583856],
+    [142.711678],
+    [Turbo prefixed + LoRA (provisional)],
+    [0.879104],
+    [0.600208],
+    [143.174617],
+  ),
+  caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
+)
+
+The results suggest that prompt prefixing has a substantial effect, especially
+for the turbo model. The best overall semantic similarity is obtained by the
+provisional `Turbo prefixed + LoRA` configuration, while the lowest
+vectorization error is achieved by `Turbo prefixed`. This indicates that the
+adapted LoRA model improves perceptual alignment with the references, but its
+advantage with respect to downstream vectorization should be verified on a
+larger evaluation.
+
+// TODO: Insert ablation table comparing LoRA rank and training-step count.
+
+= Stage 2: Raster-to-vector generation
+
+The second stage is the main methodological contribution of this work. It takes
+as input a raster image, either drawn from the real dataset or generated by the
+first stage, and predicts a structured vector representation based on Bezier
+curves. Unlike the first stage, this model is developed and trained from
+scratch specifically for the vectorization task. The following sections
+describe the representation, data preparation, synthetic data generation, and
+the architecture of the proposed raster-to-vector model.
+
+== Training procedure
+
+The raster-to-vector model is trained in two consecutive phases. The first
+phase consists of pretraining on synthetic data generated procedurally in the
+Bezier representation. The second phase consists of fine-tuning on the SVG
+dataset derived from real vector graphics. This training schedule is motivated
+by the observation that synthetic data and real SVG data provide complementary
+advantages. Synthetic data offer unlimited quantity and precise control over
+geometric variation, while real SVG data provide more realistic structure,
+stylistic diversity, and distributional properties closer to the target use
+case.
+
+=== Pretraining on synthetic data
+
+In the first phase, the model is exposed to procedurally generated scenes
+containing simple primitives, compound shapes, blobs, and shapes with holes.
+Because these data are generated directly in the target Bezier representation,
+they are guaranteed to be geometrically valid and structurally consistent. This
+stage is intended to teach the model the basic grammar of vector graphics:
+curve continuity, path organization, contour winding, color consistency within
+shapes, and the general relationship between raster appearance and vector
+structure.
+
+Synthetic pretraining is expected to be particularly useful in the early stages
+of optimization, when the model must first learn how valid Bezier-based shapes
+behave before it can model the greater complexity of real-world SVG content.
+The effectively unlimited size of the synthetic dataset also reduces the risk
+of overfitting and allows controlled experiments with scene complexity, segment
+count, and object diversity.
+
+In the current experimental setup, synthetic pretraining was performed on a
+single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
+
+// TODO: Add exact pretraining configuration, including number of epochs,
+// synthetic scene parameters, optimizer settings, and checkpoint selection.
+
+=== Fine-tuning on the SVG dataset
+
+After pretraining, the model is fine-tuned on a dataset obtained from real SVG
+files converted into the internal Bezier representation. This stage adapts the
+model from the simplified synthetic distribution to the more heterogeneous and
+stylized distribution of real vector graphics. Compared with the synthetic
+generator, real SVG data contain richer compositions, more varied contour
+structures, and a broader range of design conventions. Fine-tuning therefore
+serves to align the model with the final task distribution.
+
+Conceptually, the second phase can be viewed as domain adaptation. The model
+enters this phase already equipped with a prior over valid vector geometry and
+must then specialize that prior to the statistics of the target dataset. This
+two-stage training procedure is expected to be more data-efficient and more
+stable than training exclusively on the real SVG dataset from random
+initialization.
+
+// TODO: Add fine-tuning details, including dataset split, learning-rate
+// schedule, stopping criterion, and comparison against training from scratch.
+
+== Bezier representation
 
 The vector output used throughout this work is based on a hierarchical
 representation consisting of shapes, paths, and individual Bezier segments.
@@ -65,7 +346,7 @@ with the last segment connected back to the first. This yields a compact
 sequence representation that is convenient for neural prediction while still
 preserving the topology required for valid SVG reconstruction.
 
-= SVG Conversion to Bezier Representation
+== SVG Conversion to Bezier Representation
 
 The source dataset contains SVG files whose graphical content may be expressed
 using a heterogeneous set of primitives, transformations, and grouping
@@ -131,7 +412,7 @@ parser is therefore a list of shapes in the same hierarchical form that is
 subsequently transformed into the fixed-length tensor representation used for
 training.
 
-= Synthetic data generator
+== Synthetic data generator
 
 In addition to SVG data collected from external sources, this work uses a
 synthetic data generator implemented in `synthetic.py`. Its purpose is to
@@ -219,7 +500,7 @@ segments and a corresponding conditioning raster image. This makes the
 synthetic generator a drop-in replacement for supervised training and
 qualitative sampling.
 
-= Model architecture
+== Model architecture
 
 The predictive model is implemented in `model.py` as a conditional flow-matching
 transformer. Its input consists of two parts: a sequence of noisy Bezier-segment
@@ -318,3 +599,7 @@ the required intermediate velocities. The final state is interpreted as a
 predicted Bezier tensor, which is subsequently converted back to vector shapes
 and rendered as SVG. This sampling procedure is deterministic for fixed initial
 noise, fixed conditioning, and fixed integration parameters.
+
+= Bibliography
+
+#bibliography("references.bib")
