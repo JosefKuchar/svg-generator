@@ -49,8 +49,20 @@ semantic generation and vector-structure generation are solved simultaneously.
 In the present work, these two difficulties are separated into a raster
 generation stage and a dedicated vectorization stage.
 
-// TODO: Add key text-to-SVG papers and compare their output representation,
-// training objective, and editing capabilities.
+Representative recent examples include StarVector @rodriguez2024starvector and
+OmniSVG @yang2025omnisvg. StarVector studies SVG generation from both images
+and text and frames the problem as generating executable SVG code, which makes
+it a useful reference point for code-oriented approaches to vector graphics
+synthesis. OmniSVG pursues a unified and scalable formulation of SVG
+generation, further highlighting the growing interest in treating SVG creation
+as a first-class generative modeling problem rather than only as a downstream
+vectorization step. These works are closely aligned with the overall objective
+of this thesis, but they differ from the proposed approach in that they seek to
+produce vector graphics directly within a single model. By contrast, the method
+developed here deliberately decomposes the task into raster generation and
+subsequent vectorization, which reduces the burden placed on any one model and
+allows the vectorizer to focus specifically on geometric reconstruction from
+image evidence.
 
 == Image-to-SVG and vectorization methods
 
@@ -64,8 +76,8 @@ because they focus on the structured reconstruction problem independently of
 text conditioning.
 
 The model proposed in this thesis belongs primarily to this category, but it
-differs in the use of flow matching and in the specific Bezier-segment
-representation employed for training and decoding.
+differs in the use of flow matching @lipman2023flow and in the specific
+Bezier-segment representation employed for training and decoding.
 
 // TODO: Add representative classical and neural vectorization methods.
 
@@ -104,13 +116,15 @@ structured geometric generation are addressed by separate but compatible models.
 
 The proposed system consists of the following two stages:
 
-- Stage 1: text-to-raster generation. A pretrained `z-image` model is adapted
-  with a LoRA module so that it produces images with characteristics suitable
-  for vector graphics generation. The adapted weights are then applied in the
-  accelerated `Z-Image-Turbo` pipeline for efficient inference.
+- Stage 1: text-to-raster generation. A pretrained `z-image` model
+  @imageteam2025zimage is adapted with a LoRA module so that it produces
+  images with characteristics suitable for vector graphics generation. The
+  adapted weights are then applied in the accelerated `Z-Image-Turbo` pipeline
+  for efficient inference.
 - Stage 2: raster-to-vector generation. A custom conditional flow-matching
-  model is trained from scratch to convert the raster image into a sequence of
-  Bezier-segment descriptors, which can then be decoded into SVG paths.
+  model based on flow matching @lipman2023flow is trained from scratch to
+  convert the raster image into a sequence of Bezier-segment descriptors,
+  which can then be decoded into SVG paths.
 
 From a methodological perspective, the first stage addresses semantic image
 synthesis from text, while the second stage addresses structured geometric
@@ -121,8 +135,9 @@ text-to-image model once a suitable image distribution has been established.
 = Stage 1: Text-to-raster generation
 
 The first stage is based on the pretrained `z-image` family of image-generation
-models. In this work, the goal is not to train such a model from scratch, but
-to adapt it to the target visual domain through low-rank adaptation @hu2022lowrank. A LoRA
+models @imageteam2025zimage. In this work, the goal is not to train such a
+model from scratch, but to adapt it to the target visual domain through
+low-rank adaptation @hu2022lowrank. A LoRA
 module is trained on a dataset of image-text pairs so that the model learns to
 produce raster outputs that better match the desired properties of vector-like
 illustrations. These properties may include simplified composition, cleaner
@@ -130,8 +145,9 @@ silhouettes, reduced texture complexity, and visual styles that are easier to
 approximate by Bezier curves.
 
 The LoRA adaptation was trained using the AI-Toolkit framework with the AdamW
-optimizer and a learning rate of $1 times 10^(-4)$. This configuration was used
-as the default starting point for the Stage 1 adaptation experiments.
+optimizer @loshchilov2018decoupled and a learning rate of
+$1 times 10^(-4)$. This configuration was used as the default starting point
+for the Stage 1 adaptation experiments.
 
 For inference, the base `z-image` model and the accelerated `Z-Image-Turbo`
 model were evaluated with different sampling settings. The base model was
