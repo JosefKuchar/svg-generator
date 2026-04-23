@@ -34,6 +34,17 @@
   copyright = {Creative Commons Attribution 4.0 International}
 }
 
+@misc{simeoni2025dinov3,
+  doi = {10.48550/ARXIV.2508.10104},
+  url = {https://arxiv.org/abs/2508.10104},
+  author = {Siméoni,  Oriane and Vo,  Huy V. and Seitzer,  Maximilian and Baldassarre,  Federico and Oquab,  Maxime and Jose,  Cijo and Khalidov,  Vasil and Szafraniec,  Marc and Yi,  Seungeun and Ramamonjisoa,  Michaël and Massa,  Francisco and Haziza,  Daniel and Wehrstedt,  Luca and Wang,  Jianyuan and Darcet,  Timothée and Moutakanni,  Théo and Sentana,  Leonel and Roberts,  Claire and Vedaldi,  Andrea and Tolan,  Jamie and Brandt,  John and Couprie,  Camille and Mairal,  Julien and Jégou,  Hervé and Labatut,  Patrick and Bojanowski,  Piotr},
+  keywords = {Computer Vision and Pattern Recognition (cs.CV),  Machine Learning (cs.LG),  FOS: Computer and information sciences,  FOS: Computer and information sciences},
+  title = {DINOv3},
+  publisher = {arXiv},
+  year = {2025},
+  copyright = {arXiv.org perpetual,  non-exclusive license}
+}
+
 @inproceedings{loshchilov2018decoupled,
   title={Decoupled Weight Decay Regularization},
   author={Ilya Loshchilov and Frank Hutter},
@@ -57,4 +68,38 @@
   title = {LoRA: Low-Rank Adaptation of Large Language Models.},
   url = {http://dblp.uni-trier.de/db/conf/iclr/iclr2022.html#HuSWALWWC22},
   year = 2022
+}
+
+@inproceedings{
+ho2021classifierfree,
+title={Classifier-Free Diffusion Guidance},
+author={Jonathan Ho and Tim Salimans},
+booktitle={NeurIPS 2021 Workshop on Deep Generative Models and Downstream Applications},
+year={2021},
+url={https://openreview.net/forum?id=qw8AKxfYbI}
+}
+
+@misc{peebles2022dit,
+  doi = {10.48550/ARXIV.2212.09748},
+  url = {https://arxiv.org/abs/2212.09748},
+  author = {Peebles,  William and Xie,  Saining},
+  keywords = {Computer Vision and Pattern Recognition (cs.CV),  Machine Learning (cs.LG),  FOS: Computer and information sciences,  FOS: Computer and information sciences},
+  title = {Scalable Diffusion Models with Transformers},
+  publisher = {arXiv},
+  year = {2022},
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+
+@article{su2024roformer,
+title = {RoFormer: Enhanced transformer with Rotary Position Embedding},
+journal = {Neurocomputing},
+volume = {568},
+pages = {127063},
+year = {2024},
+issn = {0925-2312},
+doi = {https://doi.org/10.1016/j.neucom.2023.127063},
+url = {https://www.sciencedirect.com/science/article/pii/S0925231223011864},
+author = {Jianlin Su and Murtadha Ahmed and Yu Lu and Shengfeng Pan and Wen Bo and Yunfeng Liu},
+keywords = {Pre-trained language models, Position information encoding, Pre-training, Natural language processing},
+abstract = {Position encoding has recently been shown to be effective in transformer architecture. It enables valuable supervision for dependency modeling between elements at different positions of the sequence. In this paper, we first investigate various methods to integrate positional information into the learning process of transformer-based language models. Then, we propose a novel method named Rotary Position Embedding (RoPE) to effectively leverage the positional information. Specifically, the proposed RoPE encodes the absolute position with a rotation matrix and meanwhile incorporates the explicit relative position dependency in the self-attention formulation. Notably, RoPE enables valuable properties, including the flexibility of sequence length, decaying inter-token dependency with increasing relative distances, and the capability of equipping linear self-attention with relative position encoding. Finally, we evaluate the enhanced transformer with rotary position embedding, also called RoFormer, on various long text classification benchmark datasets. Our experiments show that it consistently overcomes its alternatives. Furthermore, we provide a theoretical analysis to explain some experimental results. RoFormer is already integrated into Huggingface: https://huggingface.co/docs/transformers/model_doc/roformer.}
 }

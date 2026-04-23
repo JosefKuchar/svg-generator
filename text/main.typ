@@ -151,7 +151,8 @@ for the Stage 1 adaptation experiments.
 
 For inference, the base `z-image` model and the accelerated `Z-Image-Turbo`
 model were evaluated with different sampling settings. The base model was
-sampled with 50 denoising steps and classifier-free guidance scale 4. By
+sampled with 50 denoising steps and classifier-free guidance
+@ho2021classifierfree scale 4. By
 contrast, `Z-Image-Turbo` was sampled with 8 denoising steps and without
 classifier-free guidance, because the turbo model is guidance-distilled and is
 intended to operate without an explicit CFG term at inference time.
@@ -527,7 +528,8 @@ the continuous tensor representation introduced above and predicts how a noisy
 sample should move toward a valid vector graphic conditioned on the raster
 image.
 
-The conditioning branch is based on a pretrained DINOv3 visual encoder,
+The conditioning branch is based on a pretrained DINOv3 visual encoder
+@simeoni2025dinov3,
 specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. The encoder is kept
 frozen throughout training and is used only to extract a sequence of visual
 features from the conditioning raster image. Concretely, the model takes the
@@ -545,7 +547,8 @@ time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
 a multilayer perceptron. The resulting time embedding is then used to modulate
 all transformer blocks through adaptive layer normalization.
 
-The backbone itself is a stack of transformer blocks of DiT type. Each block
+The backbone itself is a stack of transformer blocks of DiT type
+@peebles2022dit. Each block
 contains three sublayers:
 
 - RoPE self-attention over the Bezier token sequence.
@@ -553,7 +556,7 @@ contains three sublayers:
 - A position-wise feed-forward network.
 
 Self-attention uses rotary positional embeddings applied to the query and key
-vectors. This gives the model information about the order of segments within
+vectors @su2024roformer. This gives the model information about the order of segments within
 the sequence while preserving the attention-based formulation. Cross-attention
 does not use rotary embeddings; instead, it lets each Bezier token attend to
 the visual features extracted from the raster image. In this way, the model can
@@ -597,7 +600,7 @@ In the current implementation, this loss is evaluated over the full sequence,
 including padded positions.
 
 To support classifier-free guidance, the model uses conditioning dropout during
-training. With a fixed probability, the image-conditioning sequence is replaced
+training @ho2021classifierfree. With a fixed probability, the image-conditioning sequence is replaced
 by a learned null token broadcast across the conditioning length. This teaches
 the network both conditional and unconditional velocity fields within a single
 set of parameters. During inference, the two predictions can be combined as
