@@ -20,3 +20,4 @@ wandb/
 bezier_dataset_*/
 z-image-renders/
 benchmark-results/
+*.pdf
