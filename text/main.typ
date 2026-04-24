@@ -220,6 +220,85 @@ preference in vector-graphics evaluation @rodriguez2024starvector.
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
 )
 
+An additional ablation study was performed for the Stage 1 LoRA adaptation in
+order to evaluate the effect of training duration and LoRA rank. Three LoRA
+ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
+steps. For the files without an explicit checkpoint suffix, the final model is
+interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
+similarity, and vectorization MSE values are summarized below.
+
+#figure(
+  table(
+    columns: (1.2fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center),
+    inset: 6pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Time steps],
+      [LoRA 4],
+      [LoRA 16],
+      [LoRA 64],
+    ),
+    [500], [0.880089], [0.871655], [0.884773],
+    [1000], [0.886276], [0.887416], [0.884985],
+    [1500], [0.885647], [0.886953], [0.884481],
+    [2000], [0.885373], [0.885145], [0.886703],
+    [2500], [0.887538], [0.888426], [0.881834],
+    [3000], [0.886957], [0.886502], [0.888467],
+    [3500], [0.885568], [0.887313], [0.887707],
+    [5000], [0.886028], [0.885978], [0.882711],
+  ),
+  caption: [Stage 1 LoRA ablation measured by CLIP similarity (higher is better).],
+)
+
+#figure(
+  table(
+    columns: (1.2fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center),
+    inset: 6pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Time steps],
+      [LoRA 4],
+      [LoRA 16],
+      [LoRA 64],
+    ),
+    [500], [0.606738], [0.598794], [0.599245],
+    [1000], [0.615834], [0.621120], [0.619718],
+    [1500], [0.622208], [0.618302], [0.615209],
+    [2000], [0.627051], [0.614469], [0.625228],
+    [2500], [0.625920], [0.626535], [0.619530],
+    [3000], [0.625713], [0.635021], [0.632441],
+    [3500], [0.625818], [0.629640], [0.633112],
+    [5000], [0.620072], [0.631474], [0.617148],
+  ),
+  caption: [Stage 1 LoRA ablation measured by DINO similarity (higher is better).],
+)
+
+#figure(
+  table(
+    columns: (1.2fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center),
+    inset: 6pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Time steps],
+      [LoRA 4],
+      [LoRA 16],
+      [LoRA 64],
+    ),
+    [500], [299.456365], [187.121463], [205.943477],
+    [1000], [328.455177], [128.576292], [199.656727],
+    [1500], [206.473148], [143.796380], [346.287457],
+    [2000], [142.765006], [97.675489], [168.835552],
+    [2500], [174.613101], [92.145374], [273.638178],
+    [3000], [173.292545], [245.512123], [132.058421],
+    [3500], [166.196853], [93.775058], [157.162289],
+    [5000], [178.813825], [166.223330], [172.532026],
+  ),
+  caption: [Stage 1 LoRA ablation measured by vectorization MSE (lower is better).],
+)
+
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
 provisional `Turbo prefixed + LoRA` configuration, while the lowest
