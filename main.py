@@ -1,6 +1,7 @@
 import typer
 import torch
 from typing import Optional
+from pathlib import Path
 from model import FlowMatchingTransformer
 from dataset import DataModule
 import pytorch_lightning as pl
@@ -13,6 +14,11 @@ app = typer.Typer()
 
 @app.command()
 def train(
+    batch_size: int = typer.Option(256, min=1, help="Training batch size"),
+    learning_rate: float = typer.Option(1e-4, min=0.0, help="Learning rate"),
+    warmup_steps: int = typer.Option(
+        0, min=0, help="Number of optimizer warmup steps"
+    ),
     max_samples: Optional[int] = typer.Option(
         None, help="Limit training dataset size (e.g. 32 for overfit test)"
     ),
@@ -38,23 +44,39 @@ def train(
         min=1,
         help="Keep best N checkpoints by train inference image MSE",
     ),
+    init_from_checkpoint: Optional[Path] = typer.Option(
+        None,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Load model weights from a checkpoint without resuming trainer state",
+    ),
 ):
     torch.set_float32_matmul_precision("medium")
 
-    module = FlowMatchingTransformer(
-        input_dim=13,
-        cond_dim=384,
-        hidden_size=768,
-        num_layers=16,
-        num_heads=12,
-        max_len=256,
-    )
+    if init_from_checkpoint is not None:
+        module = FlowMatchingTransformer.load_from_checkpoint(
+            str(init_from_checkpoint),
+            learning_rate=learning_rate,
+            warmup_steps=warmup_steps,
+        )
+    else:
+        module = FlowMatchingTransformer(
+            input_dim=13,
+            cond_dim=384,
+            hidden_size=768,
+            num_layers=16,
+            num_heads=12,
+            max_len=256,
+            learning_rate=learning_rate,
+            warmup_steps=warmup_steps,
+        )
 
     wandb_logger = WandbLogger(project="svg-generator")
     wandb_logger.watch(module)
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="train_inference/image_mse",
+        monitor="val/image_mse",
         mode="min",
         save_top_k=keep_n_checkpoints,
         filename="epoch{epoch:04d}",
@@ -72,6 +94,7 @@ def train(
     trainer.fit(
         module,
         datamodule=DataModule(
+            batch_size=batch_size,
             max_segments=256,
             max_samples=max_samples,
             train_samples_per_epoch=train_samples_per_epoch,

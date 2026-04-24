@@ -19,3 +19,4 @@ wandb/
 *.ckpt
 bezier_dataset_*/
 z-image-renders/
+benchmark-results/

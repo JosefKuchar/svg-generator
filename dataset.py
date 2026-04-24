@@ -19,11 +19,12 @@ class BezierDataset(Dataset):
         )
         raw_dataset = load_dataset("JosefKuchar/bezier-dataset", split=split)
 
-        # Pre-filter dataset to only include items within max_segments
+        # Pre-filter dataset to only include items within max_segments and
+        # with normalized coordinates in a reasonable range.
         filtered = raw_dataset.filter(
-            lambda item: self._count_curves(item) <= max_segments,
+            lambda item: self._is_valid_item(item, max_segments),
             num_proc=4,
-            desc=f"Filtering items with <= {max_segments} curves",
+            desc=f"Filtering items with <= {max_segments} curves and |coord| <= 2",
         )
         # Limit to max_samples if specified
         if max_samples is not None:
@@ -39,6 +40,32 @@ class BezierDataset(Dataset):
             for path_data in shape_data["paths"]:
                 total_curves += len(path_data["curves"])
         return total_curves
+
+    @staticmethod
+    def _normalized_coords_in_range(item, max_abs_value=2.0):
+        """Check that all normalized curve coordinates stay within bounds."""
+        width = item["width"]
+        height = item["height"]
+        scale = 2.0 / max(width, height)
+        cx = width / 2.0
+        cy = height / 2.0
+
+        shapes_data = json.loads(item["shapes"])
+        for shape_data in shapes_data:
+            for path_data in shape_data["paths"]:
+                for curve in path_data["curves"]:
+                    for point in curve:
+                        x_norm = (point[0] - cx) * scale
+                        y_norm = (point[1] - cy) * scale
+                        if abs(x_norm) > max_abs_value or abs(y_norm) > max_abs_value:
+                            return False
+        return True
+
+    @classmethod
+    def _is_valid_item(cls, item, max_segments):
+        return cls._count_curves(item) <= max_segments and cls._normalized_coords_in_range(
+            item
+        )
 
     def __len__(self):
         return len(self.dataset)

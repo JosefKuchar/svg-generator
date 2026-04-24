@@ -8,6 +8,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
 import wandb
+from torch.optim.lr_scheduler import LinearLR
 from transformers import AutoModel, BitsAndBytesConfig
 from representation import tensor_to_shapes
 from parsing import save_bezier_shapes_to_svg
@@ -333,6 +334,7 @@ class FlowMatchingTransformer(pl.LightningModule):
         dropout: int = 0.1,
         cond_drop_prob: float = 0.1,  # Probability to drop conditioning
         learning_rate: float = 1e-4,
+        warmup_steps: int = 0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -488,9 +490,25 @@ class FlowMatchingTransformer(pl.LightningModule):
             datamodule.set_synthetic_epoch(self.current_epoch)
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(
+        optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.hparams.learning_rate, eps=1e-5
         )
+        if self.hparams.warmup_steps <= 0:
+            return optimizer
+
+        scheduler = LinearLR(
+            optimizer,
+            start_factor=1.0 / max(self.hparams.warmup_steps, 1),
+            end_factor=1.0,
+            total_iters=self.hparams.warmup_steps,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "step",
+            },
+        }
 
     def _compute_validation_metrics(self, samples: torch.Tensor) -> dict:
         """

@@ -279,6 +279,19 @@ def _batched_image_pairs(
     return batches
 
 
+def _select_common_names(images_a: dict[str, Path], images_b: dict[str, Path]) -> tuple[list[str], list[str], list[str]]:
+    common_names = sorted(set(images_a) & set(images_b))
+    only_a = sorted(set(images_a) - set(images_b))
+    only_b = sorted(set(images_b) - set(images_a))
+
+    pair_limit = min(len(images_a), len(images_b))
+    if len(common_names) > pair_limit:
+        only_a.extend(common_names[pair_limit:])
+        common_names = common_names[:pair_limit]
+
+    return common_names, sorted(only_a), only_b
+
+
 def _batched_image_paths(images: dict[str, Path], batch_size: int) -> list[list[Path]]:
     iterator = iter(sorted(images))
     batches: list[list[Path]] = []
@@ -345,9 +358,7 @@ def main(
     images_b = _collect_images(folder_b)
 
     if pair_metrics:
-        common_names = sorted(set(images_a) & set(images_b))
-        only_a = sorted(set(images_a) - set(images_b))
-        only_b = sorted(set(images_b) - set(images_a))
+        common_names, only_a, only_b = _select_common_names(images_a, images_b)
 
         if not common_names:
             raise typer.BadParameter("No matching filenames found between the folders")
