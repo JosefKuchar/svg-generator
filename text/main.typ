@@ -1,3 +1,40 @@
+#import "@git/fi-muni-thesis:0.1.0": fithesis
+
+#show: fithesis.with(
+  title: [Flow Matching Vectorizer for Text-Driven Vector Graphics Generation],
+  author: [Josef Kuchar],
+  advisor: [TODO],
+  department: [Department of Machine Learning and Data Processing],
+  faculty_name: [Faculty of Informatics],
+  thesis_type: [Bachelor's Thesis],
+  place: "Brno",
+  semester: "Spring 2026",
+  declaration_body: [
+    Hereby I declare that this paper is my original authorial work, which I have
+    worked out on my own. All sources, references, and literature used or
+    excerpted during elaboration of this work are properly cited and listed in
+    complete reference to the due source.
+  ],
+  thanks_body: [
+    TODO
+  ],
+  abstract_body: [
+    This thesis studies a two-stage pipeline for text-driven vector graphics
+    generation. In the first stage, a pretrained text-to-image model is adapted
+    to generate raster images in a visual domain suitable for subsequent
+    vectorization. In the second stage, a custom flow-matching model is trained
+    to convert the generated raster image into a structured Bezier-based vector
+    representation.
+  ],
+  keywords: (
+    "vector graphics",
+    "SVG",
+    "Bezier curves",
+    "flow matching",
+    "raster-to-vector conversion",
+  ),
+)
+
 = Thesis scaffold
 
 This thesis studies a two-stage pipeline for text-driven vector graphics
