@@ -60,6 +60,17 @@ possible to exploit the strengths of modern text-to-image models while
 developing a specialized vectorizer that operates in a well-defined geometric
 output space.
 
+The work also considers several alternative formulations of the problem. In
+particular, a direct adaptation of a text-to-raster model into a
+text-to-Bezier model would be an elegant solution, because it would remove the
+explicit vectorization stage. Preliminary experiments, however, indicate that
+this route is not data-efficient in the present setting. The model converged
+faster from random initialization than from pretrained image-generation
+weights, suggesting that the learned raster-generation representation does not
+transfer straightforwardly to the Bezier output space. This direction may still
+be feasible at a larger scale, but it likely requires substantially more
+paired text-vector data than is available for this thesis.
+
 = Prior work
 
 This thesis is related to several research directions at the intersection of
@@ -118,6 +129,17 @@ Bezier-segment representation employed for training and decoding.
 
 // TODO: Add representative classical and neural vectorization methods.
 
+Existing vectorizers also serve as empirical baselines. Classical systems are
+strong engineering tools, but they typically optimize local image fidelity and
+often produce dense, fragmented paths when the input contains noise,
+compression artifacts, blur, or soft color transitions. Recent neural
+text-to-SVG systems, by contrast, often rely on large vision-language models
+fine-tuned on SVG data. A planned part of the evaluation is therefore to
+measure whether such methods generalize beyond their training distribution,
+including on synthetic images whose ground-truth Bezier structure is known.
+This experiment has not yet been completed and is kept as an explicit
+evaluation item.
+
 == Text-to-image models adapted for vector graphics
 
 Another important line of prior work concerns large text-to-image models that
@@ -168,6 +190,15 @@ synthesis from text, while the second stage addresses structured geometric
 reconstruction. The interface between the two stages is the raster image
 itself, which allows the vectorization model to be trained independently of the
 text-to-image model once a suitable image distribution has been established.
+
+Training a direct text-to-Bezier model would require large quantities of
+paired text descriptions and vector annotations. Such supervision is scarce in
+the available data. The vectorizer-based decomposition avoids this bottleneck:
+the raster-to-vector model can be pretrained on procedurally generated
+synthetic data, for which vector labels are available by construction, and then
+adapted to real SVG data. The central experimental question is whether
+sufficiently varied synthetic pretraining can transfer to real vector graphics
+after fine-tuning.
 
 = Stage 1: Text-to-raster generation
 
@@ -344,8 +375,6 @@ adapted LoRA model improves perceptual alignment with the references, but its
 advantage with respect to downstream vectorization should be verified on a
 larger evaluation.
 
-// TODO: Insert ablation table comparing LoRA rank and training-step count.
-
 = Stage 2: Raster-to-vector generation
 
 The second stage is the main methodological contribution of this work. It takes
@@ -424,6 +453,15 @@ $((x_0, y_0), (x_1, y_1), (x_2, y_2), (x_3, y_3))$,
 where $(x_0, y_0)$ is the start point, $(x_1, y_1)$ and $(x_2, y_2)$ are the
 two control points, and $(x_3, y_3)$ is the endpoint. This convention is used
 for geometric manipulation and SVG export.
+
+This homogeneous Bezier representation is motivated by the learning problem as
+well as by the target output format. Flow matching operates naturally in a
+continuous vector space, so a fixed-dimensional continuous descriptor for each
+segment is more suitable than a heterogeneous command language containing
+separate primitives for lines, arcs, rectangles, circles, and paths. Converting
+all supported geometry to cubic Bezier segments therefore gives the model a
+single native output type while still preserving the ability to reconstruct
+standard SVG paths.
 
 For learning, the hierarchical SVG structure is converted into a flat sequence
 of segment descriptors. Each segment is represented by a 13-dimensional vector
@@ -734,6 +772,127 @@ the required intermediate velocities. The final state is interpreted as a
 predicted Bezier tensor, which is subsequently converted back to vector shapes
 and rendered as SVG. This sampling procedure is deterministic for fixed initial
 noise, fixed conditioning, and fixed integration parameters.
+
+= Experiments
+
+This chapter will evaluate the two stages of the proposed pipeline and the
+design choices that connect them. The experiments are organized around three
+questions: whether the text-to-raster model can be adapted to a
+vectorization-friendly image domain, whether synthetic pretraining improves the
+raster-to-vector model, and how the proposed vectorizer compares with existing
+classical and neural vectorization systems.
+
+== Alternatives to the proposed decomposition
+
+The first alternative is to adapt a pretrained text-to-raster model directly
+into a text-to-Bezier model. This would be conceptually attractive, because it
+would collapse the whole pipeline into one model while preserving the semantic
+knowledge of the pretrained generator. A preliminary experiment with this
+approach was performed, but it did not produce a useful model. In particular,
+training from random initialization converged faster than training from the
+pretrained raster-generation weights. This result suggests that the
+representation learned for image denoising does not directly provide a useful
+initialization for predicting Bezier control points. The approach is therefore
+not used as the main method, although it remains a possible large-scale
+direction if substantially more paired text-vector data become available.
+
+The second alternative is to rely on existing vectorizers. This thesis will
+compare the proposed method against both classical raster-to-vector conversion
+tools and recent neural systems such as OmniSVG @yang2025omnisvg and
+StarVector @rodriguez2024starvector. The comparison should distinguish
+in-distribution performance from out-of-distribution behavior. A planned
+experiment is to evaluate methods on synthetic raster images generated from
+known vector ground truth and then perturb the images with Gaussian noise, JPEG
+compression artifacts, and Gaussian blur. This setup makes it possible to test
+whether each method reconstructs the original vector structure or overfits to
+the visible pixel artifacts.
+
+== Stage 1 fine-tuning
+
+The Stage 1 experiments evaluate fine-tuning of the text-to-raster model on
+the SVG Repo dataset. The SVG files are rasterized and used as the visual
+target distribution for LoRA adaptation. The goal is not merely to improve
+generic image quality, but to make generated images more suitable for
+downstream vectorization: flatter color regions, sharper silhouettes, fewer
+unnecessary textures, and simpler topology.
+
+The main comparison is between the base text-to-raster model and the
+fine-tuned variant. Qualitative examples will be included in the final thesis
+to show the visual change before and after fine-tuning. Quantitatively, the
+evaluation will combine text-image alignment metrics with traceability metrics.
+CLIP similarity measures whether the generated image remains aligned with the
+input text. Reconstruction through a standard vectorization tool measures how
+well the generated raster image survives a raster-to-vector-to-raster
+round-trip, using MSE or SSIM between the original generated image and the
+rerendered traced image. Additional useful indicators include the number of
+paths or nodes produced by the tracer, PNG compressibility, color entropy or
+unique color count, and a targeted FID computed against the rasterized SVG
+training distribution. These metrics reflect the fact that a successful Stage
+1 model should produce images that are both semantically meaningful and easy to
+represent as clean vector graphics.
+
+== Stage 2 vectorizer training
+
+The Stage 2 experiments evaluate the conditional flow-matching vectorizer. The
+main training experiment compares fine-tuning from the synthetic pretrained
+checkpoint against training from scratch on the SVG Repo data. This comparison
+tests the central hypothesis that synthetic Bezier data provide a useful
+geometric prior even though they are simpler than real SVG graphics. The
+pretraining run used a single NVIDIA H200 GPU for approximately 10 days with
+batch size 256 and FlashAttention 2 enabled.
+
+Two architecture ablations will be used to measure the effect of image
+conditioning. The first compares the full model with a model trained without an
+image encoder. This evaluates whether DINOv3 features provide useful
+conditioning beyond what the sequence model can learn from the noisy Bezier
+input alone. The second studies encoder scaling by comparing different image
+encoder sizes or configurations while keeping the vectorizer backbone as
+constant as possible. Together, these experiments should clarify how much of
+the performance is due to the flow-matching transformer and how much comes
+from the pretrained visual representation.
+
+== Flow-matching inference ablation
+
+Inference requires numerical integration of the learned velocity field. The
+number of integration steps directly affects runtime and reconstruction
+quality. The inference ablation will therefore evaluate several fixed step
+counts and measure the resulting output quality, topology, and rendering error.
+This experiment is important because an excessively small number of steps may
+produce unstable or incomplete geometry, while too many steps increase runtime
+without necessarily improving the final SVG.
+
+== Pipeline evaluation
+
+The final system combines the fine-tuned text-to-raster model with the
+raster-to-vector model. Evaluation of the full pipeline should include both
+end-to-end qualitative examples and quantitative comparisons with baselines.
+The expected baselines include classical vectorization tools, recent neural
+SVG-generation systems, and direct raster outputs from the Stage 1 model. The
+comparison should emphasize not only pixel-level reconstruction, but also
+properties important for editable vector graphics, such as path count, node
+count, topological cleanliness, robustness to noisy inputs, and ease of manual
+editing.
+
+= Limitations
+
+The current representation is intentionally restricted. All geometry is
+expressed as cubic Bezier segments, so higher-level SVG primitives such as
+circles, rectangles, and symbolic shape elements are not preserved as separate
+objects. Although these primitives can be approximated accurately by Bezier
+curves, the resulting SVG is less semantically editable than an SVG that keeps
+the original primitive types.
+
+The model also assumes solid fills with opacity and does not support gradients,
+masks, filters, or complex style rules. This excludes a significant part of the
+SVG design space and limits the visual complexity of the generated output. In
+addition, the fixed maximum number of segments imposes a hard capacity limit:
+graphics requiring more segments must either be simplified or truncated.
+
+Finally, the current pipeline assumes a white background in both the
+text-to-raster stage and the vectorizer training setup. This simplifies
+rasterization and evaluation, but it also constrains the kinds of graphics that
+can be represented cleanly. Future work should relax this assumption and
+support transparent or explicitly modeled backgrounds.
 
 = Bibliography
 
