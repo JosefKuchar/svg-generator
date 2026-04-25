@@ -1,12 +1,12 @@
 #import "@git/fi-muni-thesis:0.1.0": fithesis
 
 #show: fithesis.with(
-  title: [Flow Matching Vectorizer for Text-Driven Vector Graphics Generation],
-  author: [Josef Kuchar],
-  advisor: [TODO],
+  title: [Generative Neural Models for Scalable Vector Graphics],
+  author: [Josef Kuchař],
+  advisor: [Mgr. Michal Štefánik, Ph.D.],
   department: [Department of Machine Learning and Data Processing],
   faculty_name: [Faculty of Informatics],
-  thesis_type: [Bachelor's Thesis],
+  thesis_type: [Master's Thesis],
   place: "Brno",
   semester: "Spring 2026",
   declaration_body: [
@@ -16,22 +16,19 @@
     complete reference to the due source.
   ],
   thanks_body: [
-    TODO
+    These are the acknowledgements for my thesis, which can
+
+    span multiple paragraphs.
   ],
   abstract_body: [
-    This thesis studies a two-stage pipeline for text-driven vector graphics
-    generation. In the first stage, a pretrained text-to-image model is adapted
-    to generate raster images in a visual domain suitable for subsequent
-    vectorization. In the second stage, a custom flow-matching model is trained
-    to convert the generated raster image into a structured Bezier-based vector
-    representation.
+    This is the abstract of my thesis, which can
+
+    span multiple paragraphs.
   ],
   keywords: (
-    "vector graphics",
-    "SVG",
-    "Bezier curves",
-    "flow matching",
-    "raster-to-vector conversion",
+    "keyword1",
+    "keyword2",
+    "...",
   ),
 )
 
