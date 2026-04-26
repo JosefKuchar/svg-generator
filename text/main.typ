@@ -225,8 +225,12 @@ intended to operate without an explicit CFG term at inference time.
 After training, the learned LoRA weights are loaded into the `Z-Image-Turbo`
 pipeline for fast sampling. This design preserves the knowledge of the original
 pretrained model while making inference substantially more efficient than full
-base-model fine-tuning. The first stage of the thesis should therefore explain
-the following aspects:
+base-model fine-tuning. The use of the same SVG-style LoRA on the distilled
+turbo variant is motivated by the observation that distilled diffusion models
+can preserve the controllability of their teacher models, allowing controls
+learned for the base model to remain useful after distillation
+@gandikota2025distilling. The first stage of the thesis should therefore
+explain the following aspects:
 
 - the choice of the base `z-image` model,
 - the motivation for LoRA-based adaptation,
