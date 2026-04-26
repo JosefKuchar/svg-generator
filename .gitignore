@@ -21,3 +21,5 @@ bezier_dataset_*/
 z-image-renders/
 benchmark-results/
 *.pdf
+
+!text/**/*.png
