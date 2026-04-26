@@ -244,7 +244,7 @@ detailed experimental and implementation description of the LoRA training
 procedure can be filled in later.
 
 A preliminary comparison of several Stage 1 variants is shown in the following
-table. The compared variants include the base `z-image` model, prompt-prefixing
+tables. The compared variants include the base `z-image` model, prompt-prefixing
 strategies, the accelerated `Z-Image-Turbo` model, and a provisional LoRA
 adaptation applied to the turbo pipeline. Higher CLIP and DINO similarity
 indicate better alignment with the reference images, whereas lower
@@ -252,6 +252,48 @@ vectorization MSE indicates that the generated raster outputs are easier to
 convert in the second stage. CLIP-based and DINO-based similarity measures are
 also relevant because they have been reported to correlate well with human
 preference in vector-graphics evaluation @rodriguez2024starvector.
+
+#figure(
+  table(
+    columns: (1.6fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Variant],
+      [Example 1],
+      [Example 2],
+      [Example 3],
+      [Example 4],
+    ),
+    [Reference],
+    image("assets/raster/reference/0001.png", width: 100%),
+    image("assets/raster/reference/0002.png", width: 100%),
+    image("assets/raster/reference/0003.png", width: 100%),
+    image("assets/raster/reference/0004.png", width: 100%),
+    [Base],
+    image("assets/raster/base/0001.png", width: 100%),
+    image("assets/raster/base/0002.png", width: 100%),
+    image("assets/raster/base/0003.png", width: 100%),
+    image("assets/raster/base/0004.png", width: 100%),
+    [Base prefixed],
+    image("assets/raster/base_prefixed/0001.png", width: 100%),
+    image("assets/raster/base_prefixed/0002.png", width: 100%),
+    image("assets/raster/base_prefixed/0003.png", width: 100%),
+    image("assets/raster/base_prefixed/0004.png", width: 100%),
+    [Turbo],
+    image("assets/raster/turbo/0001.png", width: 100%),
+    image("assets/raster/turbo/0002.png", width: 100%),
+    image("assets/raster/turbo/0003.png", width: 100%),
+    image("assets/raster/turbo/0004.png", width: 100%),
+    [Turbo prefixed],
+    image("assets/raster/turbo_prefixed/0001.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0002.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0003.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0004.png", width: 100%),
+  ),
+  caption: [Qualitative Stage 1 comparison of text-to-raster model variants.],
+)
 
 #figure(
   table(
@@ -616,7 +658,37 @@ The available shapes are divided into three categories:
   curved boundaries.
 
 This design was chosen to cover both analytically simple contours and shapes
-with more varied topology and curvature.
+with more varied topology and curvature. Examples of generated images are shown
+in @fig:synthetic-generator-examples.
+
+#let synthetic-generator-image(path) = box(
+  stroke: 0.75pt + gray,
+  image(path, width: 100%),
+)
+
+#figure(
+  grid(
+    columns: (1fr, 1fr, 1fr, 1fr),
+    gutter: 4pt,
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_01.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_02.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_03.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_04.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_05.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_06.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_07.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_08.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_09.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_10.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_11.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_12.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_13.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_14.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_15.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_16.png"),
+  ),
+  caption: [Examples of images produced by the synthetic data generator.],
+) <fig:synthetic-generator-examples>
 
 All generated geometry is expressed as cubic Bezier curves. Straight polygonal
 edges are represented by degenerate cubic segments whose control points lie on
