@@ -243,22 +243,39 @@ At this point, this section serves primarily as structural scaffolding. The
 detailed experimental and implementation description of the LoRA training
 procedure can be filled in later.
 
-A preliminary comparison of several Stage 1 variants is shown in the following
-tables. The compared variants include the base `z-image` model, prompt-prefixing
-strategies, the accelerated `Z-Image-Turbo` model, and a provisional LoRA
-adaptation applied to the turbo pipeline. Higher CLIP and DINO similarity
-indicate better alignment with the reference images, whereas lower
-vectorization MSE indicates that the generated raster outputs are easier to
-convert in the second stage. CLIP-based and DINO-based similarity measures are
-also relevant because they have been reported to correlate well with human
-preference in vector-graphics evaluation @rodriguez2024starvector.
+A preliminary comparison of several Stage 1 variants is shown qualitatively in
+@tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
+compared variants include the base `z-image` model, prompt-prefixing strategies,
+the accelerated `Z-Image-Turbo` model, and a provisional LoRA adaptation applied
+to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
+with the reference images, whereas lower vectorization MSE indicates that the
+generated raster outputs are easier to convert in the second stage. CLIP-based
+and DINO-based similarity measures are also relevant because they have been
+reported to correlate well with human preference in vector-graphics evaluation
+@rodriguez2024starvector.
+
+The vectorization MSE is a round-trip traceability metric. For each generated
+raster image, the benchmark first converts the image to SVG using `vtracer` with
+its default command-line settings. The resulting SVG is then rasterized back to
+the original image resolution on a white background. The score is the mean
+squared error between the original generated RGB image and this rerendered
+image,
+$ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $,
+where pixel values are measured in the usual 0--255 RGB range. This metric does
+not compare the generated image to the reference image directly. Instead, it
+measures how much visual information is lost when the image is approximated by
+a standard vectorization tool, so lower values indicate images whose shapes and
+colors are easier to represent as clean vector graphics.
 
 #figure(
   table(
     columns: (1.6fr, 1fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center, center),
     inset: 4pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
     table.header(
       [Variant],
       [Example 1],
@@ -293,14 +310,17 @@ preference in vector-graphics evaluation @rodriguez2024starvector.
     image("assets/raster/turbo_prefixed/0004.png", width: 100%),
   ),
   caption: [Qualitative Stage 1 comparison of text-to-raster model variants.],
-)
+) <tab:stage1-raster-examples>
 
 #figure(
   table(
     columns: (2.5fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
     table.header(
       [Variant],
       [CLIP similarity ↑],
@@ -329,21 +349,25 @@ preference in vector-graphics evaluation @rodriguez2024starvector.
     [143.174617],
   ),
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
-)
+) <tab:stage1-benchmark>
 
 An additional ablation study was performed for the Stage 1 LoRA adaptation in
 order to evaluate the effect of training duration and LoRA rank. Three LoRA
 ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
 steps. For the files without an explicit checkpoint suffix, the final model is
 interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
-similarity, and vectorization MSE values are summarized below.
+similarity, and vectorization MSE values are summarized in
+@tab:lora-ablation-clip, @tab:lora-ablation-dino, and @tab:lora-ablation-mse.
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
     table.header(
       [Time steps],
       [LoRA 4],
@@ -360,14 +384,17 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [0.886028], [0.885978], [0.882711],
   ),
   caption: [Stage 1 LoRA ablation measured by CLIP similarity (higher is better).],
-)
+) <tab:lora-ablation-clip>
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
     table.header(
       [Time steps],
       [LoRA 4],
@@ -384,14 +411,17 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [0.620072], [0.631474], [0.617148],
   ),
   caption: [Stage 1 LoRA ablation measured by DINO similarity (higher is better).],
-)
+) <tab:lora-ablation-dino>
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
     table.header(
       [Time steps],
       [LoRA 4],
@@ -408,7 +438,7 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [178.813825], [166.223330], [172.532026],
   ),
   caption: [Stage 1 LoRA ablation measured by vectorization MSE (lower is better).],
-)
+) <tab:lora-ablation-mse>
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
