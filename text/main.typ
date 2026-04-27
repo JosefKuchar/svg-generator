@@ -395,74 +395,60 @@ order to evaluate the effect of training duration and LoRA rank. Three LoRA
 ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
 steps. For the files without an explicit checkpoint suffix, the final model is
 interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
-similarity, and vectorization MSE values are summarized in
-@tab:lora-ablation-clip, @tab:lora-ablation-dino, and @tab:lora-ablation-mse.
+similarity, and vectorization MSE values are summarized together in
+@tab:lora-ablation.
 
 #figure(
   table(
-    columns: (1.2fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center),
+    columns: (1fr, 1.8fr, 1fr, 1fr, 1fr),
+    align: (left, left, center, center, center),
     inset: 6pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
-      top: if y == 0 { none } else { 0.4pt },
+      left: none,
+      top: if y == 0 or calc.rem(y - 1, 3) == 0 { 0.4pt } else { none },
     ),
-    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
-    [500], [0.880089], [0.871655], [0.884773],
-    [1000], [0.886276], [0.887416], [0.884985],
-    [1500], [0.885647], [0.886953], [0.884481],
-    [2000], [0.885373], [0.885145], [0.886703],
-    [2500], [0.887538], [0.888426], [0.881834],
-    [3000], [0.886957], [0.886502], [0.888467],
-    [3500], [0.885568], [0.887313], [0.887707],
-    [5000], [0.886028], [0.885978], [0.882711],
-  ),
-  caption: [Stage 1 LoRA ablation measured by CLIP similarity (higher is better).],
-) <tab:lora-ablation-clip>
+    table.header(
+      table.cell(rowspan: 2)[Time steps],
+      table.cell(rowspan: 2)[Metric],
+      table.cell(colspan: 3)[Rank],
+      [4],
+      [16],
+      [64],
+    ),
+    table.cell(rowspan: 3)[500], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.880], text(size: 8pt)[0.872], text(size: 8pt)[0.885],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.607], text(size: 8pt)[0.599], text(size: 8pt)[0.599],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[299.456], text(size: 8pt)[187.121], text(size: 8pt)[205.943],
 
-#figure(
-  table(
-    columns: (1.2fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center),
-    inset: 6pt,
-    stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
-      top: if y == 0 { none } else { 0.4pt },
-    ),
-    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
-    [500], [0.606738], [0.598794], [0.599245],
-    [1000], [0.615834], [0.621120], [0.619718],
-    [1500], [0.622208], [0.618302], [0.615209],
-    [2000], [0.627051], [0.614469], [0.625228],
-    [2500], [0.625920], [0.626535], [0.619530],
-    [3000], [0.625713], [0.635021], [0.632441],
-    [3500], [0.625818], [0.629640], [0.633112],
-    [5000], [0.620072], [0.631474], [0.617148],
-  ),
-  caption: [Stage 1 LoRA ablation measured by DINO similarity (higher is better).],
-) <tab:lora-ablation-dino>
+    table.cell(rowspan: 3)[1000], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.886], text(size: 8pt)[0.887], text(size: 8pt)[0.885],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.616], text(size: 8pt)[0.621], text(size: 8pt)[0.620],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[328.455], text(size: 8pt)[128.576], text(size: 8pt)[199.657],
 
-#figure(
-  table(
-    columns: (1.2fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center),
-    inset: 6pt,
-    stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
-      top: if y == 0 { none } else { 0.4pt },
-    ),
-    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
-    [500], [299.456365], [187.121463], [205.943477],
-    [1000], [328.455177], [128.576292], [199.656727],
-    [1500], [206.473148], [143.796380], [346.287457],
-    [2000], [142.765006], [97.675489], [168.835552],
-    [2500], [174.613101], [92.145374], [273.638178],
-    [3000], [173.292545], [245.512123], [132.058421],
-    [3500], [166.196853], [93.775058], [157.162289],
-    [5000], [178.813825], [166.223330], [172.532026],
+    table.cell(rowspan: 3)[1500], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.886], text(size: 8pt)[0.887], text(size: 8pt)[0.884],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.622], text(size: 8pt)[0.618], text(size: 8pt)[0.615],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[206.473], text(size: 8pt)[143.796], text(size: 8pt)[346.287],
+
+    table.cell(rowspan: 3)[2000], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.885], text(size: 8pt)[0.885], text(size: 8pt)[0.887],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.627], text(size: 8pt)[0.614], text(size: 8pt)[0.625],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[142.765], text(size: 8pt)[97.675], text(size: 8pt)[168.836],
+
+    table.cell(rowspan: 3)[2500], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.888], text(size: 8pt)[0.888], text(size: 8pt)[0.882],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.626], text(size: 8pt)[0.627], text(size: 8pt)[0.620],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[174.613], text(size: 8pt, weight: "bold")[92.145], text(size: 8pt)[273.638],
+
+    table.cell(rowspan: 3)[3000], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.887], text(size: 8pt)[0.887], text(size: 8pt, weight: "bold")[0.888],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.626], text(size: 8pt, weight: "bold")[0.635], text(size: 8pt)[0.632],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[173.293], text(size: 8pt)[245.512], text(size: 8pt)[132.058],
+
+    table.cell(rowspan: 3)[3500], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.886], text(size: 8pt)[0.887], text(size: 8pt)[0.888],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.626], text(size: 8pt)[0.630], text(size: 8pt)[0.633],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[166.197], text(size: 8pt)[93.775], text(size: 8pt)[157.162],
+
+    table.cell(rowspan: 3)[5000], text(size: 8pt)[CLIP similarity ↑], text(size: 8pt)[0.886], text(size: 8pt)[0.886], text(size: 8pt)[0.883],
+    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.620], text(size: 8pt)[0.631], text(size: 8pt)[0.617],
+    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[178.814], text(size: 8pt)[166.223], text(size: 8pt)[172.532],
   ),
-  caption: [Stage 1 LoRA ablation measured by vectorization MSE (lower is better).],
-) <tab:lora-ablation-mse>
+  caption: [Stage 1 LoRA ablation across training duration, LoRA rank, and evaluation metric. Higher is better for CLIP and DINO similarity; lower is better for vectorization MSE.],
+) <tab:lora-ablation>
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
