@@ -26,9 +26,12 @@
     span multiple paragraphs.
   ],
   keywords: (
-    "keyword1",
-    "keyword2",
-    "...",
+    "scalable vector graphics",
+    "raster-to-vector conversion",
+    "Bezier curves",
+    "flow matching",
+    "text-to-image generation",
+    "LoRA fine-tuning",
   ),
 )
 
@@ -197,6 +200,15 @@ adapted to real SVG data. The central experimental question is whether
 sufficiently varied synthetic pretraining can transfer to real vector graphics
 after fine-tuning.
 
+This is a practical advantage of formulating the second stage as
+raster-to-vector generation rather than direct text-to-vector generation. For
+the vectorizer, every procedurally generated vector scene can be rendered to a
+raster image and used immediately as a paired training example. This makes it
+possible to create an effectively unlimited amount of supervised data at low
+cost. In contrast, direct text-to-SVG training would require SVGs paired with
+high-quality textual descriptions, which are much harder to collect at scale
+and are not produced automatically by the vector representation itself.
+
 = Stage 1: Text-to-raster generation
 
 The first stage is based on the pretrained `z-image` family of image-generation
@@ -276,33 +288,31 @@ colors are easier to represent as clean vector graphics.
       left: if x == 0 { none } else { 0.4pt },
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header(
-      [Variant],
-      [Example 1],
-      [Example 2],
-      [Example 3],
-      [Example 4],
-    ),
+    table.header([Variant], [Example 1], [Example 2], [Example 3], [Example 4]),
     [Reference],
     image("assets/raster/reference/0001.png", width: 100%),
     image("assets/raster/reference/0002.png", width: 100%),
     image("assets/raster/reference/0003.png", width: 100%),
     image("assets/raster/reference/0004.png", width: 100%),
+
     [Base],
     image("assets/raster/base/0001.png", width: 100%),
     image("assets/raster/base/0002.png", width: 100%),
     image("assets/raster/base/0003.png", width: 100%),
     image("assets/raster/base/0004.png", width: 100%),
+
     [Base prefixed],
     image("assets/raster/base_prefixed/0001.png", width: 100%),
     image("assets/raster/base_prefixed/0002.png", width: 100%),
     image("assets/raster/base_prefixed/0003.png", width: 100%),
     image("assets/raster/base_prefixed/0004.png", width: 100%),
+
     [Turbo],
     image("assets/raster/turbo/0001.png", width: 100%),
     image("assets/raster/turbo/0002.png", width: 100%),
     image("assets/raster/turbo/0003.png", width: 100%),
     image("assets/raster/turbo/0004.png", width: 100%),
+
     [Turbo prefixed],
     image("assets/raster/turbo_prefixed/0001.png", width: 100%),
     image("assets/raster/turbo_prefixed/0002.png", width: 100%),
@@ -321,32 +331,12 @@ colors are easier to represent as clean vector graphics.
       left: if x == 0 { none } else { 0.4pt },
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header(
-      [Variant],
-      [CLIP similarity ↑],
-      [DINO similarity ↑],
-      [Vectorization MSE ↓],
-    ),
-    [Base],
-    [0.818210],
-    [0.509159],
-    [266.565137],
-    [Base prefixed],
-    [0.819865],
-    [0.545802],
-    [230.160058],
-    [Turbo],
-    [0.826786],
-    [0.509892],
-    [227.691742],
-    [Turbo prefixed],
-    [0.871237],
-    [0.583856],
-    [142.711678],
-    [Turbo prefixed + LoRA (provisional)],
-    [0.879104],
-    [0.600208],
-    [143.174617],
+    table.header([Variant], [CLIP similarity ↑], [DINO similarity ↑], [Vectorization MSE ↓]),
+    [Base], [0.818210], [0.509159], [266.565137],
+    [Base prefixed], [0.819865], [0.545802], [230.160058],
+    [Turbo], [0.826786], [0.509892], [227.691742],
+    [Turbo prefixed], [0.871237], [0.583856], [142.711678],
+    [Turbo prefixed + LoRA (provisional)], [0.879104], [0.600208], [143.174617],
   ),
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
@@ -368,12 +358,7 @@ similarity, and vectorization MSE values are summarized in
       left: if x == 0 { none } else { 0.4pt },
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
-    ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [0.880089], [0.871655], [0.884773],
     [1000], [0.886276], [0.887416], [0.884985],
     [1500], [0.885647], [0.886953], [0.884481],
@@ -395,12 +380,7 @@ similarity, and vectorization MSE values are summarized in
       left: if x == 0 { none } else { 0.4pt },
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
-    ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [0.606738], [0.598794], [0.599245],
     [1000], [0.615834], [0.621120], [0.619718],
     [1500], [0.622208], [0.618302], [0.615209],
@@ -422,12 +402,7 @@ similarity, and vectorization MSE values are summarized in
       left: if x == 0 { none } else { 0.4pt },
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
-    ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [299.456365], [187.121463], [205.943477],
     [1000], [328.455177], [128.576292], [199.656727],
     [1500], [206.473148], [143.796380], [346.287457],
@@ -664,7 +639,13 @@ produce a large number of geometrically valid training examples directly in the
 target Bezier representation. This provides precise control over scene
 complexity, guarantees compatibility with the representation used by the model,
 and makes it possible to generate effectively unlimited training data without
-additional annotation or SVG cleaning.
+additional annotation or SVG cleaning. This property is central to the proposed
+training strategy. Because the generated vector scene is known exactly, the
+corresponding raster input can be obtained by rendering, yielding a supervised
+raster-to-vector pair without any manual labeling. The synthetic generator
+therefore addresses one of the main data bottlenecks in vector-graphics
+generation: while captioned SVG datasets are limited and expensive to curate,
+uncaptioned vector geometry can be synthesized and rasterized cheaply.
 
 The generator produces scenes composed of multiple filled shapes on a square
 canvas. Each scene contains a random number of objects sampled from a prescribed
@@ -704,14 +685,17 @@ in @fig:synthetic-generator-examples.
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_02.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_03.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_04.png"),
+
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_05.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_06.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_07.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_08.png"),
+
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_09.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_10.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_11.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_12.png"),
+
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_13.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_14.png"),
     synthetic-generator-image("assets/syntetic_generator/synthetic_generator_15.png"),
@@ -996,7 +980,5 @@ text-to-raster stage and the vectorizer training setup. This simplifies
 rasterization and evaluation, but it also constrains the kinds of graphics that
 can be represented cleanly. Future work should relax this assumption and
 support transparent or explicitly modeled backgrounds.
-
-= Bibliography
 
 #bibliography("references.bib")
