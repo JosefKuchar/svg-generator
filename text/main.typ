@@ -341,6 +341,12 @@ colors are easier to represent as clean vector graphics.
     image("assets/raster/omnisvg_8b/0003.png", width: 100%),
     image("assets/raster/omnisvg_8b/0004.png", width: 100%),
 
+    [OmniSVG 4B],
+    image("assets/raster/omnisvg_4b/0001.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0002.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0003.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0004.png", width: 100%),
+
     [Turbo],
     image("assets/raster/turbo/0001.png", width: 100%),
     image("assets/raster/turbo/0002.png", width: 100%),
@@ -369,6 +375,7 @@ colors are easier to represent as clean vector graphics.
     [Base], [0.818210], [0.509159], [266.565137],
     [Base prefixed], [0.819865], [0.545802], [230.160058],
     [OmniSVG 8B], [0.833605], [0.425360], [51.145968],
+    [OmniSVG 4B], [0.828205], [0.391314], [57.620655],
     [Turbo], [0.826786], [0.509892], [227.691742],
     [Turbo prefixed], [0.871237], [0.583856], [142.711678],
     [Turbo prefixed + LoRA (provisional)], [0.879104], [0.600208], [143.174617],
