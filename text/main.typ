@@ -473,6 +473,26 @@ count, and object diversity.
 In the current experimental setup, synthetic pretraining was performed on a
 single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
 
+The optimization dynamics of this pretraining run are summarized in
+@fig:vectorizer-pretraining-loss and @fig:vectorizer-pretraining-mse. The
+training objective decreases rapidly during the initial phase and then enters
+a slower refinement regime, indicating that the model first learns coarse
+Bezier-structure prediction before improving smaller geometric and appearance
+errors. The image-space MSE is measured by rendering predicted vectors back to
+raster images and comparing them with the corresponding synthetic targets. It
+therefore provides a complementary reconstruction-oriented view of pretraining
+quality, in addition to the direct flow-matching loss.
+
+#figure(
+  image("assets/wandb/classic-serenity-74_train_loss.pdf", width: 90%),
+  caption: [Training loss during the synthetic pretraining phase of the raster-to-vector model. The vertical axis uses a logarithmic scale, and the curve is smoothed for readability.],
+) <fig:vectorizer-pretraining-loss>
+
+#figure(
+  image("assets/wandb/classic-serenity-74_image_mse.pdf", width: 90%),
+  caption: [Train and validation image reconstruction MSE during the synthetic pretraining phase of the raster-to-vector model. The metric is computed after rasterizing the predicted vector representation. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
+) <fig:vectorizer-pretraining-mse>
+
 // TODO: Add exact pretraining configuration, including number of epochs,
 // synthetic scene parameters, optimizer settings, and checkpoint selection.
 
