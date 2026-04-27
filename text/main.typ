@@ -26,9 +26,12 @@
     span multiple paragraphs.
   ],
   keywords: (
-    "keyword1",
-    "keyword2",
-    "...",
+    "scalable vector graphics",
+    "raster-to-vector conversion",
+    "Bezier curves",
+    "flow matching",
+    "text-to-image generation",
+    "LoRA fine-tuning",
   ),
 )
 
@@ -197,6 +200,15 @@ adapted to real SVG data. The central experimental question is whether
 sufficiently varied synthetic pretraining can transfer to real vector graphics
 after fine-tuning.
 
+This is a practical advantage of formulating the second stage as
+raster-to-vector generation rather than direct text-to-vector generation. For
+the vectorizer, every procedurally generated vector scene can be rendered to a
+raster image and used immediately as a paired training example. This makes it
+possible to create an effectively unlimited amount of supervised data at low
+cost. In contrast, direct text-to-SVG training would require SVGs paired with
+high-quality textual descriptions, which are much harder to collect at scale
+and are not produced automatically by the vector representation itself.
+
 = Stage 1: Text-to-raster generation
 
 The first stage is based on the pretrained `z-image` family of image-generation
@@ -243,71 +255,110 @@ At this point, this section serves primarily as structural scaffolding. The
 detailed experimental and implementation description of the LoRA training
 procedure can be filled in later.
 
-A preliminary comparison of several Stage 1 variants is shown in the following
-table. The compared variants include the base `z-image` model, prompt-prefixing
-strategies, the accelerated `Z-Image-Turbo` model, and a provisional LoRA
-adaptation applied to the turbo pipeline. Higher CLIP and DINO similarity
-indicate better alignment with the reference images, whereas lower
-vectorization MSE indicates that the generated raster outputs are easier to
-convert in the second stage. CLIP-based and DINO-based similarity measures are
-also relevant because they have been reported to correlate well with human
-preference in vector-graphics evaluation @rodriguez2024starvector.
+A preliminary comparison of several Stage 1 variants is shown qualitatively in
+@tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
+compared variants include the base `z-image` model, prompt-prefixing strategies,
+the accelerated `Z-Image-Turbo` model, and a provisional LoRA adaptation applied
+to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
+with the reference images, whereas lower vectorization MSE indicates that the
+generated raster outputs are easier to convert in the second stage. CLIP-based
+and DINO-based similarity measures are also relevant because they have been
+reported to correlate well with human preference in vector-graphics evaluation
+@rodriguez2024starvector.
+
+The vectorization MSE is a round-trip traceability metric. For each generated
+raster image, the benchmark first converts the image to SVG using `vtracer` with
+its default command-line settings. The resulting SVG is then rasterized back to
+the original image resolution on a white background. The score is the mean
+squared error between the original generated RGB image and this rerendered
+image,
+$ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $,
+where pixel values are measured in the usual 0--255 RGB range. This metric does
+not compare the generated image to the reference image directly. Instead, it
+measures how much visual information is lost when the image is approximated by
+a standard vectorization tool, so lower values indicate images whose shapes and
+colors are easier to represent as clean vector graphics.
+
+#figure(
+  table(
+    columns: (1.6fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Variant], [Example 1], [Example 2], [Example 3], [Example 4]),
+    [Reference],
+    image("assets/raster/reference/0001.png", width: 100%),
+    image("assets/raster/reference/0002.png", width: 100%),
+    image("assets/raster/reference/0003.png", width: 100%),
+    image("assets/raster/reference/0004.png", width: 100%),
+
+    [Base],
+    image("assets/raster/base/0001.png", width: 100%),
+    image("assets/raster/base/0002.png", width: 100%),
+    image("assets/raster/base/0003.png", width: 100%),
+    image("assets/raster/base/0004.png", width: 100%),
+
+    [Base prefixed],
+    image("assets/raster/base_prefixed/0001.png", width: 100%),
+    image("assets/raster/base_prefixed/0002.png", width: 100%),
+    image("assets/raster/base_prefixed/0003.png", width: 100%),
+    image("assets/raster/base_prefixed/0004.png", width: 100%),
+
+    [Turbo],
+    image("assets/raster/turbo/0001.png", width: 100%),
+    image("assets/raster/turbo/0002.png", width: 100%),
+    image("assets/raster/turbo/0003.png", width: 100%),
+    image("assets/raster/turbo/0004.png", width: 100%),
+
+    [Turbo prefixed],
+    image("assets/raster/turbo_prefixed/0001.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0002.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0003.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0004.png", width: 100%),
+  ),
+  caption: [Qualitative Stage 1 comparison of text-to-raster model variants.],
+) <tab:stage1-raster-examples>
 
 #figure(
   table(
     columns: (2.5fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
-    table.header(
-      [Variant],
-      [CLIP similarity ↑],
-      [DINO similarity ↑],
-      [Vectorization MSE ↓],
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
     ),
-    [Base],
-    [0.818210],
-    [0.509159],
-    [266.565137],
-    [Base prefixed],
-    [0.819865],
-    [0.545802],
-    [230.160058],
-    [Turbo],
-    [0.826786],
-    [0.509892],
-    [227.691742],
-    [Turbo prefixed],
-    [0.871237],
-    [0.583856],
-    [142.711678],
-    [Turbo prefixed + LoRA (provisional)],
-    [0.879104],
-    [0.600208],
-    [143.174617],
+    table.header([Variant], [CLIP similarity ↑], [DINO similarity ↑], [Vectorization MSE ↓]),
+    [Base], [0.818210], [0.509159], [266.565137],
+    [Base prefixed], [0.819865], [0.545802], [230.160058],
+    [Turbo], [0.826786], [0.509892], [227.691742],
+    [Turbo prefixed], [0.871237], [0.583856], [142.711678],
+    [Turbo prefixed + LoRA (provisional)], [0.879104], [0.600208], [143.174617],
   ),
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
-)
+) <tab:stage1-benchmark>
 
 An additional ablation study was performed for the Stage 1 LoRA adaptation in
 order to evaluate the effect of training duration and LoRA rank. Three LoRA
 ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
 steps. For the files without an explicit checkpoint suffix, the final model is
 interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
-similarity, and vectorization MSE values are summarized below.
+similarity, and vectorization MSE values are summarized in
+@tab:lora-ablation-clip, @tab:lora-ablation-dino, and @tab:lora-ablation-mse.
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
     ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [0.880089], [0.871655], [0.884773],
     [1000], [0.886276], [0.887416], [0.884985],
     [1500], [0.885647], [0.886953], [0.884481],
@@ -318,20 +369,18 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [0.886028], [0.885978], [0.882711],
   ),
   caption: [Stage 1 LoRA ablation measured by CLIP similarity (higher is better).],
-)
+) <tab:lora-ablation-clip>
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
     ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [0.606738], [0.598794], [0.599245],
     [1000], [0.615834], [0.621120], [0.619718],
     [1500], [0.622208], [0.618302], [0.615209],
@@ -342,20 +391,18 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [0.620072], [0.631474], [0.617148],
   ),
   caption: [Stage 1 LoRA ablation measured by DINO similarity (higher is better).],
-)
+) <tab:lora-ablation-dino>
 
 #figure(
   table(
     columns: (1.2fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center),
     inset: 6pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
-    table.header(
-      [Time steps],
-      [LoRA 4],
-      [LoRA 16],
-      [LoRA 64],
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
     ),
+    table.header([Time steps], [LoRA 4], [LoRA 16], [LoRA 64]),
     [500], [299.456365], [187.121463], [205.943477],
     [1000], [328.455177], [128.576292], [199.656727],
     [1500], [206.473148], [143.796380], [346.287457],
@@ -366,7 +413,7 @@ similarity, and vectorization MSE values are summarized below.
     [5000], [178.813825], [166.223330], [172.532026],
   ),
   caption: [Stage 1 LoRA ablation measured by vectorization MSE (lower is better).],
-)
+) <tab:lora-ablation-mse>
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
@@ -592,7 +639,13 @@ produce a large number of geometrically valid training examples directly in the
 target Bezier representation. This provides precise control over scene
 complexity, guarantees compatibility with the representation used by the model,
 and makes it possible to generate effectively unlimited training data without
-additional annotation or SVG cleaning.
+additional annotation or SVG cleaning. This property is central to the proposed
+training strategy. Because the generated vector scene is known exactly, the
+corresponding raster input can be obtained by rendering, yielding a supervised
+raster-to-vector pair without any manual labeling. The synthetic generator
+therefore addresses one of the main data bottlenecks in vector-graphics
+generation: while captioned SVG datasets are limited and expensive to curate,
+uncaptioned vector geometry can be synthesized and rasterized cheaply.
 
 The generator produces scenes composed of multiple filled shapes on a square
 canvas. Each scene contains a random number of objects sampled from a prescribed
@@ -616,7 +669,40 @@ The available shapes are divided into three categories:
   curved boundaries.
 
 This design was chosen to cover both analytically simple contours and shapes
-with more varied topology and curvature.
+with more varied topology and curvature. Examples of generated images are shown
+in @fig:synthetic-generator-examples.
+
+#let synthetic-generator-image(path) = box(
+  stroke: 0.75pt + gray,
+  image(path, width: 100%),
+)
+
+#figure(
+  grid(
+    columns: (1fr, 1fr, 1fr, 1fr),
+    gutter: 4pt,
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_01.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_02.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_03.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_04.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_05.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_06.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_07.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_08.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_09.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_10.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_11.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_12.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_13.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_14.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_15.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_16.png"),
+  ),
+  caption: [Examples of images produced by the synthetic data generator.],
+) <fig:synthetic-generator-examples>
 
 All generated geometry is expressed as cubic Bezier curves. Straight polygonal
 edges are represented by degenerate cubic segments whose control points lie on
@@ -881,20 +967,41 @@ expressed as cubic Bezier segments, so higher-level SVG primitives such as
 circles, rectangles, and symbolic shape elements are not preserved as separate
 objects. Although these primitives can be approximated accurately by Bezier
 curves, the resulting SVG is less semantically editable than an SVG that keeps
-the original primitive types.
+the original primitive types. This limitation could be addressed by adding a
+post-processing stage that converts reconstructed Bezier shapes back into
+higher-level primitives where possible. For example, closed contours could be
+tested for compatibility with circles, ellipses, rectangles, rounded
+rectangles, polygons, or simple compound shapes, and then replaced by the
+corresponding SVG elements when the approximation error is sufficiently small.
+Such primitive recovery would not change the generative model itself, but it
+would improve the semantic editability and compactness of the final SVG output.
 
-The model also assumes solid fills with opacity and does not support gradients,
-masks, filters, or complex style rules. This excludes a significant part of the
-SVG design space and limits the visual complexity of the generated output. In
+The current data pipeline assumes solid fills with opacity and does not parse
+gradients, masks, filters, or complex style rules. This excludes a significant
+part of the SVG design space and limits the visual complexity of the generated
+output. Gradients are a partial exception from a representational perspective:
+although the current training data repeat one color over all segments of a
+shape, the tensor representation already stores color per segment. This means
+that smooth or piecewise-smooth color variation could in principle be
+approximated by assigning different colors to neighboring segments. Such an
+extension would require changes to data conversion, rendering, and evaluation,
+but not necessarily a completely different geometric representation. In
 addition, the fixed maximum number of segments imposes a hard capacity limit:
 graphics requiring more segments must either be simplified or truncated.
 
 Finally, the current pipeline assumes a white background in both the
 text-to-raster stage and the vectorizer training setup. This simplifies
 rasterization and evaluation, but it also constrains the kinds of graphics that
-can be represented cleanly. Future work should relax this assumption and
-support transparent or explicitly modeled backgrounds.
-
-= Bibliography
+can be represented cleanly. A natural extension would be to modify the
+text-to-raster stage so that it produces images with transparency instead of
+images composited onto a white canvas, and to train the raster-to-vector model
+on corresponding transparent raster inputs. Methods for transparent image
+generation, such as latent-transparency diffusion @zhang2024latenttransparency,
+suggest one possible way to adapt the first stage for this setting. The
+synthetic generator could also provide transparent training examples directly,
+because each generated vector scene can be rendered as RGBA rather than RGB.
+Such a setup would better match the common use of SVG graphics as foreground
+assets and would remove the need for the vectorizer to interpret the white
+background as a special implicit class.
 
 #bibliography("references.bib")
