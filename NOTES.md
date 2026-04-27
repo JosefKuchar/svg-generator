@@ -681,7 +681,7 @@ LORA transfer
 https://arxiv.org/html/2503.10637v4
 
 TODOS:
-- Run text to image with OmniSVG 4b and 8b models
+- Run text to image with OmniSVG 4b models
 - Run raster to image with OmniSVG 4b and 8b models
 
 ```sh

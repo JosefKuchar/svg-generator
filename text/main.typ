@@ -262,9 +262,9 @@ the accelerated `Z-Image-Turbo` model, and a provisional LoRA adaptation applied
 to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
 with the reference images, whereas lower vectorization MSE indicates that the
 generated raster outputs are easier to convert in the second stage. CLIP-based
-and DINO-based similarity measures are also relevant because they have been
-reported to correlate well with human preference in vector-graphics evaluation
-@rodriguez2024starvector.
+similarity @radford2021learning and DINO-based similarity are also relevant
+because they have been reported to correlate well with human preference in
+vector-graphics evaluation @rodriguez2024starvector.
 
 The vectorization MSE is a round-trip traceability metric. For each generated
 raster image, the benchmark first converts the image to SVG using `vtracer` with
@@ -492,6 +492,92 @@ quality, in addition to the direct flow-matching loss.
   image("assets/wandb/classic-serenity-74_image_mse.pdf", width: 90%),
   caption: [Train and validation image reconstruction MSE during the synthetic pretraining phase of the raster-to-vector model. The metric is computed after rasterizing the predicted vector representation. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
 ) <fig:vectorizer-pretraining-mse>
+
+Qualitative samples from the final synthetic pretraining checkpoint are shown
+in @tab:vectorizer-pretraining-samples. The training examples indicate that
+the model has learned to vectorize samples from the synthetic generator: the
+predicted Bezier representations preserve the main silhouettes, colors, and
+compound-shape structure of the references. The validation examples further
+suggest that this learned geometric prior generalizes reasonably well to data
+from the SVG dataset, despite the visual and structural differences between
+procedurally generated scenes and real vector graphics. In each case, the
+generated image is produced by sampling the flow-matching vectorizer
+conditioned on the corresponding raster reference and then rendering the
+predicted Bezier representation back to an image.
+
+#let pretraining-sample(path) = box(
+  width: 100%,
+  image(path, width: 100%),
+)
+
+#figure(
+  table(
+    columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center, center),
+    inset: 3pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Split and image], [Example 1], [Example 2], [Example 3], [Example 4], [Example 5], [Example 6]),
+    [Train reference],
+    pretraining-sample("assets/pretraining/train/ref/0000.png"),
+    pretraining-sample("assets/pretraining/train/ref/0001.png"),
+    pretraining-sample("assets/pretraining/train/ref/0002.png"),
+    pretraining-sample("assets/pretraining/train/ref/0003.png"),
+    pretraining-sample("assets/pretraining/train/ref/0004.png"),
+    pretraining-sample("assets/pretraining/train/ref/0005.png"),
+
+    [Train generated],
+    pretraining-sample("assets/pretraining/train/generated/0000.png"),
+    pretraining-sample("assets/pretraining/train/generated/0001.png"),
+    pretraining-sample("assets/pretraining/train/generated/0002.png"),
+    pretraining-sample("assets/pretraining/train/generated/0003.png"),
+    pretraining-sample("assets/pretraining/train/generated/0004.png"),
+    pretraining-sample("assets/pretraining/train/generated/0005.png"),
+
+    [SVG validation reference],
+    pretraining-sample("assets/pretraining/val/ref/0000.png"),
+    pretraining-sample("assets/pretraining/val/ref/0001.png"),
+    pretraining-sample("assets/pretraining/val/ref/0002.png"),
+    pretraining-sample("assets/pretraining/val/ref/0003.png"),
+    pretraining-sample("assets/pretraining/val/ref/0004.png"),
+    pretraining-sample("assets/pretraining/val/ref/0005.png"),
+
+    [SVG validation generated],
+    pretraining-sample("assets/pretraining/val/generated/0000.png"),
+    pretraining-sample("assets/pretraining/val/generated/0001.png"),
+    pretraining-sample("assets/pretraining/val/generated/0002.png"),
+    pretraining-sample("assets/pretraining/val/generated/0003.png"),
+    pretraining-sample("assets/pretraining/val/generated/0004.png"),
+    pretraining-sample("assets/pretraining/val/generated/0005.png"),
+  ),
+  caption: [Qualitative samples from the final synthetic pretraining checkpoint. Each generated image is rendered from the predicted Bezier representation and paired with the corresponding raster reference.],
+) <tab:vectorizer-pretraining-samples>
+
+The qualitative comparison should be complemented by quantitative evaluation
+of the same checkpoint. The final version of this section will report both
+image-space reconstruction metrics and vector-structure metrics, as outlined in
+@tab:vectorizer-pretraining-quantitative-todo.
+
+#figure(
+  table(
+    columns: (2.2fr, 1fr, 1fr, 2.2fr),
+    align: (left, center, center, left),
+    inset: 6pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Metric], [Synthetic train], [SVG validation], [Purpose]),
+    [Rendered image MSE ↓], [TODO], [TODO], [Pixel-level reconstruction error after rendering the predicted Bezier representation.],
+    [Rendered image SSIM ↑], [TODO], [TODO], [Perceptual structural similarity between the reference raster and rendered prediction.],
+    [DINO similarity ↑], [TODO], [TODO], [Feature-space similarity that is less sensitive to small rasterization differences.],
+    [Valid SVG rate ↑], [TODO], [TODO], [Fraction of samples that can be decoded and rendered without geometry or parsing failures.],
+    [Segment precision / recall ↑], [TODO], [TODO], [Agreement between predicted and reference Bezier structure when a segment-level matching procedure is available.],
+  ),
+  caption: [Planned quantitative evaluation of the final synthetic pretraining checkpoint. The values will be filled in after running the evaluation script on the saved samples or full evaluation split.],
+) <tab:vectorizer-pretraining-quantitative-todo>
 
 // TODO: Add exact pretraining configuration, including number of epochs,
 // synthetic scene parameters, optimizer settings, and checkpoint selection.
@@ -902,13 +988,24 @@ The first alternative is to adapt a pretrained text-to-raster model directly
 into a text-to-Bezier model. This would be conceptually attractive, because it
 would collapse the whole pipeline into one model while preserving the semantic
 knowledge of the pretrained generator. A preliminary experiment with this
-approach was performed, but it did not produce a useful model. In particular,
-training from random initialization converged faster than training from the
-pretrained raster-generation weights. This result suggests that the
-representation learned for image denoising does not directly provide a useful
-initialization for predicting Bezier control points. The approach is therefore
-not used as the main method, although it remains a possible large-scale
-direction if substantially more paired text-vector data become available.
+approach was performed by comparing a model initialized from pretrained
+text-to-raster weights with a model whose parameters were reset before
+training. The resulting optimization curves are shown in
+@fig:pretrained-vs-reset-loss. Over the shared training interval, the reset
+model learns faster and reaches a lower training loss than the model initialized
+from raster-generation weights. This indicates that the pretrained weights do
+not provide a useful initialization for Bezier prediction in this setting.
+Although the original model has learned a strong representation for raster
+image generation, that task requires a substantially different internal
+representation from the one needed to predict structured Bezier control points
+and attributes. The approach is therefore not used as the main method, although
+it remains a possible large-scale direction if substantially more paired
+text-vector data become available.
+
+#figure(
+  image("assets/wandb/pretrained-vs-reset_train_loss.pdf", width: 90%),
+  caption: [Training loss for direct adaptation of a pretrained text-to-raster model to Bezier prediction compared with training the same architecture after resetting the weights. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
+) <fig:pretrained-vs-reset-loss>
 
 The second alternative is to rely on existing vectorizers. This thesis will
 compare the proposed method against both classical raster-to-vector conversion

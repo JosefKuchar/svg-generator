@@ -19,3 +19,5 @@ This project also includes a thesis text.
 The text is written in Typst, a modern typesetting system. The source files for the text are located in the `text/` directory.
 When writing, use academic style and ensure that the text is well-structured and clear.
 Use `typst compile text/main.typ` to check that the text compiles correctly.
+
+When adding citations, check the internet first to ensure the bibtext entry is correct. Don't make up the citations from memory.
