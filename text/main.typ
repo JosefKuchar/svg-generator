@@ -348,6 +348,48 @@ colors are easier to represent as clean vector graphics.
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
 
+#figure(
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
+    table.header(
+      [Variant],
+      [Sample 1],
+      [Sample 2],
+      [Sample 3],
+      [Sample 4],
+    ),
+    [Reference],
+    [#image("assets/raster/reference/0001.png", width: 100%)],
+    [#image("assets/raster/reference/0002.png", width: 100%)],
+    [#image("assets/raster/reference/0003.png", width: 100%)],
+    [#image("assets/raster/reference/0004.png", width: 100%)],
+    [Base],
+    [#image("assets/raster/base/0001.png", width: 100%)],
+    [#image("assets/raster/base/0002.png", width: 100%)],
+    [#image("assets/raster/base/0003.png", width: 100%)],
+    [#image("assets/raster/base/0004.png", width: 100%)],
+    [Base prefixed],
+    [#image("assets/raster/base_prefixed/0001.png", width: 100%)],
+    [#image("assets/raster/base_prefixed/0002.png", width: 100%)],
+    [#image("assets/raster/base_prefixed/0003.png", width: 100%)],
+    [#image("assets/raster/base_prefixed/0004.png", width: 100%)],
+    [Turbo],
+    [#image("assets/raster/turbo/0001.png", width: 100%)],
+    [#image("assets/raster/turbo/0002.png", width: 100%)],
+    [#image("assets/raster/turbo/0003.png", width: 100%)],
+    [#image("assets/raster/turbo/0004.png", width: 100%)],
+    [Turbo prefixed],
+    [#image("assets/raster/turbo_prefixed/0001.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed/0002.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed/0003.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed/0004.png", width: 100%)],
+  ),
+  caption: [Qualitative Stage 1 comparison of generated raster outputs.],
+)
+
 An additional ablation study was performed for the Stage 1 LoRA adaptation in
 order to evaluate the effect of training duration and LoRA rank. Three LoRA
 ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
