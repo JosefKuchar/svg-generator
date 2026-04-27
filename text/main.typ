@@ -209,6 +209,34 @@ cost. In contrast, direct text-to-SVG training would require SVGs paired with
 high-quality textual descriptions, which are much harder to collect at scale
 and are not produced automatically by the vector representation itself.
 
+== Source SVG dataset
+
+Both stages use the `mikronai/svg-svgrepo` dataset distributed through Hugging
+Face @mikronaiSvgSvgrepo. The dataset is derived from SVG Repo graphics and is
+provided as a tabular Parquet dataset. At the time of use, the default subset
+contained approximately 216k examples, split into approximately 214k training
+examples, 1010 validation examples, and 1010 test examples. Each row contains
+the raw SVG markup in the `item_svg` field, collection and item identifiers,
+license metadata, item tags, an item title, and four generated text captions
+with associated generation metadata.
+
+This structure makes the dataset useful for both parts of the proposed
+pipeline. For Stage 1, the SVG files are rasterized and paired with textual
+captions, yielding image-text examples for LoRA adaptation of the
+text-to-raster model. For Stage 2, the same SVG files provide vector
+supervision: each SVG is converted into the internal Bezier representation and
+also rasterized to obtain the conditioning image. The dataset is therefore a
+shared source of semantic supervision for raster generation and geometric
+supervision for raster-to-vector learning.
+
+The dataset is heterogeneous because it aggregates graphics from many original
+collections and licenses. This diversity is useful for evaluating
+generalization, but it also requires filtering and normalization before
+training. In particular, SVGs containing unsupported constructs such as
+gradients, masks, embedded style blocks, or geometry that exceeds the fixed
+segment budget are excluded or simplified by the preprocessing pipeline
+described below.
+
 = Stage 1: Text-to-raster generation
 
 The first stage is based on the pretrained `z-image` family of image-generation
@@ -396,7 +424,12 @@ ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
 steps. For the files without an explicit checkpoint suffix, the final model is
 interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
 similarity, and vectorization MSE values are summarized together in
-@tab:lora-ablation.
+@tab:lora-ablation. Due to computational constraints, the ablation was
+evaluated on a subset of 100 validation samples rather than on the full
+validation set of 1010 samples. The explored grid of ranks and checkpoints is
+therefore intentionally coarse; a more fine-grained sweep over ranks, training
+durations, and sampling seeds would provide a more precise model-selection
+criterion, but was outside the available compute budget.
 
 #figure(
   table(
@@ -457,6 +490,13 @@ vectorization error is achieved by `Turbo prefixed`. This indicates that the
 adapted LoRA model improves perceptual alignment with the references, but its
 advantage with respect to downstream vectorization should be verified on a
 larger evaluation.
+
+Based on the rank and checkpoint ablation, the LoRA model with rank 16 at
+3000 training steps was selected for subsequent Stage 1 experiments. This
+checkpoint achieves the highest DINO similarity in the ablation and provides a
+reasonable compromise between semantic alignment and traceability, even though
+the lowest vectorization MSE is observed for the rank-16 checkpoint at 2500
+steps.
 
 = Stage 2: Raster-to-vector generation
 
