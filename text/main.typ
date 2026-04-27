@@ -967,18 +967,41 @@ expressed as cubic Bezier segments, so higher-level SVG primitives such as
 circles, rectangles, and symbolic shape elements are not preserved as separate
 objects. Although these primitives can be approximated accurately by Bezier
 curves, the resulting SVG is less semantically editable than an SVG that keeps
-the original primitive types.
+the original primitive types. This limitation could be addressed by adding a
+post-processing stage that converts reconstructed Bezier shapes back into
+higher-level primitives where possible. For example, closed contours could be
+tested for compatibility with circles, ellipses, rectangles, rounded
+rectangles, polygons, or simple compound shapes, and then replaced by the
+corresponding SVG elements when the approximation error is sufficiently small.
+Such primitive recovery would not change the generative model itself, but it
+would improve the semantic editability and compactness of the final SVG output.
 
-The model also assumes solid fills with opacity and does not support gradients,
-masks, filters, or complex style rules. This excludes a significant part of the
-SVG design space and limits the visual complexity of the generated output. In
+The current data pipeline assumes solid fills with opacity and does not parse
+gradients, masks, filters, or complex style rules. This excludes a significant
+part of the SVG design space and limits the visual complexity of the generated
+output. Gradients are a partial exception from a representational perspective:
+although the current training data repeat one color over all segments of a
+shape, the tensor representation already stores color per segment. This means
+that smooth or piecewise-smooth color variation could in principle be
+approximated by assigning different colors to neighboring segments. Such an
+extension would require changes to data conversion, rendering, and evaluation,
+but not necessarily a completely different geometric representation. In
 addition, the fixed maximum number of segments imposes a hard capacity limit:
 graphics requiring more segments must either be simplified or truncated.
 
 Finally, the current pipeline assumes a white background in both the
 text-to-raster stage and the vectorizer training setup. This simplifies
 rasterization and evaluation, but it also constrains the kinds of graphics that
-can be represented cleanly. Future work should relax this assumption and
-support transparent or explicitly modeled backgrounds.
+can be represented cleanly. A natural extension would be to modify the
+text-to-raster stage so that it produces images with transparency instead of
+images composited onto a white canvas, and to train the raster-to-vector model
+on corresponding transparent raster inputs. Methods for transparent image
+generation, such as latent-transparency diffusion @zhang2024latenttransparency,
+suggest one possible way to adapt the first stage for this setting. The
+synthetic generator could also provide transparent training examples directly,
+because each generated vector scene can be rendered as RGBA rather than RGB.
+Such a setup would better match the common use of SVG graphics as foreground
+assets and would remove the need for the vectorizer to interpret the white
+background as a special implicit class.
 
 #bibliography("references.bib")
