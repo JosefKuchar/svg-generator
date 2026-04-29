@@ -23,6 +23,12 @@ uv run inference.py --task image-to-svg --input ./input --output ./output_image_
 
 ## Star Vector
 ```sh
+git clone git@github.com:JosefKuchar/star-vector.git
+cd star-vector
+uv sync
+uv pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.0/flash_attn-2.8.3+cu128torch2.9-cp311-cp311-linux_x86_64.whl
+CUDA_VISIBLE_DEVICES=10 uv run batch.py reference 8b
+CUDA_VISIBLE_DEVICES=9 uv run batch.py reference 1b --model-name starvector/starvector-1b-im2svg
 # TODO
 ```
 
@@ -681,8 +687,8 @@ LORA transfer
 https://arxiv.org/html/2503.10637v4
 
 TODOS:
-- Run text to image with OmniSVG 4b models
-- Run raster to image with OmniSVG 4b and 8b models
+Running: - Run raster to image with OmniSVG 4b and 8b models
+- Run raster to image with Starvector 8b and 1b models
 
 ```sh
 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ CUDA_VISIBLE_DEVICES=2 uv run benchmark_image_folders.py ./raster/reference/ omnisvg/8b/

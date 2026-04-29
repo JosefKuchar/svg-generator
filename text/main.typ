@@ -60,6 +60,28 @@ possible to exploit the strengths of modern text-to-image models while
 developing a specialized vectorizer that operates in a well-defined geometric
 output space.
 
+In this thesis, _vectorization_ refers to raster-to-vector conversion: the
+problem of converting a pixel image into a visually similar vector graphic
+described by geometric primitives. Raster images represent visual content as a
+discrete grid of colored samples, whereas vector graphics describe shapes by
+parameters such as paths, curves, fills, and strokes. Rendering maps a vector
+description to pixels; vectorization attempts the inverse direction by
+recovering a compact and editable geometric description from raster evidence
+@selinger2003potrace. This inverse problem is inherently ambiguous, because
+many different sets of curves and shapes can render to nearly identical pixel
+images. A useful vectorizer therefore must balance image fidelity with
+structural simplicity, semantic editability, and validity of the resulting SVG
+@dziuba2023imagevectorization.
+
+The Bezier curves used in this work are a standard way of representing curved
+SVG paths. In SVG path data, a cubic Bezier segment is specified by an endpoint
+and two control points relative to the current point; sequences of such
+segments can describe smooth contours, while fills and strokes determine how
+the paths are rendered @w3c2011svgpaths. This makes cubic Bezier curves a
+natural low-level representation for learning, because they are expressive
+enough to approximate many shapes while still being described by a small fixed
+number of continuous parameters per segment.
+
 The work also considers several alternative formulations of the problem. In
 particular, a direct adaptation of a text-to-raster model into a
 text-to-Bezier model would be an elegant solution, because it would remove the
@@ -90,6 +112,15 @@ stage. However, this formulation is challenging because the model must jointly
 learn semantic alignment with text and the geometric and syntactic regularities
 of valid SVG documents.
 
+SVG generation is difficult not only because the output is visual, but also
+because the output is structured code. A model must produce syntactically valid
+path data, choose an ordering of paths and shapes, handle attributes such as
+fill color and opacity, and cope with the fact that multiple SVG programs can
+render to very similar raster images. Recent SVG-generation systems therefore
+either generate full SVG code with a code-oriented language model
+@rodriguez2024starvector or simplify SVGs into a smaller command vocabulary
+before training @yang2025omnisvg.
+
 From the perspective of this thesis, direct text-to-SVG methods are important
 as a conceptual baseline. They address the same end goal as the proposed
 system, but differ in where the complexity is handled. In the direct setting,
@@ -98,19 +129,85 @@ In the present work, these two difficulties are separated into a raster
 generation stage and a dedicated vectorization stage.
 
 Representative recent examples include StarVector @rodriguez2024starvector and
-OmniSVG @yang2025omnisvg. StarVector studies SVG generation from both images
-and text and frames the problem as generating executable SVG code, which makes
-it a useful reference point for code-oriented approaches to vector graphics
-synthesis. OmniSVG pursues a unified and scalable formulation of SVG
-generation, further highlighting the growing interest in treating SVG creation
-as a first-class generative modeling problem rather than only as a downstream
-vectorization step. These works are closely aligned with the overall objective
-of this thesis, but they differ from the proposed approach in that they seek to
-produce vector graphics directly within a single model. By contrast, the method
-developed here deliberately decomposes the task into raster generation and
-subsequent vectorization, which reduces the burden placed on any one model and
-allows the vectorizer to focus specifically on geometric reconstruction from
-image evidence.
+OmniSVG @yang2025omnisvg. Both systems treat SVG generation as a sequence
+modeling problem, but they differ in how much of the SVG language they expose
+to the model and in how they connect visual or textual conditioning to the
+generated vector representation.
+
+=== StarVector
+
+StarVector formulates SVG synthesis as multimodal code generation. The model is
+conditioned either on a raster image or on a text instruction and then predicts
+the SVG document autoregressively as code. For image-to-SVG generation, the
+raster input is encoded by a vision transformer, projected through an adapter
+into the language-model embedding space, and prepended as visual tokens before
+the SVG token sequence. For text-to-SVG generation, the conditioning signal is
+provided by the language model's ordinary text tokenizer. In both cases, the
+decoder is trained with a next-token objective over SVG code, so inference
+amounts to sampling SVG markup until an end-of-SVG token is produced.
+
+A central design choice in StarVector is to operate in the native SVG code
+space rather than in a restricted curve-only representation. This allows the
+model to use higher-level primitives such as circles, ellipses, polygons, text,
+and styling constructs when they are appropriate. The motivation is that a
+semantically recognized circle should be emitted as a compact SVG primitive
+rather than approximated by many small Bezier path segments. This distinguishes
+StarVector from classical vectorizers, which often optimize pixel fidelity but
+can produce long, fragmented paths with limited semantic editability.
+
+The training data for StarVector are collected in SVG-Stack, a large dataset of
+approximately two million SVG samples paired with raster renderings and
+synthetic text descriptions. The dataset is intended to cover a broad range of
+web SVG syntax and primitives, which is important because SVG generation is not
+only a geometric task but also a code-validity task. StarVector is evaluated
+with SVG-Bench on image-to-SVG, text-to-SVG, and diagram-generation tasks. The
+paper also argues that purely pixel-based metrics such as MSE can be misleading
+for vector graphics, because they do not measure compactness, primitive choice,
+or editability. This observation is relevant for this thesis as well: a
+round-trip raster error is useful, but it should be interpreted together with
+properties of the generated vector structure.
+
+=== OmniSVG
+
+OmniSVG also uses an autoregressive formulation, but it avoids generating raw
+XML markup directly. Instead, the input SVGs are simplified into a sequence of
+atomic drawing commands and attributes. The representation includes move,
+line, cubic Bezier, elliptical arc, close-path, and fill commands, while
+coordinates and command types are discretized into tokens. This tokenizer
+places vector geometry into the same sequential modeling framework as text and
+image tokens, but it removes much of the syntactic variability of full SVG XML.
+The model is built on a pretrained vision-language model, Qwen2.5-VL, and uses
+text and image inputs as prefix tokens before generating the SVG command
+sequence with a next-token prediction objective.
+
+The purpose of this parameterization is to separate the higher-level structure
+of the drawing from low-level coordinate prediction. Raw SVG code contains many
+equivalent ways to express the same image, for example through transforms,
+groups, or different primitive forms. OmniSVG reduces this ambiguity by
+normalizing SVGs with tools such as `picosvg` and representing them with a
+limited set of atomic commands. At the same time, it remains more expressive
+than icon-only systems because it keeps color fills and supports longer
+sequences for complex illustrations.
+
+OmniSVG is trained and evaluated with MMSVG-2M, a multimodal dataset containing
+about two million SVG assets, including icons, illustrations, and more complex
+character graphics. Its benchmark covers text-to-SVG, image-to-SVG, and
+character-reference SVG generation. This makes OmniSVG a useful reference point
+for scalable conditional SVG generation: it demonstrates that large
+vision-language models can be adapted to produce detailed editable vector
+outputs when a sufficiently standardized SVG tokenizer and large-scale data are
+available.
+
+Both StarVector and OmniSVG are closely aligned with the overall objective of
+this thesis, but they solve the problem in a different place in the pipeline.
+They aim to learn semantic generation and vector-structure generation jointly
+inside a single autoregressive model. The method developed here deliberately
+decomposes the task into raster generation followed by raster-to-vector
+conversion. This decomposition gives up the possibility of producing semantic
+SVG primitives directly from text, but it reduces the data requirement for the
+second stage: the vectorizer can be trained on raster-vector pairs generated
+from known geometry, without requiring natural-language captions for every
+vector sample.
 
 == Image-to-SVG and vectorization methods
 
@@ -126,6 +223,16 @@ text conditioning.
 The model proposed in this thesis belongs primarily to this category, but it
 differs in the use of flow matching @lipman2023flow and in the specific
 Bezier-segment representation employed for training and decoding.
+
+Flow matching is a generative modeling objective for learning a continuous
+vector field that transports samples from a simple source distribution, such as
+Gaussian noise, toward the data distribution. The original flow matching work
+frames this as simulation-free training of continuous normalizing flows by
+regressing vector fields along prescribed probability paths, with diffusion
+paths included as a special case @lipman2023flow. In this thesis, the same idea
+is applied in the continuous space of Bezier-segment tensors: the model learns
+how a noisy vector representation should move toward a valid raster-conditioned
+vector graphic.
 
 // TODO: Add representative classical and neural vectorization methods.
 
@@ -149,6 +256,15 @@ produce vector output directly, they can provide strong semantic grounding and
 composition capabilities. This idea motivates the first stage of the proposed
 pipeline, where a pretrained text-to-image model is adapted through LoRA and
 used as a controllable raster generator.
+
+Modern text-to-image systems are commonly based on diffusion models. A
+diffusion model learns to reverse a gradual noising process: during training,
+clean images are corrupted with noise, and the network learns a denoising
+transition that can be applied iteratively to synthesize new samples from
+noise @ho2020denoising. Latent diffusion models make this process more
+efficient by performing the denoising in a compressed latent image space rather
+than directly in pixel space, which is one reason they became practical for
+high-resolution conditional image synthesis @rombach2022highresolution.
 
 This category is important because it justifies the decomposition adopted in
 this thesis. If a text-to-image model can be specialized to generate
@@ -249,6 +365,14 @@ illustrations. These properties may include simplified composition, cleaner
 silhouettes, reduced texture complexity, and visual styles that are easier to
 approximate by Bezier curves.
 
+LoRA is a parameter-efficient fine-tuning method. Instead of updating all
+weights of a large pretrained model, it freezes the base weights and learns
+small trainable low-rank matrices whose product approximates the desired weight
+update @hu2022lowrank. This is useful in the first stage because the model
+should retain the broad semantic and compositional knowledge of the pretrained
+text-to-image system while adapting only a comparatively small number of
+parameters to the SVG-like raster domain.
+
 The LoRA adaptation was trained using the AI-Toolkit framework with the AdamW
 optimizer @loshchilov2018decoupled and a learning rate of
 $1 times 10^(-4)$. This configuration was used as the default starting point
@@ -261,6 +385,14 @@ sampled with 50 denoising steps and classifier-free guidance
 contrast, `Z-Image-Turbo` was sampled with 8 denoising steps and without
 classifier-free guidance, because the turbo model is guidance-distilled and is
 intended to operate without an explicit CFG term at inference time.
+
+Classifier-free guidance is a conditioning technique for diffusion models in
+which the model is trained with both conditional and unconditional inputs. At
+sampling time, the conditional prediction is strengthened by comparing it with
+the unconditional prediction, and the guidance scale controls how strongly the
+sample is pushed toward the prompt @ho2021classifierfree. This usually improves
+prompt adherence but requires additional model evaluations unless the effect
+has been distilled into a faster model.
 
 After training, the learned LoRA weights are loaded into the `Z-Image-Turbo`
 pipeline for fast sampling. This design preserves the knowledge of the original
@@ -290,14 +422,20 @@ the accelerated `Z-Image-Turbo` model, and a provisional LoRA adaptation applied
 to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
 with the reference images, whereas lower vectorization MSE indicates that the
 generated raster outputs are easier to convert in the second stage. CLIP-based
-similarity @radford2021learning and DINO-based similarity are also relevant
+similarity uses a joint image-text representation learned from natural-language
+supervision and is therefore useful for measuring semantic alignment
+@radford2021learning. DINO-based similarity uses self-supervised visual
+features intended to transfer across image distributions and tasks
+@oquab2023dinov2. Both types of feature-space similarity are also relevant
 because they have been reported to correlate well with human preference in
 vector-graphics evaluation @rodriguez2024starvector.
 
 The vectorization MSE is a round-trip traceability metric. For each generated
-raster image, the benchmark first converts the image to SVG using `vtracer` with
-its default command-line settings. The resulting SVG is then rasterized back to
-the original image resolution on a white background. The score is the mean
+raster image, the benchmark first converts the image to SVG using `vtracer`, an
+open-source raster-to-vector converter that traces color raster images into SVG
+paths @visioncortexVtracer, with its default command-line settings. The
+resulting SVG is then rasterized back to the original image resolution on a
+white background. The score is the mean
 squared error between the original generated RGB image and this rerendered
 image,
 $ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $,
@@ -306,6 +444,14 @@ not compare the generated image to the reference image directly. Instead, it
 measures how much visual information is lost when the image is approximated by
 a standard vectorization tool, so lower values indicate images whose shapes and
 colors are easier to represent as clean vector graphics.
+
+This metric should not be interpreted as a complete measure of vector quality.
+As noted in prior vectorization work, a low pixel error can still correspond to
+an overly complex SVG with many redundant paths, while a compact and editable
+SVG may differ slightly at the pixel level @selinger2003potrace
+@rodriguez2024starvector. The metric is therefore used here as a practical
+proxy for traceability, not as a replacement for evaluating path count,
+primitive structure, or editability.
 
 #figure(
   table(
@@ -525,7 +671,11 @@ by the observation that synthetic data and real SVG data provide complementary
 advantages. Synthetic data offer unlimited quantity and precise control over
 geometric variation, while real SVG data provide more realistic structure,
 stylistic diversity, and distributional properties closer to the target use
-case.
+case. This distinction is important because automatic vectorization is
+underdetermined from pixels alone: when the vector scene is generated
+procedurally, the exact geometric target is known by construction, whereas for
+ordinary raster images there may be many plausible vector explanations
+@selinger2003potrace @dziuba2023imagevectorization.
 
 === Pretraining on synthetic data
 
@@ -697,7 +847,7 @@ segment is more suitable than a heterogeneous command language containing
 separate primitives for lines, arcs, rectangles, circles, and paths. Converting
 all supported geometry to cubic Bezier segments therefore gives the model a
 single native output type while still preserving the ability to reconstruct
-standard SVG paths.
+standard SVG paths @w3c2011svgpaths.
 
 For learning, the hierarchical SVG structure is converted into a flat sequence
 of segment descriptors. Each segment is represented by a 13-dimensional vector
@@ -712,6 +862,13 @@ The endpoint is omitted from the learned representation, because it is implied
 by the start point of the following segment. For the last segment in a path,
 the endpoint is defined by the start point of the first segment, which closes
 the contour explicitly.
+
+This convention follows the sequential nature of SVG path data, where each
+command starts from the current point left by the previous command and updates
+that current point after execution @w3c2011svgpaths. Storing endpoints
+implicitly removes one redundant coordinate pair per segment, while still
+allowing the full path to be reconstructed when segment order and path
+boundaries are known.
 
 All quantities are normalized to the interval $[-1, 1]$. Let the original
 raster image have width $W$ and height $H$. Coordinates are normalized with
@@ -764,14 +921,15 @@ maps every supported graphical element to a collection of filled cubic Bezier
 paths together with a shared color and opacity.
 
 The conversion begins with structural simplification. SVG files are first
-processed externally in Inkscape in batch mode. During this stage, all objects
-are converted to paths and strokes are expanded into filled outlines. This step
-removes many forms of SVG variability and ensures that the subsequent parser
-operates on explicit geometric contours rather than on higher-level drawing
-commands. Several classes of samples are excluded before conversion, namely
-SVGs containing gradient definitions, masks, or embedded style blocks. These
-constructs are not supported by the present representation, which assumes a
-single solid fill color and a scalar opacity for each shape.
+processed externally in Inkscape, a vector graphics editor that supports
+command-line batch processing through actions @inkscapeCommandLine. During this
+stage, all objects are converted to paths and strokes are expanded into filled
+outlines. This step removes many forms of SVG variability and ensures that the
+subsequent parser operates on explicit geometric contours rather than on
+higher-level drawing commands. Several classes of samples are excluded before
+conversion, namely SVGs containing gradient definitions, masks, or embedded
+style blocks. These constructs are not supported by the present representation,
+which assumes a single solid fill color and a scalar opacity for each shape.
 
 After preprocessing, the SVG document is parsed recursively. Group and root
 nodes are traversed until individual drawable shapes are reached. For each
@@ -808,6 +966,13 @@ Their orientation is then reversed when necessary so that outer contours are
 clockwise and holes are counter-clockwise in SVG image coordinates. This makes
 the geometry compatible with the non-zero rule without changing the visual
 appearance of the shape.
+
+The need for this step comes from the SVG fill-rule definition. Under the
+non-zero rule, whether a point is inside a shape depends on the signed winding
+of contours around that point, while the even-odd rule depends on how many
+times a ray from the point crosses the path @w3c2011svgpaths. The same visual
+hole can therefore require different contour orientation conventions depending
+on the chosen fill rule.
 
 Once all segments have been converted to cubic Bezier curves and, if needed,
 their winding order has been normalized, the curve list is partitioned into
@@ -905,6 +1070,26 @@ Catmull-Rom-style tangent construction. The handle length is scaled by a
 smoothness parameter, which allows the generator to control whether the blob is
 smooth, rough, or spiky.
 
+The value of $kappa$ follows from the standard cubic approximation of one
+quadrant of the unit circle @pomaxBezierPrimer. Consider the arc from
+$(1, 0)$ to $(0, 1)$ represented by a cubic Bezier curve with control points
+$(1, kappa)$ and $(kappa, 1)$, which enforces the correct endpoint tangents. At
+$t = 1 / 2$, the cubic Bezier formula gives the midpoint
+$
+  (1 / 2 + 3 kappa / 8, 1 / 2 + 3 kappa / 8).
+$
+If this point is constrained to lie on the circular diagonal
+$(sqrt(2) / 2, sqrt(2) / 2)$, then
+$
+  1 / 2 + 3 kappa / 8 = sqrt(2) / 2
+$
+and therefore
+$
+  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498.
+$
+Scaling the same construction along the horizontal and vertical axes gives the
+ellipse approximation used by the generator.
+
 For each sampled shape, geometric parameters such as size, aspect ratio,
 rotation, and contour detail are drawn from random intervals that depend on the
 shape category. The object center is then sampled under a margin constraint so
@@ -959,14 +1144,17 @@ image.
 
 The conditioning branch is based on a pretrained DINOv3 visual encoder
 @simeoni2025dinov3,
-specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. The encoder is kept
-frozen throughout training and is used only to extract a sequence of visual
-features from the conditioning raster image. Concretely, the model takes the
-last hidden state of DINOv3 and linearly projects it to the internal hidden
-dimension of the transformer. This yields a sequence of conditioning tokens that
-serve as keys and values in cross-attention. Freezing the image encoder reduces
-the number of trainable parameters and stabilizes optimization, while still
-providing semantically rich image descriptors.
+specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. DINOv3 is a
+self-supervised visual foundation model designed to produce transferable visual
+features across a broad range of downstream tasks @simeoni2025dinov3. In this
+work, the encoder is kept frozen throughout training and is used only to
+extract a sequence of visual features from the conditioning raster image.
+Concretely, the model takes the last hidden state of DINOv3 and linearly
+projects it to the internal hidden dimension of the transformer. This yields a
+sequence of conditioning tokens that serve as keys and values in
+cross-attention. Freezing the image encoder reduces the number of trainable
+parameters and stabilizes optimization, while still providing semantically rich
+image descriptors.
 
 The Bezier branch processes a tensor of segment descriptors of shape
 $(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
