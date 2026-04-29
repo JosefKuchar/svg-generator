@@ -22,9 +22,9 @@ def main(
         help="Base seed. Sample i uses seed + i.",
     ),
     canvas_size: int = typer.Option(256, help="Canvas width and height."),
-    png_size: int | None = typer.Option(
-        None,
-        help="Rendered PNG width and height. Defaults to canvas_size.",
+    png_size: int = typer.Option(
+        1024,
+        help="Rendered PNG width and height.",
     ),
     min_shapes: int = typer.Option(1, help="Minimum shapes per scene."),
     max_shapes: int = typer.Option(10, help="Maximum shapes per scene."),
@@ -36,7 +36,7 @@ def main(
         raise typer.BadParameter("num_samples must be greater than 0")
     if canvas_size <= 0:
         raise typer.BadParameter("canvas_size must be greater than 0")
-    if png_size is not None and png_size <= 0:
+    if png_size <= 0:
         raise typer.BadParameter("png_size must be greater than 0")
     if min_shapes <= 0:
         raise typer.BadParameter("min_shapes must be greater than 0")
@@ -45,7 +45,7 @@ def main(
     if max_segments <= 0:
         raise typer.BadParameter("max_segments must be greater than 0")
 
-    render_size = png_size or canvas_size
+    render_size = png_size
     pad_width = max(4, len(str(num_samples - 1)))
     output_dir.mkdir(parents=True, exist_ok=True)
 
