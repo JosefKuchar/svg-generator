@@ -1479,6 +1479,44 @@ choosing only visually favorable cases.
   caption: [Qualitative comparison on synthetic-generator samples. These examples test general vectorization behavior on controlled geometric inputs, complementing the in-distribution SVG validation comparison. Missing or non-renderable SVG files are shown as white images.],
 ) <tab:vectorization-qualitative-synthetic>
 
+The quantitative metrics are computed after rendering both SVGs to RGB images
+at the same resolution. MSE is the mean squared difference between
+corresponding RGB pixel values, reported on the 0--255 intensity scale. It
+measures direct raster reconstruction error and is sensitive to both color
+differences and small spatial misalignments. SSIM compares the rendered images
+using luminance, contrast, and covariance statistics on normalized RGB values;
+it is included because two vectorizations can have similar pixel error while
+preserving global structure to different degrees @wang2004ssim. In this
+implementation SSIM is computed globally per channel and then averaged, so it
+should be interpreted as a coarse structural score rather than as a full
+windowed perceptual metric.
+
+The remaining fidelity metrics emphasize foreground shape and boundary
+alignment. Mask IoU thresholds each rendered image into foreground and
+background, treating pixels darker than the foreground threshold as foreground,
+and measures the intersection-over-union of the two masks, corresponding to
+the Jaccard similarity coefficient @jaccard1901distribution. Boundary F1 first
+extracts edge points from the rendered images and then measures precision and
+recall under a fixed pixel tolerance, following the common boundary-evaluation
+idea of matching contours within a localization tolerance
+@martin2004boundaries. The tables report the 2 px tolerance, which rewards
+methods whose contours are close to the reference even when the filled regions
+are not identical. Chamfer distance averages the nearest-edge distance in both
+directions between the reference and generated contours @borgefors1988chamfer,
+whereas Hausdorff distance reports the worst nearest-edge discrepancy
+@huttenlocher1993hausdorff. Chamfer therefore measures typical contour
+alignment, while Hausdorff is more sensitive to outliers such as missing
+strokes, distant artifacts, or a single badly placed shape.
+
+SVG validity and complexity are reported separately from visual fidelity. The
+valid SVG rate is the fraction of generated files that can be rendered without
+error; missing or non-renderable files are replaced by a white image for
+fidelity scoring but are counted as failures in the validity table. SVG bytes,
+element count, path count, and path-command count are simple proxies for output
+complexity. Lower values indicate a more compact and potentially more editable
+SVG only when the corresponding fidelity metrics remain competitive, because a
+trivially simple file can also be inaccurate.
+
 #figure(
   table(
     columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
