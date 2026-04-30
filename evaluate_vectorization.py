@@ -2,6 +2,7 @@ import csv
 import math
 import re
 import statistics
+import subprocess
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -18,9 +19,9 @@ from raster import render_svg_bg
 app = typer.Typer()
 
 
-PNG_SUFFIX = ".png"
 SVG_SUFFIX = ".svg"
 COMMAND_RE = re.compile(r"[AaCcHhLlMmQqSsTtVvZz]")
+RASTER_SIZE = 1024
 
 
 @dataclass
@@ -47,15 +48,25 @@ class PairMetrics:
     ref_path_commands: int | None
     gen_path_commands: int | None
     render_time_ms: float | None
+    gen_render_error: str | None
 
 
-def _open_rgb(path: Path) -> Image.Image:
-    with Image.open(path) as image:
-        return image.convert("RGB")
-
-
-def _render_svg_file(path: Path, width: int, height: int) -> Image.Image:
+def _render_svg_file(
+    path: Path,
+    width: int | None = None,
+    height: int | None = None,
+) -> Image.Image:
     return render_svg_bg(path.read_bytes(), width=width, height=height).convert("RGB")
+
+
+def _render_error_message(error: Exception) -> str:
+    if isinstance(error, subprocess.CalledProcessError):
+        stderr = error.stderr
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        if stderr:
+            return stderr.strip().splitlines()[-1]
+    return str(error)
 
 
 def _image_to_float_array(image: Image.Image) -> np.ndarray:
@@ -197,17 +208,27 @@ def _format_float(value: float | int | None) -> str:
 
 
 def _mean(values: list[float | int | None]) -> float | None:
-    clean = [float(value) for value in values if value is not None and not math.isinf(float(value))]
+    clean = [
+        float(value)
+        for value in values
+        if value is not None and not math.isinf(float(value))
+    ]
     return statistics.mean(clean) if clean else None
 
 
+def _svg_names(folder: Path) -> set[str]:
+    return {
+        path.stem
+        for path in folder.iterdir()
+        if path.is_file() and path.suffix.lower() == SVG_SUFFIX
+    }
+
+
 def _collect_pair_names(ref_dir: Path, generated_dir: Path) -> list[str]:
-    ref_names = {path.stem for path in ref_dir.glob(f"*{PNG_SUFFIX}")}
-    gen_names = {path.stem for path in generated_dir.glob(f"*{PNG_SUFFIX}")}
-    common = sorted(ref_names & gen_names)
-    if not common:
-        raise typer.BadParameter("No matching PNG filenames found between folders")
-    return common
+    ref_names = _svg_names(ref_dir)
+    if not ref_names:
+        raise typer.BadParameter(f"No SVG files found in reference folder: {ref_dir}")
+    return sorted(ref_names)
 
 
 def _evaluate_pair(
@@ -215,34 +236,42 @@ def _evaluate_pair(
     ref_dir: Path,
     generated_dir: Path,
     *,
-    render_svgs: bool,
+    raster_output_dir: Path | None,
     foreground_threshold: int,
     edge_threshold: int,
     max_edge_points: int,
 ) -> PairMetrics:
-    ref_png = ref_dir / f"{name}{PNG_SUFFIX}"
-    gen_png = generated_dir / f"{name}{PNG_SUFFIX}"
     ref_svg = ref_dir / f"{name}{SVG_SUFFIX}"
     gen_svg = generated_dir / f"{name}{SVG_SUFFIX}"
 
-    ref_image = _open_rgb(ref_png)
-    width, height = ref_image.size
+    start = time.perf_counter()
+    width = RASTER_SIZE
+    height = RASTER_SIZE
+    ref_image = _render_svg_file(ref_svg, width=width, height=height)
 
-    render_time_ms: float | None = None
-    if render_svgs:
-        start = time.perf_counter()
-        if ref_svg.exists():
-            ref_image = _render_svg_file(ref_svg, width=width, height=height)
-        if gen_svg.exists():
-            gen_image = _render_svg_file(gen_svg, width=width, height=height)
-        else:
-            gen_image = _open_rgb(gen_png)
-        render_time_ms = (time.perf_counter() - start) * 1000.0
+    gen_render_error: str | None = None
+    if not gen_svg.exists():
+        gen_render_error = "missing generated SVG"
+        gen_image = Image.new("RGB", (width, height), "white")
     else:
-        gen_image = _open_rgb(gen_png)
+        try:
+            gen_image = _render_svg_file(gen_svg, width=width, height=height)
+        except Exception as error:
+            gen_render_error = _render_error_message(error)
+            gen_image = Image.new("RGB", (width, height), "white")
+
+    render_time_ms = (time.perf_counter() - start) * 1000.0
 
     if gen_image.size != ref_image.size:
         gen_image = gen_image.resize(ref_image.size, Image.Resampling.LANCZOS)
+
+    if raster_output_dir is not None:
+        ref_raster_dir = raster_output_dir / "ref"
+        gen_raster_dir = raster_output_dir / "generated"
+        ref_raster_dir.mkdir(parents=True, exist_ok=True)
+        gen_raster_dir.mkdir(parents=True, exist_ok=True)
+        ref_image.save(ref_raster_dir / f"{name}.png")
+        gen_image.save(gen_raster_dir / f"{name}.png")
 
     ref_arr = _image_to_float_array(ref_image)
     gen_arr = _image_to_float_array(gen_image)
@@ -283,6 +312,7 @@ def _evaluate_pair(
         ref_path_commands=ref_commands,
         gen_path_commands=gen_commands,
         render_time_ms=render_time_ms,
+        gen_render_error=gen_render_error,
     )
 
 
@@ -313,6 +343,7 @@ def _print_summary(rows: list[PairMetrics]) -> None:
         "gen_paths": _mean([row.gen_paths for row in rows]),
         "gen_path_commands": _mean([row.gen_path_commands for row in rows]),
         "render_time_ms": _mean([row.render_time_ms for row in rows]),
+        "gen_render_errors": sum(row.gen_render_error is not None for row in rows),
     }
 
     for key, value in summary.items():
@@ -338,9 +369,11 @@ def main(
         min=1,
         help="Evaluate only the first N matching pairs.",
     ),
-    render_svgs: bool = typer.Option(
-        False,
-        help="Render SVG files at the reference PNG size before computing image metrics.",
+    raster_output_dir: Path | None = typer.Option(
+        None,
+        help=(
+            "Optional directory where rendered PNGs are written under ref/ and generated/."
+        ),
     ),
     foreground_threshold: int = typer.Option(
         250,
@@ -360,7 +393,7 @@ def main(
         help="Maximum sampled edge points per image for Chamfer/Hausdorff computation.",
     ),
 ):
-    """Evaluate matching raster/SVG vectorization outputs in two folders."""
+    """Evaluate reference SVGs against generated SVG vectorization outputs."""
 
     names = _collect_pair_names(ref_dir, generated_dir)
     if limit is not None:
@@ -371,7 +404,7 @@ def main(
             name,
             ref_dir,
             generated_dir,
-            render_svgs=render_svgs,
+            raster_output_dir=raster_output_dir,
             foreground_threshold=foreground_threshold,
             edge_threshold=edge_threshold,
             max_edge_points=max_edge_points,
