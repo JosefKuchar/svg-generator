@@ -1498,11 +1498,13 @@ choosing only visually favorable cases.
       [Hausdorff px ↓],
     ),
     [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
-    [OmniSVG], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
-    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG 4B], [7696.39], [0.621], [0.631], [0.538], [17.84], [145.46],
+    [OmniSVG 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
+    [StarVector 1B], [5147.82], [0.652], [0.631], [0.483], [24.26], [143.28],
+    [StarVector 8B], [8449.48], [0.461], [0.444], [0.441], [38.75], [229.73],
     [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
   ),
-  caption: [Planned vectorization-fidelity comparison on SVG validation samples. All metrics are computed after rendering the generated SVG and the reference SVG at 1024 px resolution with `evaluate_vectorization.py`. Lower MSE, Chamfer distance, and Hausdorff distance are better; higher SSIM, mask IoU, and boundary F1 are better.],
+  caption: [Vectorization-fidelity comparison on SVG validation samples. All metrics are computed after rendering the generated SVG and the reference SVG at 1024 px resolution with `evaluate_vectorization.py`. Lower MSE, Chamfer distance, and Hausdorff distance are better; higher SSIM, mask IoU, and boundary F1 are better. The OmniSVG 4B, OmniSVG 8B, StarVector 1B, and StarVector 8B rows are each computed over 1010 pairs.],
 ) <tab:vectorization-fidelity-validation>
 
 #figure(
@@ -1551,11 +1553,13 @@ choosing only visually favorable cases.
       [Path commands ↓],
     ),
     [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO],
-    [OmniSVG], [TODO], [TODO], [TODO], [TODO], [TODO],
-    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG 4B], [99.4%], [5284.03], [5.04], [4.04], [219.53],
+    [OmniSVG 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
+    [StarVector 1B], [79.0%], [1957.71], [9.17], [4.09], [118.60],
+    [StarVector 8B], [65.1%], [2220.83], [10.63], [5.36], [213.25],
     [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO],
   ),
-  caption: [Planned SVG validity and complexity comparison on SVG validation samples. The valid SVG rate is derived from render failures reported by `evaluate_vectorization.py`; the remaining columns report mean generated-SVG statistics over successfully produced files. Lower complexity values are preferable only when visual fidelity remains comparable.],
+  caption: [SVG validity and complexity comparison on SVG validation samples. The valid SVG rate is derived from render failures reported by `evaluate_vectorization.py`; the remaining columns report mean generated-SVG statistics over successfully produced files. Lower complexity values are preferable only when visual fidelity remains comparable. The valid SVG rates are computed from 6 render errors for OmniSVG 4B, 7 for OmniSVG 8B, 212 for StarVector 1B, and 352 for StarVector 8B, each among 1010 pairs.],
 ) <tab:vectorization-complexity-validation>
 
 #figure(
