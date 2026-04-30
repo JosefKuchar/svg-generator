@@ -69,8 +69,12 @@ def _render_error_message(error: Exception) -> str:
     return str(error)
 
 
-def _image_to_float_array(image: Image.Image) -> np.ndarray:
-    return np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+def _image_to_byte_float_array(image: Image.Image) -> np.ndarray:
+    return np.asarray(image.convert("RGB"), dtype=np.float32)
+
+
+def _image_to_unit_float_array(image: Image.Image) -> np.ndarray:
+    return _image_to_byte_float_array(image) / 255.0
 
 
 def _mse(a: np.ndarray, b: np.ndarray) -> float:
@@ -84,7 +88,7 @@ def _mae(a: np.ndarray, b: np.ndarray) -> float:
 def _psnr(mse: float) -> float:
     if mse == 0:
         return float("inf")
-    return float(10.0 * math.log10(1.0 / mse))
+    return float(10.0 * math.log10((255.0**2) / mse))
 
 
 def _ssim(a: np.ndarray, b: np.ndarray) -> float:
@@ -273,9 +277,12 @@ def _evaluate_pair(
         ref_image.save(ref_raster_dir / f"{name}.png")
         gen_image.save(gen_raster_dir / f"{name}.png")
 
-    ref_arr = _image_to_float_array(ref_image)
-    gen_arr = _image_to_float_array(gen_image)
+    ref_arr = _image_to_byte_float_array(ref_image)
+    gen_arr = _image_to_byte_float_array(gen_image)
     mse = _mse(ref_arr, gen_arr)
+
+    ref_unit_arr = ref_arr / 255.0
+    gen_unit_arr = gen_arr / 255.0
 
     ref_mask = _foreground_mask(ref_image, foreground_threshold)
     gen_mask = _foreground_mask(gen_image, foreground_threshold)
@@ -296,7 +303,7 @@ def _evaluate_pair(
         mse=mse,
         mae=_mae(ref_arr, gen_arr),
         psnr=_psnr(mse),
-        ssim=_ssim(ref_arr, gen_arr),
+        ssim=_ssim(ref_unit_arr, gen_unit_arr),
         mask_iou=_mask_iou(ref_mask, gen_mask),
         boundary_f1_1px=boundary_f1_1px,
         boundary_f1_2px=boundary_f1_2px,
