@@ -1347,6 +1347,183 @@ properties important for editable vector graphics, such as path count, node
 count, topological cleanliness, robustness to noisy inputs, and ease of manual
 editing.
 
+The vectorization comparison will be performed with the
+`evaluate_vectorization.py` script. The script renders each reference SVG and
+each generated SVG at a fixed resolution of 1024 pixels, compares the rendered
+RGB images, and records both image-space and structure-related statistics. The
+planned comparison contains four methods: the proposed flow-matching
+vectorizer, OmniSVG @yang2025omnisvg, StarVector @rodriguez2024starvector, and
+`vtracer` @visioncortexVtracer. All methods will be evaluated on the same
+reference set and with the same rasterization settings.
+
+The quantitative comparison will be paired with two qualitative grids. The
+first grid will use samples from the SVG validation split. These examples are
+useful for checking performance on the target distribution, but they should be
+interpreted as in-distribution examples: the proposed model is trained on the
+same dataset family, and large external SVG models may also have been exposed
+to visually similar icon data during pretraining. The validation grid therefore
+shows how well the methods handle the type of data used in the main benchmark,
+rather than proving broad vectorization ability.
+
+#figure(
+  table(
+    columns: (1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (center, center, center, center, center),
+    inset: 3pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Reference], [Proposed model], [OmniSVG], [StarVector], [`vtracer`]),
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [Planned qualitative comparison on SVG validation samples. Each row will contain the same validation input across all methods, rendered with the same SVG rasterizer used for the quantitative evaluation. These examples test behavior on the target validation distribution, but not necessarily out-of-distribution generalization.],
+) <tab:vectorization-qualitative-validation>
+
+The second qualitative grid will use samples from the synthetic generator. In
+this setting, the reference vector structure is produced by a controlled
+procedural process rather than collected from the same icon distribution as
+the validation set. This makes the comparison a more direct test of general
+raster-to-vector capability: the methods must recover clean geometric
+structure from rendered images whose underlying shapes, holes, intersections,
+and curve configurations are known. The examples should be selected before
+inspecting the final scores, or selected by fixed criteria such as median
+error, high-detail input, thin-structure input, and noisy input. This avoids
+choosing only visually favorable cases.
+
+#figure(
+  table(
+    columns: (1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (center, center, center, center, center),
+    inset: 3pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Reference], [Proposed model], [OmniSVG], [StarVector], [`vtracer`]),
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+    [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [Planned qualitative comparison on synthetic-generator samples. These examples test general vectorization behavior on controlled geometric inputs, complementing the in-distribution SVG validation comparison. The discussion will focus on contour placement, holes, thin structures, color consistency, path smoothness, local artifacts, and editability.],
+) <tab:vectorization-qualitative-synthetic>
+
+#figure(
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header(
+      [Method],
+      [MSE (0--255) ↓],
+      [SSIM ↑],
+      [Mask IoU ↑],
+      [Boundary F1 at 2 px ↑],
+      [Chamfer px ↓],
+      [Hausdorff px ↓],
+    ),
+    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [Planned vectorization-fidelity comparison on SVG validation samples. All metrics are computed after rendering the generated SVG and the reference SVG at 1024 px resolution with `evaluate_vectorization.py`. Lower MSE, Chamfer distance, and Hausdorff distance are better; higher SSIM, mask IoU, and boundary F1 are better.],
+) <tab:vectorization-fidelity-validation>
+
+#figure(
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header(
+      [Method],
+      [MSE (0--255) ↓],
+      [SSIM ↑],
+      [Mask IoU ↑],
+      [Boundary F1 at 2 px ↑],
+      [Chamfer px ↓],
+      [Hausdorff px ↓],
+    ),
+    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG 4B], [9591.51], [0.330], [0.432], [0.461], [32.87], [242.00],
+    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [Vectorization-fidelity comparison on synthetic-generator samples. This table uses the same metrics as @tab:vectorization-fidelity-validation, but evaluates controlled procedural inputs to test general vectorization behavior outside the SVG validation distribution. MSE is converted from the normalized `evaluate_vectorization.py` output to the 0--255 RGB scale for consistency with the Stage 1 vectorization MSE. The OmniSVG 4B row is computed over 1000 pairs.],
+) <tab:vectorization-fidelity-synthetic>
+
+#figure(
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header(
+      [Method],
+      [Valid SVG rate ↑],
+      [SVG bytes ↓],
+      [Elements ↓],
+      [Paths ↓],
+      [Path commands ↓],
+    ),
+    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [Planned SVG validity and complexity comparison on SVG validation samples. The valid SVG rate is derived from render failures reported by `evaluate_vectorization.py`; the remaining columns report mean generated-SVG statistics over successfully produced files. Lower complexity values are preferable only when visual fidelity remains comparable.],
+) <tab:vectorization-complexity-validation>
+
+#figure(
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: if x == 0 { none } else { 0.4pt },
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header(
+      [Method],
+      [Valid SVG rate ↑],
+      [SVG bytes ↓],
+      [Elements ↓],
+      [Paths ↓],
+      [Path commands ↓],
+    ),
+    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [OmniSVG 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
+    [StarVector], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO],
+  ),
+  caption: [SVG validity and complexity comparison on synthetic-generator samples. This table reports the same SVG validity and structure statistics as @tab:vectorization-complexity-validation, but on controlled procedural inputs. The OmniSVG 4B valid SVG rate is computed from 8 render errors among 1000 pairs.],
+) <tab:vectorization-complexity-synthetic>
+
+The fidelity tables capture visual reconstruction quality, while the
+complexity tables capture whether the output is a practical vector graphic.
+This separation is important because a method can obtain a low raster error by
+creating a very large SVG with many paths or path commands. Conversely, a more
+compact SVG may be preferable for editing even when it introduces a small
+raster-space error. The final discussion will therefore interpret the
+validation results separately from the synthetic-generator results, and will
+read the corresponding fidelity and complexity tables together rather than
+selecting a method from a single scalar score.
+
 = Limitations
 
 The current representation is intentionally restricted. All geometry is
