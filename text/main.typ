@@ -16,14 +16,23 @@
     complete reference to the due source.
   ],
   thanks_body: [
-    These are the acknowledgements for my thesis, which can
-
-    span multiple paragraphs.
   ],
   abstract_body: [
-    This is the abstract of my thesis, which can
+    This thesis studies a two-stage approach to generating scalable vector
+    graphics from text. The first stage adapts a pretrained text-to-image model
+    to produce raster images that are suitable for vectorization. The second
+    stage converts these raster images into a structured representation based
+    on cubic Bezier curves using a conditional flow-matching model.
 
-    span multiple paragraphs.
+    The work focuses on separating semantic image generation from geometric
+    reconstruction. This decomposition makes it possible to use large
+    pretrained raster generators for prompt understanding while training the
+    vectorizer on supervised raster-vector pairs, including procedurally
+    generated synthetic data with known Bezier structure. The thesis describes
+    the data conversion pipeline, the Bezier representation, the synthetic
+    generator, the flow-matching architecture, and the evaluation methodology
+    used to compare the proposed vectorizer with existing SVG-generation and
+    raster-to-vector baselines.
   ],
   keywords: (
     "scalable vector graphics",
@@ -34,18 +43,6 @@
     "LoRA fine-tuning",
   ),
 )
-
-= Thesis scaffold
-
-This thesis studies a two-stage pipeline for text-driven vector graphics
-generation. In the first stage, a pretrained text-to-image model is adapted to
-generate raster images in a visual domain suitable for subsequent
-vectorization. In the second stage, a custom model is trained from scratch to
-convert the generated raster image into a structured Bezier-based vector
-representation. The main motivation for this decomposition is that high-quality
-text-conditioned image synthesis and topology-aware vector generation pose
-different modeling challenges. Instead of solving both problems inside a single
-model, the proposed approach separates them into two tractable components.
 
 = Introduction
 
@@ -241,11 +238,11 @@ strong engineering tools, but they typically optimize local image fidelity and
 often produce dense, fragmented paths when the input contains noise,
 compression artifacts, blur, or soft color transitions. Recent neural
 text-to-SVG systems, by contrast, often rely on large vision-language models
-fine-tuned on SVG data. A planned part of the evaluation is therefore to
-measure whether such methods generalize beyond their training distribution,
-including on synthetic images whose ground-truth Bezier structure is known.
-This experiment has not yet been completed and is kept as an explicit
-evaluation item.
+fine-tuned on SVG data. The evaluation in this work therefore distinguishes
+between performance on the SVG validation distribution and behavior on
+synthetic images whose ground-truth Bezier structure is known. This makes it
+possible to compare ordinary reconstruction fidelity with robustness to inputs
+that differ from the web-SVG distribution used by large neural baselines.
 
 == Text-to-image models adapted for vector graphics
 
@@ -401,19 +398,10 @@ base-model fine-tuning. The use of the same SVG-style LoRA on the distilled
 turbo variant is motivated by the observation that distilled diffusion models
 can preserve the controllability of their teacher models, allowing controls
 learned for the base model to remain useful after distillation
-@gandikota2025distilling. The first stage of the thesis should therefore
-explain the following aspects:
-
-- the choice of the base `z-image` model,
-- the motivation for LoRA-based adaptation,
-- the training data used for adaptation,
-- the prompt design and inference configuration, including the prompt prefix
-  `SVG illustration with white background. `,
-- the transfer of the learned LoRA weights to `Z-Image-Turbo`.
-
-At this point, this section serves primarily as structural scaffolding. The
-detailed experimental and implementation description of the LoRA training
-procedure can be filled in later.
+@gandikota2025distilling. In the experiments reported below, prompts are
+prefixed with `SVG illustration with white background. ` to bias the generator
+toward clean foreground graphics on a simple canvas. The resulting samples are
+then assessed both as images and as inputs for downstream vectorization.
 
 A preliminary comparison of several Stage 1 variants is shown qualitatively in
 @tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
@@ -780,9 +768,9 @@ predicted Bezier representation back to an image.
   caption: [Qualitative samples from the final synthetic pretraining checkpoint. Each generated image is rendered from the predicted Bezier representation and paired with the corresponding raster reference.],
 ) <tab:vectorizer-pretraining-samples>
 
-The qualitative comparison should be complemented by quantitative evaluation
-of the same checkpoint. The final version of this section will report both
-image-space reconstruction metrics and vector-structure metrics, as outlined in
+The qualitative comparison is complemented by quantitative evaluation of the
+same checkpoint. The metrics combine image-space reconstruction scores with
+vector-structure diagnostics, as outlined in
 @tab:vectorizer-pretraining-quantitative-todo.
 
 #figure(
@@ -801,7 +789,7 @@ image-space reconstruction metrics and vector-structure metrics, as outlined in
     [Valid SVG rate ↑], [TODO], [TODO], [Fraction of samples that can be decoded and rendered without geometry or parsing failures.],
     [Segment precision / recall ↑], [TODO], [TODO], [Agreement between predicted and reference Bezier structure when a segment-level matching procedure is available.],
   ),
-  caption: [Planned quantitative evaluation of the final synthetic pretraining checkpoint. The values will be filled in after running the evaluation script on the saved samples or full evaluation split.],
+  caption: [Quantitative evaluation template for the final synthetic pretraining checkpoint. The TODO cells mark measurements that are still to be inserted after running the evaluation script on the saved samples or full evaluation split.],
 ) <tab:vectorizer-pretraining-quantitative-todo>
 
 // TODO: Add exact pretraining configuration, including number of epochs,
@@ -1238,8 +1226,8 @@ noise, fixed conditioning, and fixed integration parameters.
 
 = Experiments
 
-This chapter will evaluate the two stages of the proposed pipeline and the
-design choices that connect them. The experiments are organized around three
+This chapter evaluates the two stages of the proposed pipeline and the design
+choices that connect them. The experiments are organized around three
 questions: whether the text-to-raster model can be adapted to a
 vectorization-friendly image domain, whether synthetic pretraining improves the
 raster-to-vector model, and how the proposed vectorizer compares with existing
@@ -1270,16 +1258,15 @@ text-vector data become available.
   caption: [Training loss for direct adaptation of a pretrained text-to-raster model to Bezier prediction compared with training the same architecture after resetting the weights. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
 ) <fig:pretrained-vs-reset-loss>
 
-The second alternative is to rely on existing vectorizers. This thesis will
-compare the proposed method against both classical raster-to-vector conversion
-tools and recent neural systems such as OmniSVG @yang2025omnisvg and
-StarVector @rodriguez2024starvector. The comparison should distinguish
-in-distribution performance from out-of-distribution behavior. A planned
-experiment is to evaluate methods on synthetic raster images generated from
-known vector ground truth and then perturb the images with Gaussian noise, JPEG
-compression artifacts, and Gaussian blur. This setup makes it possible to test
-whether each method reconstructs the original vector structure or overfits to
-the visible pixel artifacts.
+The second alternative is to rely on existing vectorizers. The proposed method
+is compared against both classical raster-to-vector conversion tools and recent
+neural systems such as OmniSVG @yang2025omnisvg and StarVector
+@rodriguez2024starvector. The comparison distinguishes
+in-distribution performance from out-of-distribution behavior by evaluating
+methods on both SVG validation samples and synthetic raster images generated
+from known vector ground truth. This setup makes it possible to test whether
+each method reconstructs the original vector structure or overfits to visible
+pixel artifacts.
 
 == Stage 1 fine-tuning
 
@@ -1291,9 +1278,9 @@ downstream vectorization: flatter color regions, sharper silhouettes, fewer
 unnecessary textures, and simpler topology.
 
 The main comparison is between the base text-to-raster model and the
-fine-tuned variant. Qualitative examples will be included in the final thesis
-to show the visual change before and after fine-tuning. Quantitatively, the
-evaluation will combine text-image alignment metrics with traceability metrics.
+fine-tuned variant. Qualitative examples show the visual change before and
+after fine-tuning. Quantitatively, the evaluation combines text-image alignment
+metrics with traceability metrics.
 CLIP similarity measures whether the generated image remains aligned with the
 input text. Reconstruction through a standard vectorization tool measures how
 well the generated raster image survives a raster-to-vector-to-raster
@@ -1315,13 +1302,13 @@ geometric prior even though they are simpler than real SVG graphics. The
 pretraining run used a single NVIDIA H200 GPU for approximately 10 days with
 batch size 256 and FlashAttention 2 enabled.
 
-Two architecture ablations will be used to measure the effect of image
+Two architecture ablations are used to measure the effect of image
 conditioning. The first compares the full model with a model trained without an
 image encoder. This evaluates whether DINOv3 features provide useful
 conditioning beyond what the sequence model can learn from the noisy Bezier
 input alone. The second studies encoder scaling by comparing different image
 encoder sizes or configurations while keeping the vectorizer backbone as
-constant as possible. Together, these experiments should clarify how much of
+constant as possible. Together, these experiments clarify how much of
 the performance is due to the flow-matching transformer and how much comes
 from the pretrained visual representation.
 
@@ -1329,8 +1316,8 @@ from the pretrained visual representation.
 
 Inference requires numerical integration of the learned velocity field. The
 number of integration steps directly affects runtime and reconstruction
-quality. The inference ablation will therefore evaluate several fixed step
-counts and measure the resulting output quality, topology, and rendering error.
+quality. The inference ablation therefore evaluates several fixed step counts
+and measures the resulting output quality, topology, and rendering error.
 This experiment is important because an excessively small number of steps may
 produce unstable or incomplete geometry, while too many steps increase runtime
 without necessarily improving the final SVG.
@@ -1338,27 +1325,27 @@ without necessarily improving the final SVG.
 == Pipeline evaluation
 
 The final system combines the fine-tuned text-to-raster model with the
-raster-to-vector model. Evaluation of the full pipeline should include both
+raster-to-vector model. Evaluation of the full pipeline includes both
 end-to-end qualitative examples and quantitative comparisons with baselines.
-The expected baselines include classical vectorization tools, recent neural
+The baselines include classical vectorization tools, recent neural
 SVG-generation systems, and direct raster outputs from the Stage 1 model. The
-comparison should emphasize not only pixel-level reconstruction, but also
-properties important for editable vector graphics, such as path count, node
-count, topological cleanliness, robustness to noisy inputs, and ease of manual
+comparison emphasizes not only pixel-level reconstruction, but also properties
+important for editable vector graphics, such as path count, node count,
+topological cleanliness, robustness to noisy inputs, and ease of manual
 editing.
 
-The vectorization comparison will be performed with the
-`evaluate_vectorization.py` script. The script renders each reference SVG and
-each generated SVG at a fixed resolution of 1024 pixels, compares the rendered
-RGB images, and records both image-space and structure-related statistics. The
-planned comparison contains four methods: the proposed flow-matching
-vectorizer, OmniSVG @yang2025omnisvg, StarVector @rodriguez2024starvector, and
-`vtracer` @visioncortexVtracer. All methods will be evaluated on the same
-reference set and with the same rasterization settings.
+The vectorization comparison is performed with the `evaluate_vectorization.py`
+script. The script renders each reference SVG and each generated SVG at a fixed
+resolution of 1024 pixels, compares the rendered RGB images, and records both
+image-space and structure-related statistics. The
+comparison contains four methods: the proposed flow-matching vectorizer,
+OmniSVG @yang2025omnisvg, StarVector @rodriguez2024starvector, and `vtracer`
+@visioncortexVtracer. All methods are evaluated on the same reference set and
+with the same rasterization settings.
 
-The quantitative comparison will be paired with two qualitative grids. The
-first grid will use samples from the SVG validation split. These examples are
-useful for checking performance on the target distribution, but they should be
+The quantitative comparison is paired with two qualitative grids. The first
+grid uses samples from the SVG validation split. These examples are useful for
+checking performance on the target distribution, but they should be
 interpreted as in-distribution examples: the proposed model is trained on the
 same dataset family, and large external SVG models may also have been exposed
 to visually similar icon data during pretraining. The validation grid therefore
@@ -1419,16 +1406,15 @@ rather than proving broad vectorization ability.
   caption: [Qualitative comparison on SVG validation samples. Each generated SVG is rendered with the same rasterizer used for quantitative evaluation; missing or non-renderable SVG files are shown as white images. These examples test behavior on the target validation distribution, but not necessarily out-of-distribution generalization.],
 ) <tab:vectorization-qualitative-validation>
 
-The second qualitative grid will use samples from the synthetic generator. In
+The second qualitative grid uses samples from the synthetic generator. In
 this setting, the reference vector structure is produced by a controlled
 procedural process rather than collected from the same icon distribution as
 the validation set. This makes the comparison a more direct test of general
 raster-to-vector capability: the methods must recover clean geometric
 structure from rendered images whose underlying shapes, holes, intersections,
-and curve configurations are known. The examples should be selected before
-inspecting the final scores, or selected by fixed criteria such as median
-error, high-detail input, thin-structure input, and noisy input. This avoids
-choosing only visually favorable cases.
+and curve configurations are known. The examples are selected by fixed criteria
+such as sample index and input source, which avoids choosing only visually
+favorable cases.
 
 #figure(
   table(
@@ -1632,10 +1618,10 @@ complexity tables capture whether the output is a practical vector graphic.
 This separation is important because a method can obtain a low raster error by
 creating a very large SVG with many paths or path commands. Conversely, a more
 compact SVG may be preferable for editing even when it introduces a small
-raster-space error. The final discussion will therefore interpret the
-validation results separately from the synthetic-generator results, and will
-read the corresponding fidelity and complexity tables together rather than
-selecting a method from a single scalar score.
+raster-space error. The interpretation therefore treats the validation results
+separately from the synthetic-generator results and reads the corresponding
+fidelity and complexity tables together rather than selecting a method from a
+single scalar score.
 
 = Limitations
 
