@@ -406,7 +406,7 @@ then assessed both as images and as inputs for downstream vectorization.
 A preliminary comparison of several Stage 1 variants is shown qualitatively in
 @tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
 compared variants include the base `z-image` model, prompt-prefixing strategies,
-the accelerated `Z-Image-Turbo` model, and a provisional LoRA adaptation applied
+the accelerated `Z-Image-Turbo` model, and a LoRA adaptation applied
 to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
 with the reference images, whereas lower vectorization MSE indicates that the
 generated raster outputs are easier to convert in the second stage. CLIP-based
@@ -512,7 +512,7 @@ primitive structure, or editability.
     [OmniSVG 4B], [0.828205], [0.391314], [57.620655],
     [Turbo], [0.826786], [0.509892], [227.691742],
     [Turbo prefixed], [0.871237], [0.583856], [142.711678],
-    [Turbo prefixed + LoRA (provisional)], [0.879104], [0.600208], [143.174617],
+    [Turbo prefixed + LoRA], [0.879104], [0.600208], [143.174617],
   ),
   caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
@@ -626,7 +626,7 @@ criterion, but was outside the available compute budget.
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
-provisional `Turbo prefixed + LoRA` configuration, while the lowest
+`Turbo prefixed + LoRA` configuration, while the lowest
 vectorization error is achieved by `Turbo prefixed`. This indicates that the
 adapted LoRA model improves perceptual alignment with the references, but its
 advantage with respect to downstream vectorization should be verified on a

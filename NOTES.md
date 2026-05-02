@@ -676,7 +676,7 @@ clip_similarity: 0.871237
 dino_similarity: 0.583856
 vectorization_mse: 142.711678
 
-# Turbo prefixed with LORA - provisional
+# Turbo prefixed with LORA
 clip_similarity: 0.879104
 dino_similarity: 0.600208
 vectorization_mse: 143.174617
