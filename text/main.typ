@@ -1540,7 +1540,7 @@ trivially simple file can also be inaccurate.
     [OmniSVG 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
     [StarVector 1B], [5147.82], [0.652], [0.631], [0.483], [24.26], [143.28],
     [StarVector 8B], [8449.48], [0.461], [0.444], [0.441], [38.75], [229.73],
-    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [92.01], [0.994], [0.984], [0.886], [1.26], [17.20],
   ),
   caption: [Vectorization-fidelity comparison on SVG validation samples. All metrics are computed after rendering the generated SVG and the reference SVG at 1024 px resolution with `evaluate_vectorization.py`. Lower MSE, Chamfer distance, and Hausdorff distance are better; higher SSIM, mask IoU, and boundary F1 are better. The OmniSVG 4B, OmniSVG 8B, StarVector 1B, and StarVector 8B rows are each computed over 1010 pairs.],
 ) <tab:vectorization-fidelity-validation>
@@ -1568,7 +1568,7 @@ trivially simple file can also be inaccurate.
     [OmniSVG 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
     [StarVector 1B], [6339.14], [0.314], [0.297], [0.476], [47.02], [317.25],
     [StarVector 8B], [7536.35], [0.137], [0.104], [0.496], [59.58], [401.38],
-    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [23.95], [0.997], [0.993], [0.920], [1.03], [20.45],
   ),
   caption: [Vectorization-fidelity comparison on synthetic-generator samples. This table uses the same metrics as @tab:vectorization-fidelity-validation, but evaluates controlled procedural inputs to test general vectorization behavior outside the SVG validation distribution. MSE is converted from the normalized `evaluate_vectorization.py` output to the 0--255 RGB scale for consistency with the Stage 1 vectorization MSE. The OmniSVG 4B, OmniSVG 8B, StarVector 1B, and StarVector 8B rows are each computed over 1000 pairs.],
 ) <tab:vectorization-fidelity-synthetic>
@@ -1595,7 +1595,7 @@ trivially simple file can also be inaccurate.
     [OmniSVG 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
     [StarVector 1B], [79.0%], [1957.71], [9.17], [4.09], [118.60],
     [StarVector 8B], [65.1%], [2220.83], [10.63], [5.36], [213.25],
-    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [100.0%], [14370.11], [10.68], [9.68], [364.55],
   ),
   caption: [SVG validity and complexity comparison on SVG validation samples. The valid SVG rate is derived from render failures reported by `evaluate_vectorization.py`; the remaining columns report mean generated-SVG statistics over successfully produced files. Lower complexity values are preferable only when visual fidelity remains comparable. The valid SVG rates are computed from 6 render errors for OmniSVG 4B, 7 for OmniSVG 8B, 212 for StarVector 1B, and 352 for StarVector 8B, each among 1010 pairs.],
 ) <tab:vectorization-complexity-validation>
@@ -1622,7 +1622,7 @@ trivially simple file can also be inaccurate.
     [OmniSVG 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
     [StarVector 1B], [43.2%], [4108.50], [30.42], [9.97], [447.18],
     [StarVector 8B], [20.5%], [5354.53], [40.59], [14.22], [962.31],
-    [`vtracer`], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [`vtracer`], [100.0%], [24468.73], [14.66], [13.66], [625.33],
   ),
   caption: [SVG validity and complexity comparison on synthetic-generator samples. This table reports the same SVG validity and structure statistics as @tab:vectorization-complexity-validation, but on controlled procedural inputs. The OmniSVG 4B valid SVG rate is computed from 8 render errors among 1000 pairs, the OmniSVG 8B valid SVG rate from 14 render errors among 1000 pairs, the StarVector 1B valid SVG rate from 568 render errors among 1000 pairs, and the StarVector 8B valid SVG rate from 795 render errors among 1000 pairs.],
 ) <tab:vectorization-complexity-synthetic>
