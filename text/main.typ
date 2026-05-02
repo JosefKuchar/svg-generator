@@ -724,6 +724,34 @@ signal than next-step autoregressive prediction.
   caption: [Train and validation image reconstruction MSE for the flow-matching vectorizer and an autoregressive vectorizer with comparable capacity and the same image encoder. The graph is limited to the first 250k training steps. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
 ) <fig:flow-matching-vs-autoregressive-mse>
 
+The conditioning mechanism was further evaluated by comparing the full
+architecture with a variant trained without the image encoder. In the ablated
+model, the vectorizer still learns the distribution of valid Bezier sequences,
+but it lacks direct visual information about the raster input. This comparison
+therefore tests whether the model is merely learning an unconditional vector
+graphics prior, or whether the DINOv3 image features provide useful
+input-specific guidance.
+
+The results in @fig:image-encoder-ablation-mse and
+@fig:image-encoder-ablation-loss are limited to the first 150k training steps.
+The model with the image encoder reaches lower train and validation
+reconstruction MSE and also maintains a lower training loss over the shared
+interval. The difference is especially important on the validation split,
+where the image-conditioned model can adapt the generated Bezier curves to the
+observed raster image instead of relying only on the learned shape prior. This
+supports the use of a pretrained image encoder as a central part of the
+conditional vectorizer.
+
+#figure(
+  image("assets/wandb/image-encoder-ablation_image_mse.pdf", width: 90%),
+  caption: [Train and validation image reconstruction MSE for the flow-matching vectorizer with and without the image encoder. The graph is limited to the first 150k training steps. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
+) <fig:image-encoder-ablation-mse>
+
+#figure(
+  image("assets/wandb/image-encoder-ablation_train_loss.pdf", width: 90%),
+  caption: [Training loss for the flow-matching vectorizer with and without the image encoder. The graph is limited to the first 150k training steps. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
+) <fig:image-encoder-ablation-loss>
+
 Qualitative samples from the final synthetic pretraining checkpoint are shown
 in @tab:vectorizer-pretraining-samples. The training examples indicate that
 the model has learned to vectorize samples from the synthetic generator: the
