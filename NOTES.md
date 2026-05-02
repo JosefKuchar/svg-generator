@@ -683,32 +683,4 @@ vectorization_mse: 143.174617
 
 ```
 
-LORA transfer
-https://arxiv.org/html/2503.10637v4
-
 TODOS:
-Running: - Run raster to image with OmniSVG 4b and 8b models
-- Run raster to image with Starvector 8b and 1b models
-
-```sh
-xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ CUDA_VISIBLE_DEVICES=2 uv run benchmark_image_folders.py ./raster/reference/ omnisvg/8b/
-Loading weights: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 398/398 [00:00<00:00, 7775.55it/s, Materializing param=visual_projection.weight]
-CLIPModel LOAD REPORT from: openai/clip-vit-base-patch32
-Key                                  | Status     | Details
--------------------------------------+------------+--------
-vision_model.embeddings.position_ids | UNEXPECTED |
-text_model.embeddings.position_ids   | UNEXPECTED |
-
-Notes:
-- UNEXPECTED    :can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-The image processor of type `CLIPImageProcessor` is now loaded as a fast processor by default, even if the model checkpoint was saved with a slow processor. This is a breaking change and may produce slightly different outputs. To continue using the slow processor, instantiate this class with `use_fast=False`.
-Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 211/211 [00:00<00:00, 2944.51it/s, Materializing param=norm.weight]
-Skipping 2 files only in raster/reference: 0204.png, 0792.png
-Comparing image batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 63/63 [00:56<00:00,  1.11it/s]
-Compared 1008 matching image pairs
-Vectorizing folder_b images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 63/63 [00:33<00:00,  1.87it/s]
-Processed 1008 images from omnisvg/8b for folder_b-only metrics
-clip_similarity: 0.833605
-dino_similarity: 0.425360
-vectorization_mse: 51.145968
-```

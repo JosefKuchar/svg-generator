@@ -706,6 +706,24 @@ quality, in addition to the direct flow-matching loss.
   caption: [Train and validation image reconstruction MSE during the synthetic pretraining phase of the raster-to-vector model. The metric is computed after rasterizing the predicted vector representation. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
 ) <fig:vectorizer-pretraining-mse>
 
+To separate the effect of the generative formulation from the effect of model
+capacity, the flow-matching vectorizer was also compared with an autoregressive
+variant. The autoregressive model uses the same hidden size, number of layers,
+maximum sequence length, and DINOv3 image encoder, but predicts the Bezier
+sequence step by step rather than learning a continuous denoising vector field.
+The comparison in @fig:flow-matching-vs-autoregressive-mse is capped at the
+first 250k training steps, where both runs have logged train and validation
+image-space MSE. The autoregressive model reduces the reconstruction error
+during training, but remains consistently worse than the flow-matching model
+on both splits. This suggests that, for this fixed Bezier representation and
+model scale, the flow-matching objective provides a more effective training
+signal than next-step autoregressive prediction.
+
+#figure(
+  image("assets/wandb/flow-matching-vs-autoregressive_image_mse.pdf", width: 90%),
+  caption: [Train and validation image reconstruction MSE for the flow-matching vectorizer and an autoregressive vectorizer with comparable capacity and the same image encoder. The graph is limited to the first 250k training steps. The vertical axis uses a logarithmic scale, and the curves are smoothed for readability.],
+) <fig:flow-matching-vs-autoregressive-mse>
+
 Qualitative samples from the final synthetic pretraining checkpoint are shown
 in @tab:vectorizer-pretraining-samples. The training examples indicate that
 the model has learned to vectorize samples from the synthetic generator: the
@@ -1302,15 +1320,14 @@ geometric prior even though they are simpler than real SVG graphics. The
 pretraining run used a single NVIDIA H200 GPU for approximately 10 days with
 batch size 256 and FlashAttention 2 enabled.
 
-Two architecture ablations are used to measure the effect of image
-conditioning. The first compares the full model with a model trained without an
-image encoder. This evaluates whether DINOv3 features provide useful
-conditioning beyond what the sequence model can learn from the noisy Bezier
-input alone. The second studies encoder scaling by comparing different image
-encoder sizes or configurations while keeping the vectorizer backbone as
-constant as possible. Together, these experiments clarify how much of
-the performance is due to the flow-matching transformer and how much comes
-from the pretrained visual representation.
+Additional ablations compare the flow-matching formulation with an
+autoregressive variant of comparable size, and measure the effect of image
+conditioning. The conditioning ablations compare the full model with a model
+trained without an image encoder and study encoder scaling by changing the
+image encoder while keeping the vectorizer backbone as constant as possible.
+Together, these experiments clarify how much of the performance is due to the
+flow-matching objective, the transformer backbone, and the pretrained visual
+representation.
 
 == Flow-matching inference ablation
 
