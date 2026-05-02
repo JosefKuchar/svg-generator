@@ -492,6 +492,12 @@ primitive structure, or editability.
     image("assets/raster/turbo_prefixed/0002.png", width: 100%),
     image("assets/raster/turbo_prefixed/0003.png", width: 100%),
     image("assets/raster/turbo_prefixed/0004.png", width: 100%),
+
+    [Turbo prefixed + LoRA],
+    image("assets/raster/turbo_prefixed_lora/0001.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0002.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0003.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0004.png", width: 100%),
   ),
   caption: [Qualitative Stage 1 comparison of text-to-raster model variants.],
 ) <tab:stage1-raster-examples>
@@ -555,6 +561,11 @@ primitive structure, or editability.
     [#image("assets/raster/turbo_prefixed/0002.png", width: 100%)],
     [#image("assets/raster/turbo_prefixed/0003.png", width: 100%)],
     [#image("assets/raster/turbo_prefixed/0004.png", width: 100%)],
+    [Turbo prefixed + LoRA],
+    [#image("assets/raster/turbo_prefixed_lora/0001.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed_lora/0002.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed_lora/0003.png", width: 100%)],
+    [#image("assets/raster/turbo_prefixed_lora/0004.png", width: 100%)],
   ),
   caption: [Qualitative Stage 1 comparison of generated raster outputs.],
 )
