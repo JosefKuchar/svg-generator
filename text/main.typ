@@ -444,13 +444,12 @@ primitive structure, or editability.
 #figure(
   table(
     columns: (1.6fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center),
+    align: (left + horizon, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Variant], [Example 1], [Example 2], [Example 3], [Example 4]),
     [Reference],
     image("assets/raster/reference/0001.png", width: 100%),
     image("assets/raster/reference/0002.png", width: 100%),
@@ -533,15 +532,11 @@ primitive structure, or editability.
 #figure(
   table(
     columns: (1.4fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center),
+    align: (left + horizon, center, center, center, center),
     inset: 4pt,
-    stroke: (x, y) => if x == 0 or y == 0 { 0.8pt } else { 0.4pt },
-    table.header(
-      [Variant],
-      [Sample 1],
-      [Sample 2],
-      [Sample 3],
-      [Sample 4],
+    stroke: (x, y) => (
+      left: none,
+      top: if y == 0 { none } else { 0.4pt },
     ),
     [Reference],
     [#image("assets/raster/reference/0001.png", width: 100%)],
@@ -795,13 +790,12 @@ predicted Bezier representation back to an image.
 #figure(
   table(
     columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center, center, center),
+    align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Split and image], [Example 1], [Example 2], [Example 3], [Example 4], [Example 5], [Example 6]),
     [Train reference],
     pretraining-sample("assets/pretraining/train/ref/0000.png"),
     pretraining-sample("assets/pretraining/train/ref/0001.png"),
@@ -1428,13 +1422,12 @@ rather than proving broad vectorization ability.
 #figure(
   table(
     columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center, center, center),
+    align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Method], [0000], [0001], [0002], [0003], [0004], [0005]),
     [Reference],
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0001.png"),
@@ -1487,13 +1480,12 @@ favorable cases.
 #figure(
   table(
     columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center, center, center),
+    align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Method], [0000], [0001], [0002], [0003], [0004], [0005]),
     [Reference],
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0001.png"),
@@ -1719,13 +1711,12 @@ the same behavior over the full generated set.
 #figure(
   table(
     columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center, center, center),
+    align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Image], [0000], [0001], [0002], [0003], [0004], [0005]),
     [Reference],
     vectorization-sample("assets/z_image_vectorization/reference/0000.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0001.png"),
