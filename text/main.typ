@@ -49,11 +49,13 @@
   ],
   keywords: (
     "scalable vector graphics",
+    "text-to-vector generation",
     "raster-to-vector conversion",
-    "Bezier curves",
-    "flow matching",
-    "text-to-image generation",
-    "LoRA fine-tuning",
+    "vector graphics generation",
+    "editable image representation",
+    "geometric reconstruction",
+    "neural vectorization",
+    "neural networks",
   ),
 )
 
