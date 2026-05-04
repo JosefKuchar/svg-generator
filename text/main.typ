@@ -1452,17 +1452,21 @@ This experiment is important because an excessively small number of steps may
 produce unstable or incomplete geometry, while too many steps increase runtime
 without necessarily improving the final SVG.
 
-== Pipeline evaluation
+== Vectorization benchmark on controlled inputs
 
-The final system combines the fine-tuned text-to-raster model with the
-raster-to-vector model. Evaluation of the full pipeline includes both
-end-to-end qualitative examples and quantitative comparisons with baselines.
-The baselines include classical vectorization tools, recent neural
-SVG-generation systems, and direct raster outputs from the Stage 1 model. The
-comparison emphasizes not only pixel-level reconstruction, but also properties
-important for editable vector graphics, such as path count, node count,
-topological cleanliness, robustness to noisy inputs, and ease of manual
-editing.
+Before evaluating the full text-to-vector pipeline, the vectorization stage is
+evaluated in isolation. This benchmark uses clean raster inputs obtained either
+from the SVG validation split or from the synthetic generator. These inputs are
+not produced by the text-to-raster model; they are controlled sources with
+known reference SVGs or known procedural structure. The purpose of this part is
+therefore to measure raster-to-vector quality under reproducible conditions,
+rather than to claim end-to-end pipeline performance.
+
+The comparison includes classical vectorization tools and recent neural
+SVG-generation systems. It emphasizes not only pixel-level reconstruction, but
+also properties important for editable vector graphics, such as path count,
+node count, topological cleanliness, robustness to controlled input variation,
+and ease of manual editing.
 
 The vectorization comparison is performed with the `evaluate_vectorization.py`
 script. The script renders each reference SVG and each generated SVG at a fixed
@@ -1733,17 +1737,19 @@ separately from the synthetic-generator results and reads the corresponding
 fidelity and complexity tables together rather than selecting a method from a
 single scalar score.
 
-== Vectorization of generated raster images
+== Pipeline evaluation
 
 The previous vectorization experiments use either rasterized SVG validation
 samples or controlled procedural images. A separate evaluation is needed for
-the actual output of the first stage, because generated raster images have a
-different error profile from both sources. The Z-Image stage may produce
-anti-aliased contours, slight texture, local color variation, incomplete
-boundaries, or other artifacts that are not present in the synthetic
-generator, while also differing from clean SVG Repo renderings. This setting
-therefore measures the practical interface between the text-to-raster model
-and a raster-to-vector converter.
+the actual output of the text-to-raster stage, because generated raster images
+have a different error profile from both sources. This section is the pipeline
+evaluation: it measures vectorization of images rendered by the text-to-raster
+generator, rather than vectorization of clean dataset or synthetic inputs. The
+Z-Image stage may produce anti-aliased contours, slight texture, local color
+variation, incomplete boundaries, or other artifacts that are not present in
+the synthetic generator, while also differing from clean SVG Repo renderings.
+This setting therefore measures the practical interface between the
+text-to-raster model and a raster-to-vector converter.
 
 The experiment uses `evaluate_raster_vectorization.py`. Unlike
 `evaluate_vectorization.py`, which compares a generated SVG against a
