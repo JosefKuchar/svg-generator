@@ -1677,7 +1677,7 @@ trivially simple file can also be inaccurate.
     table.header(
       [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
     ),
-    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [Proposed model], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
     [OmniSVG 4B], [9591.49], [0.330], [0.432], [0.461], [32.87], [242.00],
     [OmniSVG 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
     [StarVector 1B], [6339.14], [0.314], [0.297], [0.476], [47.02], [317.25],
@@ -1717,7 +1717,7 @@ trivially simple file can also be inaccurate.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Proposed model], [TODO], [TODO], [TODO], [TODO], [TODO],
+    [Proposed model], [100.0%], [9090.44], [9.66], [8.66], [90.17],
     [OmniSVG 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
     [OmniSVG 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
     [StarVector 1B], [43.2%], [4108.50], [30.42], [9.97], [447.18],
@@ -1733,6 +1733,10 @@ The proposed model results on the SVG validation split are computed over 1010
 pairs. Additional measured values for this run are MAE 31.47, PSNR 11.17 dB,
 Boundary F1 0.255 at 1 px and 0.409 at 4 px, mean render time 53.23 ms, and no
 rendering errors.
+On the synthetic-generator split, the proposed model results are computed over
+1000 pairs. Additional measured values for this run are MAE 20.65, PSNR 15.68
+dB, Boundary F1 0.336 at 1 px and 0.449 at 4 px, mean render time 53.76 ms, and
+no rendering errors.
 This separation is important because a method can obtain a low raster error by
 creating a very large SVG with many paths or path commands. Conversely, a more
 compact SVG may be preferable for editing even when it introduces a small
