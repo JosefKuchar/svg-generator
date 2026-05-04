@@ -22,6 +22,16 @@ Use `typst compile text/main.typ` to check that the text compiles correctly.
 
 When adding citations, check the internet first to ensure the bibtext entry is correct. Don't make up the citations from memory.
 
+### Official requirements
+This thesis aims to develop a two-stage pipeline that enables the creation of neural networks capable of generating Scalable Vector Graphics (SVGs) from text prompts. The first stage leverages a pretrained bitmap image generation model, while the second stage requires development of a custom model for vectorization, i.e., converting the bitmap outputs into vector graphics.
+
+Towards this goal, the thesis will create:
+
+An implementation of a training pipeline for adapting a bitmap generation model,
+A design and implementation of a training pipeline for creating a vectorization model utilizing synthetic data,
+An experimental comparison of flow-matching and autoregressive model architecture for vectorization.
+The resulting end-to-end pipeline for generating SVGs will be demonstrated on unseen text prompts. All implementation code will be published in IS under the MIT license.
+
 ### Keywords
 It should be 5 - 10 keywords. By a keyword, we also mean a term expressed by multiple words (a collocation). Keywords should capture the issue addressed in the work, rather than being a list of the technologies used.
 
