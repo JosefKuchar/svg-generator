@@ -555,9 +555,9 @@ The source dataset contains SVG files whose graphical content may be expressed
 using a heterogeneous set of primitives, transformations, and grouping
 constructs. Before these data can be used for training, each SVG must be
 converted into a uniform representation compatible with the tensor encoding
-described above. The conversion procedure implemented in `parsing.py` therefore
-maps every supported graphical element to a collection of filled cubic Bezier
-paths together with a shared color and opacity.
+described above. The conversion procedure therefore maps every supported
+graphical element to a collection of filled cubic Bezier paths together with a
+shared color and opacity.
 
 The conversion begins with structural simplification. SVG files are first
 processed externally in Inkscape, a vector graphics editor that supports
@@ -625,12 +625,12 @@ training.
 
 == Model architecture
 
-The predictive model is implemented in `model.py` as a conditional flow-matching
-transformer. Its input consists of two parts: a sequence of noisy Bezier-segment
-descriptors and a raster conditioning image. The output is a sequence of the
-same length and dimensionality as the Bezier input, interpreted as a velocity
-field in representation space. The architecture therefore operates directly on
-the continuous tensor representation introduced above and predicts how a noisy
+The predictive model is a conditional flow-matching transformer. Its input
+consists of two parts: a sequence of noisy Bezier-segment descriptors and a
+raster conditioning image. The output is a sequence of the same length and
+dimensionality as the Bezier input, interpreted as a velocity field in
+representation space. The architecture therefore operates directly on the
+continuous tensor representation introduced above and predicts how a noisy
 sample should move toward a valid vector graphic conditioned on the raster
 image.
 
@@ -746,13 +746,13 @@ evaluated in @sec:stage1-evaluation.
 == Synthetic data generator
 
 In addition to SVG data collected from external sources, this work uses a
-synthetic data generator implemented in `synthetic.py`. Its purpose is to
-produce a large number of geometrically valid training examples directly in the
-target Bezier representation. This provides precise control over scene
-complexity, guarantees compatibility with the representation used by the model,
-and makes it possible to generate effectively unlimited training data without
-additional annotation or SVG cleaning. This property is central to the proposed
-training strategy. Because the generated vector scene is known exactly, the
+synthetic data generator. Its purpose is to produce a large number of
+geometrically valid training examples directly in the target Bezier
+representation. This provides precise control over scene complexity,
+guarantees compatibility with the representation used by the model, and makes
+it possible to generate effectively unlimited training data without additional
+annotation or SVG cleaning. This property is central to the proposed training
+strategy. Because the generated vector scene is known exactly, the
 corresponding raster input can be obtained by rendering, yielding a supervised
 raster-to-vector pair without any manual labeling. The synthetic generator
 therefore addresses one of the main data bottlenecks in vector-graphics
@@ -1251,44 +1251,15 @@ steps.
 
 == Stage 2 vectorizer evaluation
 
-The Stage 2 experiments evaluate the conditional flow-matching vectorizer. The
-main training experiment compares fine-tuning from the synthetic pretrained
-checkpoint against training from scratch on the SVG Repo data. This comparison
-tests the central hypothesis that synthetic Bezier data provide a useful
-geometric prior even though they are simpler than real SVG graphics. The
-pretraining run used a single NVIDIA H200 GPU for approximately 10 days with
-batch size 256 and FlashAttention 2 enabled.
-
-Additional ablations compare the flow-matching formulation with an
+The Stage 2 experiments evaluate the conditional flow-matching vectorizer.
+First, architectural ablations compare the flow-matching formulation with an
 autoregressive variant of comparable size, and measure the effect of image
 conditioning. The conditioning ablations compare the full model with a model
-trained without an image encoder and study encoder scaling by changing the
-image encoder while keeping the vectorizer backbone as constant as possible.
+trained without an image encoder while keeping the vectorizer backbone as
+constant as possible.
 Together, these experiments clarify how much of the performance is due to the
 flow-matching objective, the transformer backbone, and the pretrained visual
 representation.
-
-=== Synthetic pretraining results
-
-The optimization dynamics of this pretraining run are summarized in
-@fig:vectorizer-pretraining-loss and @fig:vectorizer-pretraining-mse. The
-training objective decreases rapidly during the initial phase and then enters
-a slower refinement regime, indicating that the model first learns coarse
-Bezier-structure prediction before improving smaller geometric and appearance
-errors. The image-space MSE is measured by rendering predicted vectors back to
-raster images and comparing them with the corresponding synthetic targets. It
-therefore provides a complementary reconstruction-oriented view of pretraining
-quality, in addition to the direct flow-matching loss.
-
-#figure(
-  image("assets/wandb/classic-serenity-74_train_loss.pdf", width: 90%),
-  caption: [Synthetic pretraining loss of the raster-to-vector model.],
-) <fig:vectorizer-pretraining-loss>
-
-#figure(
-  image("assets/wandb/classic-serenity-74_image_mse.pdf", width: 90%),
-  caption: [Image reconstruction error during synthetic pretraining.],
-) <fig:vectorizer-pretraining-mse>
 
 To separate the effect of the generative formulation from the effect of model
 capacity, the flow-matching vectorizer was also compared with an autoregressive
@@ -1335,6 +1306,35 @@ conditional vectorizer.
   image("assets/wandb/image-encoder-ablation_train_loss.pdf", width: 90%),
   caption: [Training loss with and without image conditioning.],
 ) <fig:image-encoder-ablation-loss>
+
+The selected architecture is then used for synthetic pretraining before
+fine-tuning on the SVG Repo data. This training setup tests the central
+hypothesis that synthetic Bezier data provide a useful geometric prior even
+though they are simpler than real SVG graphics. The pretraining run used a
+single NVIDIA H200 GPU for approximately 10 days with batch size 256 and
+FlashAttention 2 enabled.
+
+=== Synthetic pretraining results
+
+The optimization dynamics of this pretraining run are summarized in
+@fig:vectorizer-pretraining-loss and @fig:vectorizer-pretraining-mse. The
+training objective decreases rapidly during the initial phase and then enters
+a slower refinement regime, indicating that the model first learns coarse
+Bezier-structure prediction before improving smaller geometric and appearance
+errors. The image-space MSE is measured by rendering predicted vectors back to
+raster images and comparing them with the corresponding synthetic targets. It
+therefore provides a complementary reconstruction-oriented view of pretraining
+quality, in addition to the direct flow-matching loss.
+
+#figure(
+  image("assets/wandb/classic-serenity-74_train_loss.pdf", width: 90%),
+  caption: [Synthetic pretraining loss of the raster-to-vector model.],
+) <fig:vectorizer-pretraining-loss>
+
+#figure(
+  image("assets/wandb/classic-serenity-74_image_mse.pdf", width: 90%),
+  caption: [Image reconstruction error during synthetic pretraining.],
+) <fig:vectorizer-pretraining-mse>
 
 Qualitative samples from the final synthetic pretraining checkpoint are shown
 in @tab:vectorizer-pretraining-samples. The training examples indicate that
@@ -1468,11 +1468,11 @@ also properties important for editable vector graphics, such as path count,
 node count, topological cleanliness, robustness to controlled input variation,
 and ease of manual editing.
 
-The vectorization comparison is performed with the `evaluate_vectorization.py`
-script. The script renders each reference SVG and each generated SVG at a fixed
-resolution of 1024 pixels, compares the rendered RGB images, and records both
-image-space and structure-related statistics. The
-comparison contains four methods: the proposed flow-matching vectorizer,
+The vectorization comparison is performed with an evaluation script that
+renders each reference SVG and each generated SVG at a fixed resolution of
+1024 pixels, compares the rendered RGB images, and records both image-space
+and structure-related statistics. The comparison contains four methods: the
+proposed flow-matching vectorizer,
 OmniSVG @yang2025omnisvg, StarVector @rodriguez2024starvector, and `vtracer`
 @visioncortexVtracer. All methods are evaluated on the same reference set and
 with the same rasterization settings.
@@ -1752,9 +1752,9 @@ generator, while also differing from clean SVG Repo renderings. This setting
 therefore measures the practical interface between the text-to-raster model
 and a raster-to-vector converter.
 
-The experiment uses `evaluate_raster_vectorization.py`. Unlike
-`evaluate_vectorization.py`, which compares a generated SVG against a
-reference SVG after rendering both files, this script compares a generated PNG
+Unlike the controlled vectorization benchmark script, which compares a
+generated SVG against a reference SVG after rendering both files, this
+experiment uses a separate evaluation script that compares a generated PNG
 directly against the SVG obtained from that PNG. Each input raster is rendered
 from the Z-Image pipeline, vectorized with `vtracer`, rendered back to a PNG
 at the same resolution, and compared with the original raster image. The
