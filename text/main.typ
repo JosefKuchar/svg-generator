@@ -1442,7 +1442,7 @@ vector-structure diagnostics, as outlined in
 
 
 
-== Flow-matching inference ablation
+=== Flow-matching inference ablation
 
 Inference requires numerical integration of the learned velocity field. The
 number of integration steps directly affects runtime and reconstruction
@@ -1452,7 +1452,7 @@ This experiment is important because an excessively small number of steps may
 produce unstable or incomplete geometry, while too many steps increase runtime
 without necessarily improving the final SVG.
 
-== Vectorization benchmark on controlled inputs
+=== Vectorization benchmark on controlled inputs
 
 Before evaluating the full text-to-vector pipeline, the vectorization stage is
 evaluated in isolation. This benchmark uses clean raster inputs obtained either
@@ -1737,19 +1737,20 @@ separately from the synthetic-generator results and reads the corresponding
 fidelity and complexity tables together rather than selecting a method from a
 single scalar score.
 
-== Pipeline evaluation
+== End-to-end pipeline evaluation
 
 The previous vectorization experiments use either rasterized SVG validation
 samples or controlled procedural images. A separate evaluation is needed for
 the actual output of the text-to-raster stage, because generated raster images
 have a different error profile from both sources. This section is the pipeline
-evaluation: it measures vectorization of images rendered by the text-to-raster
-generator, rather than vectorization of clean dataset or synthetic inputs. The
-Z-Image stage may produce anti-aliased contours, slight texture, local color
-variation, incomplete boundaries, or other artifacts that are not present in
-the synthetic generator, while also differing from clean SVG Repo renderings.
-This setting therefore measures the practical interface between the
-text-to-raster model and a raster-to-vector converter.
+evaluation: unlike the controlled benchmark in the previous section, it
+measures vectorization of images rendered by the text-to-raster generator
+rather than vectorization of clean dataset or synthetic inputs. The Z-Image
+stage may produce anti-aliased contours, slight texture, local color variation,
+incomplete boundaries, or other artifacts that are not present in the synthetic
+generator, while also differing from clean SVG Repo renderings. This setting
+therefore measures the practical interface between the text-to-raster model
+and a raster-to-vector converter.
 
 The experiment uses `evaluate_raster_vectorization.py`. Unlike
 `evaluate_vectorization.py`, which compares a generated SVG against a
