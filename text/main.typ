@@ -469,6 +469,12 @@ primitive structure, or editability.
     image("assets/raster/base_prefixed/0003.png", width: 100%),
     image("assets/raster/base_prefixed/0004.png", width: 100%),
 
+    [Base prefixed + LoRA],
+    image("assets/raster/base_prefixed_lora/0001.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0002.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0003.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0004.png", width: 100%),
+
     [OmniSVG 8B],
     image("assets/raster/omnisvg_8b/0001.png", width: 100%),
     image("assets/raster/omnisvg_8b/0002.png", width: 100%),
@@ -514,6 +520,7 @@ primitive structure, or editability.
     table.header([Variant], [CLIP similarity ↑], [DINO similarity ↑], [Vectorization MSE ↓]),
     [Base], [0.818210], [0.509159], [266.565137],
     [Base prefixed], [0.819865], [0.545802], [230.160058],
+    [Base prefixed + LoRA], [0.882769], [0.617481], [145.452631],
     [OmniSVG 8B], [0.833605], [0.425360], [51.145968],
     [OmniSVG 4B], [0.828205], [0.391314], [57.620655],
     [Turbo], [0.826786], [0.509892], [227.691742],
@@ -551,6 +558,11 @@ primitive structure, or editability.
     [#image("assets/raster/base_prefixed/0002.png", width: 100%)],
     [#image("assets/raster/base_prefixed/0003.png", width: 100%)],
     [#image("assets/raster/base_prefixed/0004.png", width: 100%)],
+    [Base prefixed + LoRA],
+    [#image("assets/raster/base_prefixed_lora/0001.png", width: 100%)],
+    [#image("assets/raster/base_prefixed_lora/0002.png", width: 100%)],
+    [#image("assets/raster/base_prefixed_lora/0003.png", width: 100%)],
+    [#image("assets/raster/base_prefixed_lora/0004.png", width: 100%)],
     [Turbo],
     [#image("assets/raster/turbo/0001.png", width: 100%)],
     [#image("assets/raster/turbo/0002.png", width: 100%)],
@@ -637,7 +649,7 @@ criterion, but was outside the available compute budget.
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
-`Turbo prefixed + LoRA` configuration, while the lowest
+`Base prefixed + LoRA` configuration, while the lowest
 vectorization error is achieved by `Turbo prefixed`. This indicates that the
 adapted LoRA model improves perceptual alignment with the references, but its
 advantage with respect to downstream vectorization should be verified on a
