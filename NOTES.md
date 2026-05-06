@@ -684,3 +684,67 @@ vectorization_mse: 143.174617
 ```
 
 TODOS:
+
+
+```
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0485_reference/
+Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:58<00:00,  1.30it/s]
+pairs: 1010
+mse: 7444.155031
+mae: 32.557324
+psnr: 10.951674
+ssim: 0.644719
+mask_iou: 0.637241
+boundary_f1_1px: 0.256705
+boundary_f1_2px: 0.323872
+boundary_f1_4px: 0.406090
+chamfer_px: 14.447945
+hausdorff_px: 96.423200
+gen_svg_bytes: 11443.058416
+gen_elements: 5.301980
+gen_paths: 4.301980
+gen_path_commands: 112.230693
+render_time_ms: 51.473508
+gen_render_errors: 0
+
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0130_reference/
+Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:59<00:00,  1.30it/s]
+pairs: 1010
+mse: 7656.750692
+mae: 33.399880
+psnr: 10.841842
+ssim: 0.638186
+mask_iou: 0.632600
+boundary_f1_1px: 0.257388
+boundary_f1_2px: 0.324550
+boundary_f1_4px: 0.406181
+chamfer_px: 15.071722
+hausdorff_px: 101.201834
+gen_svg_bytes: 10453.233663
+gen_elements: 5.267327
+gen_paths: 4.267327
+gen_path_commands: 103.140594
+render_time_ms: 50.874528
+gen_render_errors: 0
+
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0627_reference/
+Evaluating pairs:   1%|██▎                                                                                                                                                     | 15/1010 [00:11<12:57,  1.28it/s]Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:53<00:00,  1.31it/s]
+pairs: 1010
+mse: 7107.516058
+mae: 31.468682
+psnr: 11.165508
+ssim: 0.653349
+mask_iou: 0.643546
+boundary_f1_1px: 0.255342
+boundary_f1_2px: 0.323967
+boundary_f1_4px: 0.409332
+chamfer_px: 16.036777
+hausdorff_px: 103.240024
+gen_svg_bytes: 10329.023762
+gen_elements: 5.266337
+gen_paths: 4.266337
+gen_path_commands: 102.545545
+render_time_ms: 53.227388
+gen_render_errors: 0
+
+```
