@@ -1,4 +1,4 @@
-#import "@git/fi-muni-thesis:0.1.0": fithesis
+#import "@git/fi-muni-thesis:0.2.0": fithesis, thesis_bibliography
 
 #show: fithesis.with(
   title: [Generative Neural Models for Scalable Vector Graphics],
@@ -2011,6 +2011,6 @@ text-to-vector generation, but the results of this thesis indicate that the
 two-stage formulation remains a useful and data-efficient baseline for further
 research.
 
-#pagebreak()
+#thesis_bibliography(read("references.bib", encoding: none))
 
-#bibliography("references.bib")
+//#bibliography("references.bib")
