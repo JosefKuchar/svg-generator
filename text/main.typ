@@ -1,4 +1,4 @@
-#import "@git/fi-muni-thesis:0.1.0": fithesis
+#import "@git/fi-muni-thesis:1.0.0": appendix, fithesis, thesis_bibliography
 
 #show: fithesis.with(
   title: [Generative Neural Models for Scalable Vector Graphics],
@@ -59,7 +59,7 @@
   ),
 )
 
-= Introduction
+#heading(level: 1, numbering: none)[Introduction]
 
 The goal of the work is to generate vector graphics from textual input. Direct
 text-to-vector generation is difficult because the model must simultaneously
@@ -111,7 +111,7 @@ limitations.
 The work also considers several alternative formulations of the problem. In
 particular, a direct adaptation of a text-to-raster model into a
 text-to-Bezier model would be an elegant solution, because it would remove the
-explicit vectorization stage. Preliminary experiments, however, indicate that
+explicit vectorization stage. The experiments, however, indicate that
 this route is not data-efficient in the present setting. The model converged
 faster from random initialization than from pretrained image-generation
 weights, suggesting that the learned raster-generation representation does not
@@ -271,18 +271,23 @@ is applied in the continuous space of Bezier-segment tensors: the model learns
 how a noisy vector representation should move toward a valid raster-conditioned
 vector graphic.
 
-// TODO: Add representative classical and neural vectorization methods.
+Representative approaches include differentiable vector-graphics
+rasterization for optimization and learning @li2020diffvg, layer-wise image
+vectorization @ma2022live, and learned SVG representations such as DeepSVG
+@carlier2020deepsvg.
 
-Existing vectorizers also serve as empirical baselines. Classical systems are
-strong engineering tools, but they typically optimize local image fidelity and
-often produce dense, fragmented paths when the input contains noise,
-compression artifacts, blur, or soft color transitions. Recent neural
-text-to-SVG systems, by contrast, often rely on large vision-language models
-fine-tuned on SVG data. The evaluation in this work therefore distinguishes
-between performance on the SVG validation distribution and behavior on
-synthetic images whose ground-truth Bezier structure is known. This makes it
-possible to compare ordinary reconstruction fidelity with robustness to inputs
-that differ from the web-SVG distribution used by large neural baselines.
+Existing vectorizers also serve as empirical baselines. Classical systems such
+as Potrace @selinger2003potrace and `vtracer` @visioncortexVtracer are strong
+engineering tools, but they typically optimize local image fidelity and often
+produce dense, fragmented paths when the input contains noise, compression
+artifacts, blur, or soft color transitions. The experiments use `vtracer` as
+the classical tracing baseline. Recent neural text-to-SVG systems, by contrast,
+often rely on large vision-language models fine-tuned on SVG data. The
+evaluation in this work therefore distinguishes between performance on the SVG
+validation distribution and behavior on synthetic images whose ground-truth
+Bezier structure is known. This makes it possible to compare ordinary
+reconstruction fidelity with robustness to inputs that differ from the web-SVG
+distribution used by large neural baselines.
 
 == Text-to-image models adapted for vector graphics
 
@@ -737,8 +742,9 @@ fine-tuning on converted SVG data.
 
 == Stage 1 LoRA adaptation
 
-The LoRA adaptation was trained using the AI-Toolkit framework with the AdamW
-optimizer @loshchilov2018decoupled and a learning rate of
+The LoRA adaptation was trained using the AI-Toolkit framework#footnote[
+AI-Toolkit project page: https://github.com/ostris/ai-toolkit.
+] with the AdamW optimizer @loshchilov2018decoupled and a learning rate of
 $1 times 10^(-4)$. This configuration was used as the default starting point
 for the Stage 1 adaptation experiments. The rank and checkpoint selection are
 evaluated in @sec:stage1-evaluation.
@@ -905,7 +911,7 @@ case. This distinction is important because automatic vectorization is
 underdetermined from pixels alone: when the vector scene is generated
 procedurally, the exact geometric target is known by construction, whereas for
 ordinary raster images there may be many plausible vector explanations
-@selinger2003potrace @dziuba2023imagevectorization.
+@selinger2003potrace@dziuba2023imagevectorization.
 
 === Synthetic pretraining
 
@@ -966,7 +972,7 @@ compactness, and editability.
 The first alternative is to adapt a pretrained text-to-raster model directly
 into a text-to-bezier model. This would be conceptually attractive, because it
 would collapse the whole pipeline into one model while preserving the semantic
-knowledge of the pretrained generator. A preliminary experiment with this
+knowledge of the pretrained generator. An experiment with this
 approach was performed by comparing a model initialized from pretrained
 text-to-raster weights with a model whose parameters were reset before
 training. The resulting optimization curves are shown in
@@ -998,7 +1004,7 @@ pixel artifacts.
 
 == Stage 1 evaluation <sec:stage1-evaluation>
 
-A preliminary comparison of several Stage 1 variants is shown qualitatively in
+The comparison of several Stage 1 variants is shown qualitatively in
 @tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
 compared variants include the base Z-Image model, prompt-prefixing strategies,
 the accelerated `Z-Image-Turbo` model, and a LoRA adaptation applied
@@ -1038,7 +1044,7 @@ primitive structure, or editability.
 
 #figure(
   table(
-    columns: (1.6fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (2.5fr, 1fr, 1fr, 1fr, 1fr),
     align: (left + horizon, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
@@ -1093,13 +1099,13 @@ primitive structure, or editability.
 
     table.cell(colspan: 5, inset: 1.5pt)[],
 
-    [OmniSVG 8B],
+    [OmniSVG1.1 8B],
     image("assets/raster/omnisvg_8b/0001.png", width: 100%),
     image("assets/raster/omnisvg_8b/0002.png", width: 100%),
     image("assets/raster/omnisvg_8b/0003.png", width: 100%),
     image("assets/raster/omnisvg_8b/0004.png", width: 100%),
 
-    [OmniSVG 4B],
+    [OmniSVG1.1 4B],
     image("assets/raster/omnisvg_4b/0001.png", width: 100%),
     image("assets/raster/omnisvg_4b/0002.png", width: 100%),
     image("assets/raster/omnisvg_4b/0003.png", width: 100%),
@@ -1110,24 +1116,30 @@ primitive structure, or editability.
 
 #figure(
   table(
-    columns: (2.5fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center),
+    columns: (3.1fr, 1fr, 1fr, 1fr),
+    align: (left + horizon, center, center, center),
     inset: 6pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Variant], [CLIP similarity ↑], [DINO similarity ↑], [Vectorization MSE ↓]),
-    [Base], [0.818210], [0.509159], [266.565137],
-    [Base prefixed], [0.819865], [0.545802], [230.160058],
-    [Base prefixed + LoRA], [0.882769], [0.617481], [145.452631],
-    [OmniSVG 8B], [0.833605], [0.425360], [51.145968],
-    [OmniSVG 4B], [0.828205], [0.391314], [57.620655],
-    [Turbo], [0.826786], [0.509892], [227.691742],
-    [Turbo prefixed], [0.871237], [0.583856], [142.711678],
-    [Turbo prefixed + LoRA], [0.879104], [0.600208], [143.174617],
+    table.header(
+      [Variant],
+      [#text(size: 8pt)[CLIP\ similarity] ↑],
+      [#text(size: 8pt)[DINO\ similarity] ↑],
+      [#text(size: 8pt)[Vectorization MSE] ↓],
+    ),
+    [Z-Image Base], [0.818210], [0.509159], [266.565137],
+    [Z-Image Base prefixed], [0.819865], [0.545802], [230.160058],
+    [Z-Image Base prefixed + LoRA], [#strong[0.882769]], [#strong[0.617481]], [145.452631],
+    [Z-Image Turbo], [0.826786], [0.509892], [227.691742],
+    [Z-Image Turbo prefixed], [0.871237], [0.583856], [142.711678],
+    [Z-Image Turbo prefixed + LoRA], [0.879104], [0.600208], [143.174617],
+    table.cell(colspan: 4, inset: 1.5pt)[],
+    [OmniSVG1.1 8B], [0.833605], [0.425360], [#strong[51.145968]],
+    [OmniSVG1.1 4B], [0.828205], [0.391314], [57.620655],
   ),
-  caption: [Preliminary Stage 1 benchmark of text-to-raster model variants.],
+  caption: [Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
 
 An additional ablation study was performed for the Stage 1 LoRA adaptation in
@@ -1143,6 +1155,11 @@ therefore intentionally coarse; a more fine-grained sweep over ranks, training
 durations, and sampling seeds would provide a more precise model-selection
 criterion, but was outside the available compute budget.
 
+#let lora-table-text(body, weight: "regular") = text(size: 10pt, weight: weight, body)
+
+#pagebreak()
+#v(1fr)
+
 #figure(
   table(
     columns: (1fr, 1.8fr, 1fr, 1fr, 1fr),
@@ -1150,88 +1167,94 @@ criterion, but was outside the available compute budget.
     inset: 6pt,
     stroke: (x, y) => (
       left: none,
-      top: if y == 0 or calc.rem(y - 1, 3) == 0 { 0.4pt } else { none },
+      top: if (y == 1 and x >= 2) or calc.rem(y - 2, 3) == 0 { 0.4pt } else { none },
     ),
     table.header(
       table.cell(rowspan: 2)[Time steps],
       table.cell(rowspan: 2)[Metric],
-      table.cell(colspan: 3)[Rank],
+      table.cell(colspan: 3)[LoRA Rank],
       [4],
       [16],
       [64],
     ),
-    table.cell(rowspan: 3)[500],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.880],
-    text(size: 8pt)[0.872],
-    text(size: 8pt)[0.885],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.607], text(size: 8pt)[0.599], text(size: 8pt)[0.599],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[299.456], text(size: 8pt)[187.121], text(size: 8pt)[205.943],
+    table.cell(rowspan: 3, align: left + horizon)[500],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.880],
+    lora-table-text[0.872],
+    lora-table-text[0.885],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.607], lora-table-text[0.599], lora-table-text[0.599],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[299.456], lora-table-text[187.121], lora-table-text[205.943],
 
-    table.cell(rowspan: 3)[1000],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.886],
-    text(size: 8pt)[0.887],
-    text(size: 8pt)[0.885],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.616], text(size: 8pt)[0.621], text(size: 8pt)[0.620],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[328.455], text(size: 8pt)[128.576], text(size: 8pt)[199.657],
+    table.cell(rowspan: 3, align: left + horizon)[1000],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.886],
+    lora-table-text[0.887],
+    lora-table-text[0.885],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.616], lora-table-text[0.621], lora-table-text[0.620],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[328.455], lora-table-text[128.576], lora-table-text[199.657],
 
-    table.cell(rowspan: 3)[1500],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.886],
-    text(size: 8pt)[0.887],
-    text(size: 8pt)[0.884],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.622], text(size: 8pt)[0.618], text(size: 8pt)[0.615],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[206.473], text(size: 8pt)[143.796], text(size: 8pt)[346.287],
+    table.cell(rowspan: 3, align: left + horizon)[1500],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.886],
+    lora-table-text[0.887],
+    lora-table-text[0.884],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.622], lora-table-text[0.618], lora-table-text[0.615],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[206.473], lora-table-text[143.796], lora-table-text[346.287],
 
-    table.cell(rowspan: 3)[2000],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.885],
-    text(size: 8pt)[0.885],
-    text(size: 8pt)[0.887],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.627], text(size: 8pt)[0.614], text(size: 8pt)[0.625],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[142.765], text(size: 8pt)[97.675], text(size: 8pt)[168.836],
+    table.cell(rowspan: 3, align: left + horizon)[2000],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.885],
+    lora-table-text[0.885],
+    lora-table-text[0.887],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.627], lora-table-text[0.614], lora-table-text[0.625],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[142.765], lora-table-text[97.675], lora-table-text[168.836],
 
-    table.cell(rowspan: 3)[2500],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.888],
-    text(size: 8pt)[0.888],
-    text(size: 8pt)[0.882],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.626], text(size: 8pt)[0.627], text(size: 8pt)[0.620],
-    text(size: 8pt)[Vectorization MSE ↓],
-    text(size: 8pt)[174.613],
-    text(size: 8pt, weight: "bold")[92.145],
-    text(size: 8pt)[273.638],
+    table.cell(rowspan: 3, align: left + horizon)[2500],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.888],
+    lora-table-text[0.888],
+    lora-table-text[0.882],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.626], lora-table-text[0.627], lora-table-text[0.620],
+    lora-table-text[Vectorization MSE ↓],
+    lora-table-text[174.613],
+    lora-table-text[92.145],
+    lora-table-text[273.638],
 
-    table.cell(rowspan: 3)[3000],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.887],
-    text(size: 8pt)[0.887],
-    text(size: 8pt, weight: "bold")[0.888],
-    text(size: 8pt)[DINO similarity ↑],
-    text(size: 8pt)[0.626],
-    text(size: 8pt, weight: "bold")[0.635],
-    text(size: 8pt)[0.632],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[173.293], text(size: 8pt)[245.512], text(size: 8pt)[132.058],
+    table.cell(rowspan: 3, align: left + horizon)[3000],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.887],
+    lora-table-text[0.887],
+    lora-table-text(weight: "bold")[0.888],
+    lora-table-text[DINO similarity ↑],
+    lora-table-text[0.626],
+    lora-table-text(weight: "bold")[0.635],
+    lora-table-text[0.632],
+    lora-table-text[Vectorization MSE ↓],
+    lora-table-text[173.293],
+    lora-table-text(weight: "bold")[92.112],
+    lora-table-text[132.058],
 
-    table.cell(rowspan: 3)[3500],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.886],
-    text(size: 8pt)[0.887],
-    text(size: 8pt)[0.888],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.626], text(size: 8pt)[0.630], text(size: 8pt)[0.633],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[166.197], text(size: 8pt)[93.775], text(size: 8pt)[157.162],
+    table.cell(rowspan: 3, align: left + horizon)[3500],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.886],
+    lora-table-text[0.887],
+    lora-table-text[0.888],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.626], lora-table-text[0.630], lora-table-text[0.633],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[166.197], lora-table-text[93.775], lora-table-text[157.162],
 
-    table.cell(rowspan: 3)[5000],
-    text(size: 8pt)[CLIP similarity ↑],
-    text(size: 8pt)[0.886],
-    text(size: 8pt)[0.886],
-    text(size: 8pt)[0.883],
-    text(size: 8pt)[DINO similarity ↑], text(size: 8pt)[0.620], text(size: 8pt)[0.631], text(size: 8pt)[0.617],
-    text(size: 8pt)[Vectorization MSE ↓], text(size: 8pt)[178.814], text(size: 8pt)[166.223], text(size: 8pt)[172.532],
+    table.cell(rowspan: 3, align: left + horizon)[5000],
+    lora-table-text[CLIP similarity ↑],
+    lora-table-text[0.886],
+    lora-table-text[0.886],
+    lora-table-text[0.883],
+    lora-table-text[DINO similarity ↑], lora-table-text[0.620], lora-table-text[0.631], lora-table-text[0.617],
+    lora-table-text[Vectorization MSE ↓], lora-table-text[178.814], lora-table-text[166.223], lora-table-text[172.532],
   ),
   caption: [Stage 1 LoRA ablation results.],
 ) <tab:lora-ablation>
+
+#v(1fr)
+#pagebreak()
 
 The results suggest that prompt prefixing has a substantial effect, especially
 for the turbo model. The best overall semantic similarity is obtained by the
@@ -1243,10 +1266,10 @@ larger evaluation.
 
 Based on the rank and checkpoint ablation, the LoRA model with rank 16 at
 3000 training steps was selected for subsequent Stage 1 experiments. This
-checkpoint achieves the highest DINO similarity in the ablation and provides a
-reasonable compromise between semantic alignment and traceability, even though
-the lowest vectorization MSE is observed for the rank-16 checkpoint at 2500
-steps.
+checkpoint achieves the highest DINO similarity and the lowest vectorization
+MSE in the ablation. Although its CLIP similarity is slightly lower than the
+best observed value, the difference is small, making this checkpoint a
+reasonable choice for subsequent experiments.
 
 
 == Stage 2 vectorizer evaluation
@@ -1493,7 +1516,7 @@ rather than proving broad vectorization ability.
 
 #figure(
   table(
-    columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (2.2fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
@@ -1508,7 +1531,7 @@ rather than proving broad vectorization ability.
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0005.png"),
 
-    [Proposed],
+    [Ours model],
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0002.png"),
@@ -1516,7 +1539,7 @@ rather than proving broad vectorization ability.
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0005.png"),
 
-    [OmniSVG 4B],
+    [OmniSVG1.1 4B],
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_4b/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_4b/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_4b/0002.png"),
@@ -1524,7 +1547,7 @@ rather than proving broad vectorization ability.
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_4b/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_4b/0005.png"),
 
-    [OmniSVG 8B],
+    [OmniSVG1.1 8B],
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_8b/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_8b/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/omnisvg_8b/0002.png"),
@@ -1563,7 +1586,7 @@ favorable cases.
 
 #figure(
   table(
-    columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (2.2fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
@@ -1578,7 +1601,7 @@ favorable cases.
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0005.png"),
 
-    [Proposed],
+    [Ours model],
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0002.png"),
@@ -1586,7 +1609,7 @@ favorable cases.
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0005.png"),
 
-    [OmniSVG 4B],
+    [OmniSVG1.1 4B],
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_4b/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_4b/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_4b/0002.png"),
@@ -1594,7 +1617,7 @@ favorable cases.
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_4b/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_4b/0005.png"),
 
-    [OmniSVG 8B],
+    [OmniSVG1.1 8B],
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_8b/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_8b/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/omnisvg_8b/0002.png"),
@@ -1671,9 +1694,9 @@ trivially simple file can also be inaccurate.
     table.header(
       [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
     ),
-    [Proposed model], [7107.52], [0.653], [0.644], [0.324], [16.04], [103.24],
-    [OmniSVG 4B], [7696.39], [0.621], [0.631], [0.538], [17.84], [145.46],
-    [OmniSVG 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
+    [Ours model], [7107.52], [0.653], [0.644], [0.324], [16.04], [103.24],
+    [OmniSVG1.1 4B], [7696.39], [0.621], [0.631], [0.538], [17.84], [145.46],
+    [OmniSVG1.1 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
     [StarVector 1B], [5147.82], [0.652], [0.631], [0.483], [24.26], [143.28],
     [StarVector 8B], [8449.48], [0.461], [0.444], [0.441], [38.75], [229.73],
     [`vtracer`], [92.01], [0.994], [0.984], [0.886], [1.26], [17.20],
@@ -1693,9 +1716,9 @@ trivially simple file can also be inaccurate.
     table.header(
       [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
     ),
-    [Proposed model], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
-    [OmniSVG 4B], [9591.49], [0.330], [0.432], [0.461], [32.87], [242.00],
-    [OmniSVG 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
+    [Ours model], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
+    [OmniSVG1.1 4B], [9591.49], [0.330], [0.432], [0.461], [32.87], [242.00],
+    [OmniSVG1.1 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
     [StarVector 1B], [6339.14], [0.314], [0.297], [0.476], [47.02], [317.25],
     [StarVector 8B], [7536.35], [0.137], [0.104], [0.496], [59.58], [401.38],
     [`vtracer`], [23.95], [0.997], [0.993], [0.920], [1.03], [20.45],
@@ -1713,9 +1736,9 @@ trivially simple file can also be inaccurate.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Proposed model], [100.0%], [10329.02], [5.27], [4.27], [102.55],
-    [OmniSVG 4B], [99.4%], [5284.03], [5.04], [4.04], [219.53],
-    [OmniSVG 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
+    [Ours model], [100.0%], [10329.02], [5.27], [4.27], [102.55],
+    [OmniSVG1.1 4B], [99.4%], [5284.03], [5.04], [4.04], [219.53],
+    [OmniSVG1.1 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
     [StarVector 1B], [79.0%], [1957.71], [9.17], [4.09], [118.60],
     [StarVector 8B], [65.1%], [2220.83], [10.63], [5.36], [213.25],
     [`vtracer`], [100.0%], [14370.11], [10.68], [9.68], [364.55],
@@ -1733,9 +1756,9 @@ trivially simple file can also be inaccurate.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Proposed model], [100.0%], [9090.44], [9.66], [8.66], [90.17],
-    [OmniSVG 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
-    [OmniSVG 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
+    [Ours model], [100.0%], [9090.44], [9.66], [8.66], [90.17],
+    [OmniSVG1.1 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
+    [OmniSVG1.1 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
     [StarVector 1B], [43.2%], [4108.50], [30.42], [9.97], [447.18],
     [StarVector 8B], [20.5%], [5354.53], [40.59], [14.22], [962.31],
     [`vtracer`], [100.0%], [24468.73], [14.66], [13.66], [625.33],
@@ -1806,7 +1829,7 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/reference/0004.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0005.png"),
 
-    [OmniSVG 4B],
+    [OmniSVG1.1 4B],
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0000.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0001.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0002.png"),
@@ -1814,7 +1837,7 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0004.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0005.png"),
 
-    [OmniSVG 8B],
+    [OmniSVG1.1 8B],
     vectorization-sample("assets/z_image_vectorization/omnisvg_8b/0000.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_8b/0001.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_8b/0002.png"),
@@ -1853,8 +1876,8 @@ the same behavior over the full generated set.
     table.header(
       [Method], [MSE (0--255) ↓], [MAE (0--255) ↓], [PSNR dB ↑], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑]
     ),
-    [OmniSVG 4B], [8578.95], [38.21], [11.29], [0.523], [0.511], [0.422],
-    [OmniSVG 8B], [10492.16], [45.73], [10.16], [0.459], [0.465], [0.394],
+    [OmniSVG1.1 4B], [8578.95], [38.21], [11.29], [0.523], [0.511], [0.422],
+    [OmniSVG1.1 8B], [10492.16], [45.73], [10.16], [0.459], [0.465], [0.394],
     [StarVector 1B], [4932.50], [22.06], [12.47], [0.719], [0.673], [0.349],
     [`vtracer`], [143.17], [2.73], [28.79], [0.990], [0.955], [0.790],
   ),
@@ -1879,8 +1902,8 @@ the same behavior over the full generated set.
       [Hausdorff px ↓],
       [Render time ms ↓],
     ),
-    [OmniSVG 4B], [99.2%], [0.297], [0.561], [25.68], [179.50], [23.44],
-    [OmniSVG 8B], [96.7%], [0.281], [0.520], [28.94], [193.46], [22.91],
+    [OmniSVG1.1 4B], [99.2%], [0.297], [0.561], [25.68], [179.50], [23.44],
+    [OmniSVG1.1 8B], [96.7%], [0.281], [0.520], [28.94], [193.46], [22.91],
     [StarVector 1B], [40.0%], [0.251], [0.490], [9.97], [68.61], [26.38],
     [`vtracer`], [100.0%], [0.554], [0.941], [1.79], [30.76], [25.15],
   ),
@@ -1897,8 +1920,8 @@ the same behavior over the full generated set.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [OmniSVG 4B], [8504.78], [6.76], [5.76], [299.81],
-    [OmniSVG 8B], [8654.52], [12.57], [11.57], [309.18],
+    [OmniSVG1.1 4B], [8504.78], [6.76], [5.76], [299.81],
+    [OmniSVG1.1 8B], [8654.52], [12.57], [11.57], [309.18],
     [StarVector 1B], [2151.12], [10.09], [3.75], [64.80],
     [`vtracer`], [55946.92], [85.11], [84.11], [1647.80],
   ),
@@ -1911,7 +1934,7 @@ of validity and raster reconstruction: all 1010 images produced renderable SVG
 files, the SSIM is high, and the foreground mask overlap remains close to the
 input. At the same time, the resulting SVGs are large, with more than 1600 path
 commands on average. The OmniSVG evaluations produce much more compact SVG
-files: OmniSVG 4B averages 8505 bytes and 300 path commands, while OmniSVG 8B
+files: OmniSVG1.1 4B averages 8505 bytes and 300 path commands, while OmniSVG1.1 8B
 averages 8655 bytes and 309 path commands. StarVector 1B is more compact still,
 with about 2151 bytes and 65 path commands on average, and obtains better
 fidelity scores on the subset that renders successfully. However, its 40.0%
@@ -1921,7 +1944,7 @@ fidelity on successful outputs, and reliability. On raster images produced by
 the Z-Image stage, direct tracing remains substantially more reliable at
 preserving the visible raster content.
 
-= Conclusion
+#heading(level: 1, numbering: none)[Conclusion]
 
 This thesis addressed text-conditioned generation of scalable vector graphics
 through a two-stage pipeline. The first stage adapts a pretrained
@@ -1942,7 +1965,7 @@ understanding. At the same time, it gives the second stage access to training
 data with known geometric structure, including procedurally generated Bezier
 examples. The experiments also show why the decomposition is useful: a direct
 adaptation of raster-generation weights to Bezier prediction did not provide a
-better initialization in the preliminary comparison, whereas a dedicated
+better initialization in the comparison, whereas a dedicated
 raster-to-vector model can be trained and evaluated with explicit geometric
 targets.
 
@@ -2009,8 +2032,24 @@ possible way to adapt the first stage. Finally, larger paired vector datasets
 and stronger conditioning could make it possible to revisit direct
 text-to-vector generation, but the results of this thesis indicate that the
 two-stage formulation remains a useful and data-efficient baseline for further
-research.
+research. The public implementation and trained model artifacts are listed in
+@app:implementation-artifacts.
 
-#pagebreak()
+#thesis_bibliography(read("references.bib", encoding: none))
 
-#bibliography("references.bib")
+#appendix(label: <app:implementation-artifacts>)[Implementation artifacts][
+  The source code for the implementation developed in this thesis is available
+  in the GitHub repository:
+  #link("https://github.com/JosefKuchar/svg-generator")[
+    https://github.com/JosefKuchar/svg-generator
+  ].
+
+  Trained model checkpoints and accompanying model artifacts are available on
+  Hugging Face:
+  #link("https://huggingface.co/JosefKuchar/svg-generator")[
+    https://huggingface.co/JosefKuchar/svg-generator
+  ].
+
+  Both the implementation and the trained model artifacts are released under
+  the Apache License 2.0.
+]
