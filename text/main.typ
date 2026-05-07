@@ -1425,6 +1425,28 @@ predicted Bezier representation back to an image.
   caption: [Qualitative samples from the synthetic pretraining checkpoint.],
 ) <tab:vectorizer-pretraining-samples>
 
+=== Fine-tuning results
+
+After synthetic pretraining, the same raster-to-vector model is fine-tuned on
+the SVG Repo dataset. The fine-tuning dynamics are shown in
+@fig:vectorizer-finetuning-loss and @fig:vectorizer-finetuning-mse. The
+training loss starts substantially lower than in the synthetic pretraining run,
+which is consistent with initialization from the pretrained checkpoint, and
+continues to decrease during adaptation to real vector graphics. The
+image-space MSE remains noisier than the direct training objective, but it
+tracks the rendered reconstruction quality on both training and validation
+samples and therefore complements the loss curve.
+
+#figure(
+  image("assets/wandb/floral-glade-79_train_loss.pdf", width: 90%),
+  caption: [Fine-tuning loss of the raster-to-vector model on SVG Repo data.],
+) <fig:vectorizer-finetuning-loss>
+
+#figure(
+  image("assets/wandb/floral-glade-79_image_mse.pdf", width: 90%),
+  caption: [Image reconstruction error during fine-tuning on SVG Repo data.],
+) <fig:vectorizer-finetuning-mse>
+
 
 === Flow-matching inference ablation
 
