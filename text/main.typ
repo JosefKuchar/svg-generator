@@ -271,18 +271,23 @@ is applied in the continuous space of Bezier-segment tensors: the model learns
 how a noisy vector representation should move toward a valid raster-conditioned
 vector graphic.
 
-// TODO: Add representative classical and neural vectorization methods.
+Representative approaches include differentiable vector-graphics
+rasterization for optimization and learning @li2020diffvg, layer-wise image
+vectorization @ma2022live, and learned SVG representations such as DeepSVG
+@carlier2020deepsvg.
 
-Existing vectorizers also serve as empirical baselines. Classical systems are
-strong engineering tools, but they typically optimize local image fidelity and
-often produce dense, fragmented paths when the input contains noise,
-compression artifacts, blur, or soft color transitions. Recent neural
-text-to-SVG systems, by contrast, often rely on large vision-language models
-fine-tuned on SVG data. The evaluation in this work therefore distinguishes
-between performance on the SVG validation distribution and behavior on
-synthetic images whose ground-truth Bezier structure is known. This makes it
-possible to compare ordinary reconstruction fidelity with robustness to inputs
-that differ from the web-SVG distribution used by large neural baselines.
+Existing vectorizers also serve as empirical baselines. Classical systems such
+as Potrace @selinger2003potrace and `vtracer` @visioncortexVtracer are strong
+engineering tools, but they typically optimize local image fidelity and often
+produce dense, fragmented paths when the input contains noise, compression
+artifacts, blur, or soft color transitions. The experiments use `vtracer` as
+the classical tracing baseline. Recent neural text-to-SVG systems, by contrast,
+often rely on large vision-language models fine-tuned on SVG data. The
+evaluation in this work therefore distinguishes between performance on the SVG
+validation distribution and behavior on synthetic images whose ground-truth
+Bezier structure is known. This makes it possible to compare ordinary
+reconstruction fidelity with robustness to inputs that differ from the web-SVG
+distribution used by large neural baselines.
 
 == Text-to-image models adapted for vector graphics
 
@@ -737,8 +742,9 @@ fine-tuning on converted SVG data.
 
 == Stage 1 LoRA adaptation
 
-The LoRA adaptation was trained using the AI-Toolkit framework with the AdamW
-optimizer @loshchilov2018decoupled and a learning rate of
+The LoRA adaptation was trained using the AI-Toolkit framework#footnote[
+AI-Toolkit project page: https://github.com/ostris/ai-toolkit.
+] with the AdamW optimizer @loshchilov2018decoupled and a learning rate of
 $1 times 10^(-4)$. This configuration was used as the default starting point
 for the Stage 1 adaptation experiments. The rank and checkpoint selection are
 evaluated in @sec:stage1-evaluation.
