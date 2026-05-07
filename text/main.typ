@@ -1829,6 +1829,14 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/reference/0004.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0005.png"),
 
+    [Proposed],
+    vectorization-sample("assets/z_image_vectorization/proposed/0000.png"),
+    vectorization-sample("assets/z_image_vectorization/proposed/0001.png"),
+    vectorization-sample("assets/z_image_vectorization/proposed/0002.png"),
+    vectorization-sample("assets/z_image_vectorization/proposed/0003.png"),
+    vectorization-sample("assets/z_image_vectorization/proposed/0004.png"),
+    vectorization-sample("assets/z_image_vectorization/proposed/0005.png"),
+
     [OmniSVG1.1 4B],
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0000.png"),
     vectorization-sample("assets/z_image_vectorization/omnisvg_4b/0001.png"),
