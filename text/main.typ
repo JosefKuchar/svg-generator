@@ -1888,7 +1888,7 @@ the same behavior over the full generated set.
     [OmniSVG1.1 4B], [8578.95], [38.21], [11.29], [0.523], [0.511], [0.422],
     [OmniSVG1.1 8B], [10492.16], [45.73], [10.16], [0.459], [0.465], [0.394],
     [StarVector 1B], [4932.50], [22.06], [12.47], [0.719], [0.673], [0.349],
-    [`vtracer`], [143.17], [2.73], [28.79], [0.990], [0.955], [0.790],
+    [`vtracer`], [145.45], [2.57], [30.91], [0.984], [0.971], [0.866],
   ),
   caption: [Raster-vector-raster fidelity on generated raster images.],
 ) <tab:z-image-raster-vectorization-fidelity>
@@ -1915,7 +1915,7 @@ the same behavior over the full generated set.
     [OmniSVG1.1 4B], [99.2%], [0.297], [0.561], [25.68], [179.50], [23.44],
     [OmniSVG1.1 8B], [96.7%], [0.281], [0.520], [28.94], [193.46], [22.91],
     [StarVector 1B], [40.0%], [0.251], [0.490], [9.97], [68.61], [26.38],
-    [`vtracer`], [100.0%], [0.554], [0.941], [1.79], [30.76], [25.15],
+    [`vtracer`], [100.0%], [0.696], [0.948], [1.93], [27.91], [23.10],
   ),
   caption: [Validity, contour alignment, and rendering cost on generated raster images.],
 ) <tab:z-image-raster-vectorization-boundary>
@@ -1934,7 +1934,7 @@ the same behavior over the full generated set.
     [OmniSVG1.1 4B], [8504.78], [6.76], [5.76], [299.81],
     [OmniSVG1.1 8B], [8654.52], [12.57], [11.57], [309.18],
     [StarVector 1B], [2151.12], [10.09], [3.75], [64.80],
-    [`vtracer`], [55946.92], [85.11], [84.11], [1647.80],
+    [`vtracer`], [60192.09], [95.84], [94.84], [1779.18],
   ),
   caption: [SVG complexity on generated raster images.],
 ) <tab:z-image-raster-vectorization-complexity>
