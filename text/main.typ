@@ -1884,6 +1884,7 @@ the same behavior over the full generated set.
     table.header(
       [Method], [MSE (0--255) ↓], [MAE (0--255) ↓], [PSNR dB ↑], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑]
     ),
+    [Proposed], [6004.36], [27.31], [12.15], [0.681], [0.651], [0.371],
     [OmniSVG1.1 4B], [8578.95], [38.21], [11.29], [0.523], [0.511], [0.422],
     [OmniSVG1.1 8B], [10492.16], [45.73], [10.16], [0.459], [0.465], [0.394],
     [StarVector 1B], [4932.50], [22.06], [12.47], [0.719], [0.673], [0.349],
@@ -1910,6 +1911,7 @@ the same behavior over the full generated set.
       [Hausdorff px ↓],
       [Render time ms ↓],
     ),
+    [Proposed], [100.0%], [0.312], [0.444], [15.62], [102.79], [27.70],
     [OmniSVG1.1 4B], [99.2%], [0.297], [0.561], [25.68], [179.50], [23.44],
     [OmniSVG1.1 8B], [96.7%], [0.281], [0.520], [28.94], [193.46], [22.91],
     [StarVector 1B], [40.0%], [0.251], [0.490], [9.97], [68.61], [26.38],
@@ -1928,6 +1930,7 @@ the same behavior over the full generated set.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
+    [Proposed], [8005.76], [4.67], [3.67], [79.53],
     [OmniSVG1.1 4B], [8504.78], [6.76], [5.76], [299.81],
     [OmniSVG1.1 8B], [8654.52], [12.57], [11.57], [309.18],
     [StarVector 1B], [2151.12], [10.09], [3.75], [64.80],
