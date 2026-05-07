@@ -1,4 +1,4 @@
-#import "@git/fi-muni-thesis:1.0.0": fithesis, thesis_bibliography
+#import "@git/fi-muni-thesis:1.0.0": appendix, fithesis, thesis_bibliography
 
 #show: fithesis.with(
   title: [Generative Neural Models for Scalable Vector Graphics],
@@ -59,7 +59,7 @@
   ),
 )
 
-= Introduction
+#heading(level: 1, numbering: none)[Introduction]
 
 The goal of the work is to generate vector graphics from textual input. Direct
 text-to-vector generation is difficult because the model must simultaneously
@@ -1921,7 +1921,7 @@ fidelity on successful outputs, and reliability. On raster images produced by
 the Z-Image stage, direct tracing remains substantially more reliable at
 preserving the visible raster content.
 
-= Conclusion
+#heading(level: 1, numbering: none)[Conclusion]
 
 This thesis addressed text-conditioned generation of scalable vector graphics
 through a two-stage pipeline. The first stage adapts a pretrained
@@ -2009,6 +2009,24 @@ possible way to adapt the first stage. Finally, larger paired vector datasets
 and stronger conditioning could make it possible to revisit direct
 text-to-vector generation, but the results of this thesis indicate that the
 two-stage formulation remains a useful and data-efficient baseline for further
-research.
+research. The public implementation and trained model artifacts are listed in
+@app:implementation-artifacts.
 
 #thesis_bibliography(read("references.bib", encoding: none))
+
+#appendix(label: <app:implementation-artifacts>)[Implementation artifacts][
+  The source code for the implementation developed in this thesis is available
+  in the GitHub repository:
+  #link("https://github.com/JosefKuchar/svg-generator")[
+    https://github.com/JosefKuchar/svg-generator
+  ].
+
+  Trained model checkpoints and accompanying model artifacts are available on
+  Hugging Face:
+  #link("https://huggingface.co/JosefKuchar/svg-generator")[
+    https://huggingface.co/JosefKuchar/svg-generator
+  ].
+
+  Both the implementation and the trained model artifacts are released under
+  the Apache License 2.0.
+]
