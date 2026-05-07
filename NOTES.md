@@ -748,3 +748,30 @@ render_time_ms: 53.227388
 gen_render_errors: 0
 
 ```
+
+
+# Proposed
+```
+images: 1010
+valid: 1010
+invalid: 0
+valid_rate: 1.000000
+mse: 6004.362248
+mae: 27.312405
+psnr: 12.147383
+ssim: 0.681470
+mask_iou: 0.650743
+boundary_f1_1px: 0.312101
+boundary_f1_2px: 0.371474
+boundary_f1_4px: 0.443863
+chamfer_px: 15.619802
+hausdorff_px: 102.792629
+svg_bytes: 8005.755446
+svg_elements: 4.672277
+svg_paths: 3.672277
+svg_path_commands: 79.528713
+render_time_ms: 27.702087
+```
+
+VTRACER: 2 minuty
+OUR: 6 minut
