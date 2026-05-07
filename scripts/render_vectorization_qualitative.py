@@ -29,6 +29,7 @@ class Method:
 
 
 VALIDATION_METHODS = (
+    Method("Proposed", Path("model_outputs/0627_reference"), "proposed"),
     Method("OmniSVG 4B", Path("vectorization_results/omni/i2i_4b"), "omnisvg_4b"),
     Method("OmniSVG 8B", Path("vectorization_results/omni/i2i_8b"), "omnisvg_8b"),
     Method("StarVector 1B", Path("vectorization_results/starvector/1b"), "starvector_1b"),
@@ -36,6 +37,7 @@ VALIDATION_METHODS = (
 )
 
 SYNTHETIC_METHODS = (
+    Method("Proposed", Path("model_outputs/0627_synthetic"), "proposed"),
     Method(
         "OmniSVG 4B",
         Path("vectorization_results/omni/i2i_4b_synthetic"),

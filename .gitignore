@@ -25,3 +25,5 @@ benchmark-results/
 !text/**/*.png
 !text/assets/wandb/
 !text/assets/wandb/**
+outputs/
+*.safetensors
