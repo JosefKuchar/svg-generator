@@ -1881,9 +1881,10 @@ the same behavior over the full generated set.
       [Method], [MSE (0--255) ↓], [MAE (0--255) ↓], [PSNR dB ↑], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑]
     ),
     [Proposed], [6004.36], [27.31], [12.15], [0.681], [0.651], [0.371],
-    [OmniSVG1.1 4B], [8578.95], [38.21], [11.29], [0.523], [0.511], [0.422],
-    [OmniSVG1.1 8B], [10492.16], [45.73], [10.16], [0.459], [0.465], [0.394],
-    [StarVector 1B], [4932.50], [22.06], [12.47], [0.719], [0.673], [0.349],
+    [OmniSVG1.1 4B], [8973.13], [38.55], [12.07], [0.550], [0.549], [0.527],
+    [OmniSVG1.1 8B], [9923.60], [42.47], [11.58], [0.526], [0.532], [0.503],
+    [StarVector 1B], [5057.47], [22.35], [13.25], [0.729], [0.690], [0.417],
+    [StarVector 8B], [6592.78], [27.77], [12.08], [0.622], [0.596], [0.427],
     [`vtracer`], [145.45], [2.57], [30.91], [0.984], [0.971], [0.866],
   ),
   caption: [Raster-vector-raster fidelity on generated raster images.],
@@ -1908,9 +1909,10 @@ the same behavior over the full generated set.
       [Render time ms ↓],
     ),
     [Proposed], [100.0%], [0.312], [0.444], [15.62], [102.79], [27.70],
-    [OmniSVG1.1 4B], [99.2%], [0.297], [0.561], [25.68], [179.50], [23.44],
-    [OmniSVG1.1 8B], [96.7%], [0.281], [0.520], [28.94], [193.46], [22.91],
-    [StarVector 1B], [40.0%], [0.251], [0.490], [9.97], [68.61], [26.38],
+    [OmniSVG1.1 4B], [99.2%], [0.412], [0.640], [22.15], [167.65], [23.96],
+    [OmniSVG1.1 8B], [98.6%], [0.398], [0.603], [24.05], [172.41], [24.82],
+    [StarVector 1B], [49.0%], [0.336], [0.530], [13.09], [88.63], [30.88],
+    [StarVector 8B], [50.5%], [0.361], [0.506], [18.50], [120.81], [25.69],
     [`vtracer`], [100.0%], [0.696], [0.948], [1.93], [27.91], [23.10],
   ),
   caption: [Validity, contour alignment, and rendering cost on generated raster images.],
@@ -1927,9 +1929,10 @@ the same behavior over the full generated set.
     ),
     table.header([Method], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
     [Proposed], [8005.76], [4.67], [3.67], [79.53],
-    [OmniSVG1.1 4B], [8504.78], [6.76], [5.76], [299.81],
-    [OmniSVG1.1 8B], [8654.52], [12.57], [11.57], [309.18],
-    [StarVector 1B], [2151.12], [10.09], [3.75], [64.80],
+    [OmniSVG1.1 4B], [6696.20], [6.46], [5.46], [244.43],
+    [OmniSVG1.1 8B], [6803.54], [10.89], [9.89], [250.28],
+    [StarVector 1B], [2102.44], [11.49], [2.87], [40.14],
+    [StarVector 8B], [1270.68], [7.10], [2.31], [44.36],
     [`vtracer`], [60192.09], [95.84], [94.84], [1779.18],
   ),
   caption: [SVG complexity on generated raster images.],
@@ -1941,15 +1944,16 @@ of validity and raster reconstruction: all 1010 images produced renderable SVG
 files, the SSIM is high, and the foreground mask overlap remains close to the
 input. At the same time, the resulting SVGs are large, with more than 1600 path
 commands on average. The OmniSVG evaluations produce much more compact SVG
-files: OmniSVG1.1 4B averages 8505 bytes and 300 path commands, while OmniSVG1.1 8B
-averages 8655 bytes and 309 path commands. StarVector 1B is more compact still,
-with about 2151 bytes and 65 path commands on average, and obtains better
-fidelity scores on the subset that renders successfully. However, its 40.0%
-valid SVG rate makes this result difficult to use as a full-pipeline solution.
-The neural vectorizers therefore expose a trade-off between compactness,
-fidelity on successful outputs, and reliability. On raster images produced by
-the Z-Image stage, direct tracing remains substantially more reliable at
-preserving the visible raster content.
+files: OmniSVG1.1 4B averages 6696 bytes and 244 path commands, while OmniSVG1.1 8B
+averages 6804 bytes and 250 path commands. StarVector is more compact still:
+the 1B variant averages 2102 bytes and 40 path commands, while the 8B variant
+averages 1271 bytes and 44 path commands. The StarVector models obtain better
+pixel-level fidelity than OmniSVG on the subset that renders successfully, but
+only about half of their outputs are valid SVGs in this generated-raster
+setting. The neural vectorizers therefore expose a trade-off between
+compactness, fidelity on successful outputs, and reliability. On raster images
+produced by the Z-Image stage, direct tracing remains substantially more
+reliable at preserving the visible raster content.
 
 #heading(level: 1, numbering: none)[Conclusion]
 
