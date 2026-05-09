@@ -1847,6 +1847,14 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/starvector_1b/0004.png"),
     vectorization-sample("assets/z_image_vectorization/starvector_1b/0005.png"),
 
+    [StarVector 8B],
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0000.png"),
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0001.png"),
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0002.png"),
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0003.png"),
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0004.png"),
+    vectorization-sample("assets/z_image_vectorization/starvector_8b/0005.png"),
+
     [`vtracer`],
     vectorization-sample("assets/z_image_vectorization/vtracer/0000.png"),
     vectorization-sample("assets/z_image_vectorization/vtracer/0001.png"),
