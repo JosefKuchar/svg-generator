@@ -518,7 +518,7 @@ All quantities are normalized to the interval $[-1, 1]$. Let the original
 raster image have width $W$ and height $H$. Coordinates are normalized with
 respect to the image center
 $ c_x = W / 2 quad c_y = H / 2 $
-and the isotropic scale factor
+and the uniform scale factor
 $ lambda = 2 / max(W, H) $
 The normalized coordinates are therefore
 $
