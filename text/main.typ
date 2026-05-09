@@ -455,7 +455,7 @@ turbo variant is motivated by the observation that distilled diffusion models
 can preserve the controllability of their teacher models, allowing controls
 learned for the base model to remain useful after distillation
 @gandikota2025distilling. In the experiments reported below, prompts are
-prefixed with `SVG illustration with white background. ` to bias the generator
+prefixed with "SVG illustration with white background. " to bias the generator
 toward clean foreground graphics on a simple canvas. The resulting samples are
 then assessed both as images and as inputs for downstream vectorization.
 
