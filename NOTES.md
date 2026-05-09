@@ -775,3 +775,92 @@ render_time_ms: 27.702087
 
 VTRACER: 2 minuty
 OUR: 6 minut
+Starvector 8b: 21:14:37
+Starbector 1b: 8:57:37
+
+
+```
+Add and update numbers for the quantitative end2end, you will figure out the variants from the commands xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-
+  image-renders/base_prefixed_lora/ star-vector-raster/base-1b/
+  Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [06:17<00:00,
+  2.67it/s]
+  images: 1010
+  valid: 495
+  invalid: 515
+  valid_rate: 0.490099
+  mse: 5057.472308
+  mae: 22.354983
+  psnr: 13.249188
+  ssim: 0.728711
+  mask_iou: 0.690275
+  boundary_f1_1px: 0.335543
+  boundary_f1_2px: 0.416901
+  boundary_f1_4px: 0.529655
+  chamfer_px: 13.091332
+  hausdorff_px: 88.630620
+  svg_bytes: 2102.436364
+  svg_elements: 11.492929
+  svg_paths: 2.872727
+  svg_path_commands: 40.135354
+  render_time_ms: 30.876259
+  missing_svg: 0
+  render_errors: 515 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ star-vector-raster/base-8b/
+  Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [06:22<00:00,
+  2.64it/s]
+  images: 1010
+  valid: 510
+  invalid: 500
+  valid_rate: 0.504950
+  mse: 6592.780984
+  mae: 27.765789
+  psnr: 12.078963
+  ssim: 0.621840
+  mask_iou: 0.596102
+  boundary_f1_1px: 0.361363
+  boundary_f1_2px: 0.426550
+  boundary_f1_4px: 0.505963
+  chamfer_px: 18.502480
+  hausdorff_px: 120.811723
+  svg_bytes: 1270.678431
+  svg_elements: 7.100000
+  svg_paths: 2.313725
+  svg_path_commands: 44.360784
+  render_time_ms: 25.694973
+  missing_svg: 0
+  render_errors: 500 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ ../../OmniSVG/rendered2_4b
+  Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:49<00:00,
+  valid: 1002
+  invalid: 8
+  mae: 38.546811
+  psnr: 12.066503
+  ssim: 0.550203
+  mask_iou: 0.548975
+  boundary_f1_1px: 0.411653
+  boundary_f1_2px: 0.526917
+  boundary_f1_4px: 0.639779
+  chamfer_px: 22.148928
+  hausdorff_px: 167.652673
+  svg_bytes: 6696.195609
+  svg_elements: 6.461078
+  Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:31<00:00,
+  1.34it/s]
+  images: 1010
+  valid: 996
+  invalid: 14
+  valid_rate: 0.986139
+  mse: 9923.598002
+  mae: 42.472481
+  psnr: 11.583518
+  ssim: 0.525772
+  mask_iou: 0.532133
+  boundary_f1_1px: 0.398455
+  chamfer_px: 24.054087
+  hausdorff_px: 172.407555
+  svg_bytes: 6803.540161
+  svg_elements: 10.887550
+  svg_paths: 9.887550
+  svg_path_commands: 250.280120
+  render_time_ms: 24.824815
+  missing_svg: 14
+  render_errors: 0
+  ```
