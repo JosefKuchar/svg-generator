@@ -408,23 +408,27 @@ representation itself.
 == Source SVG dataset
 
 Both stages use the `mikronai/svg-svgrepo` dataset distributed through Hugging
-Face @mikronaiSvgSvgrepo. The dataset is derived from SVG Repo graphics
-@svgRepo and is provided as a tabular Parquet dataset. At the time of use, the
-default subset
-contained approximately 216k examples, split into approximately 214k training
-examples, 1010 validation examples, and 1010 test examples. Each row contains
-the raw SVG markup in the `item_svg` field, collection and item identifiers,
-license metadata, item tags, an item title, and four generated text captions
-with associated generation metadata.
+Face @mikronaiSvgSvgrepo as their source SVG collection. This original dataset
+is derived from SVG Repo graphics @svgRepo and is provided as a tabular Parquet
+dataset. At the time of use, the default subset contained approximately 216k
+examples, split into approximately 214k training examples, 1010 validation
+examples, and 1010 test examples. Each row contains the raw SVG markup in the
+`item_svg` field, collection and item identifiers, license metadata, item tags,
+an item title, and four generated text captions with associated generation
+metadata.
 
 This structure makes the dataset useful for both parts of the proposed
 pipeline. For Stage 1, the SVG files are rasterized and paired with textual
 captions, yielding image-text examples for LoRA adaptation of the
-text-to-raster model. For Stage 2, the same SVG files provide vector
-supervision: each SVG is converted into the internal Bezier representation and
-also rasterized to obtain the conditioning image. The dataset is therefore a
-shared source of semantic supervision for raster generation and geometric
-supervision for raster-to-vector learning.
+text-to-raster model. For Stage 2, this thesis contributes a derived dataset
+created by converting the same source SVG files into the internal Bezier
+representation and rasterizing them to obtain the conditioning images. This
+converted Bezier dataset is published separately on Hugging Face; its public
+split contains 177k training samples, 829 validation samples, and 811 test
+samples after conversion and filtering. The original SVG collection is
+therefore used as a source of semantic supervision for raster generation, while
+the thesis-derived Bezier dataset provides geometric supervision for
+raster-to-vector learning.
 
 The dataset is heterogeneous because it aggregates graphics from many original
 collections and licenses. This diversity is useful for evaluating
@@ -2097,6 +2101,12 @@ research. The public implementation and trained model artifacts are listed in
   Hugging Face:
   #link("https://huggingface.co/JosefKuchar/svg-generator")[
     https://huggingface.co/JosefKuchar/svg-generator
+  ].
+
+  The converted Bezier dataset used for raster-to-vector fine-tuning is
+  available on Hugging Face:
+  #link("https://huggingface.co/datasets/JosefKuchar/bezier-dataset")[
+    https://huggingface.co/datasets/JosefKuchar/bezier-dataset
   ].
 
   Both the implementation and the trained model artifacts are released under
