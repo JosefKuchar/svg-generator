@@ -310,12 +310,7 @@ engineering tools, but they typically optimize local image fidelity and often
 produce dense, fragmented paths when the input contains noise, compression
 artifacts, blur, or soft color transitions. The experiments use `vtracer` as
 the classical tracing baseline. Recent neural text-to-SVG systems, by contrast,
-often rely on large vision-language models fine-tuned on SVG data. The
-evaluation in this work therefore distinguishes between performance on the SVG
-validation distribution and behavior on synthetic images whose ground-truth
-Bezier structure is known. This makes it possible to compare ordinary
-reconstruction fidelity with robustness to inputs that differ from the web-SVG
-distribution used by large neural baselines.
+often rely on large vision-language models fine-tuned on SVG data.
 
 == Text-to-image models adapted for vector graphics
 
