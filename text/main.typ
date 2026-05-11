@@ -377,10 +377,11 @@ The proposed system consists of the following two stages:
 - Stage 1: text-to-raster generation. A pretrained Z-Image model
   @imageteam2025zimage is adapted with a LoRA module so that it produces
   images with characteristics suitable for vector graphics generation.
-- Stage 2: raster-to-vector generation. A custom conditional flow-matching
-  model based on flow matching @lipman2023flow is trained from scratch to
-  convert the raster image into a sequence of Bezier-segment descriptors,
-  which can then be decoded into SVG paths.
+- Stage 2: raster-to-vector generation. The raster image can be converted to
+  SVG by any vectorization method, for example a classical algorithm such as
+  `vtracer` or the custom conditional flow-matching model developed in this
+  thesis. The learned model is trained from scratch to predict a sequence of
+  Bezier-segment descriptors, which can then be decoded into SVG paths.
 
 From a methodological perspective, the first stage addresses semantic image
 synthesis from text, while the second stage addresses structured geometric
