@@ -741,13 +741,13 @@ training @ho2021classifierfree. With a fixed probability, the image-conditioning
 by a learned null token broadcast across the conditioning length. This teaches
 the network both conditional and unconditional velocity fields within a single
 set of parameters. During inference, the two predictions can be combined as
-$ v = v_u + w (v_c - v_u) $,
+$ v = v_u + w (v_c - v_u) $
 where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
 recovered.
 
 Sampling is performed by solving the learned ordinary differential equation from
 noise toward data. The process starts from an initial sample
-$ x(0) ~ N(0, I) $.
+$ x(0) ~ N(0, I) $
 The model then integrates the velocity field from $t = 0$ to $t = 1$ using the
 classical fourth-order Runge-Kutta method with a fixed number of time steps. In
 each integration step, the transformer is evaluated one or more times to obtain
@@ -864,7 +864,7 @@ $(1, 0)$ to $(0, 1)$ represented by a cubic Bezier curve with control points
 $(1, kappa)$ and $(kappa, 1)$, which enforces the correct endpoint tangents. At
 $t = 1 / 2$, the cubic Bezier formula gives the midpoint
 $
-  (1 / 2 + 3 kappa / 8, 1 / 2 + 3 kappa / 8).
+  (1 / 2 + 3 kappa / 8, 1 / 2 + 3 kappa / 8)
 $
 If this point is constrained to lie on the circular diagonal
 $(sqrt(2) / 2, sqrt(2) / 2)$, then
@@ -873,7 +873,7 @@ $
 $
 and therefore
 $
-  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498.
+  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498
 $
 Scaling the same construction along the horizontal and vertical axes gives the
 ellipse approximation used by the generator.
@@ -908,7 +908,7 @@ geometry.
 The dataset interface is implemented by the `SyntheticBezierDataset` class,
 which generates samples on the fly. For index $i$ in epoch $e$, the random seed
 is chosen deterministically as
-$ s_(i,e) = s_0 + i + e N $,
+$ s_(i,e) = s_0 + i + e N $
 where $s_0$ is a base seed and $N$ is the virtual dataset length. Consequently,
 the same epoch is reproducible, while different epochs expose the model to new
 synthetic scenes. Each generated scene is converted to the tensor
@@ -1050,7 +1050,7 @@ resulting SVG is then rasterized back to the original image resolution on a
 white background. The score is the mean
 squared error between the original generated RGB image and this rerendered
 image,
-$ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $,
+$ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $
 where pixel values are measured in the usual 0--255 RGB range. This metric does
 not compare the generated image to the reference image directly. Instead, it
 measures how much visual information is lost when the image is approximated by
