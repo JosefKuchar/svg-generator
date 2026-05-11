@@ -1165,13 +1165,13 @@ primitive structure, or editability.
   caption: [Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
 
-An additional ablation study was performed for the Stage 1 LoRA adaptation in
+An additional experiment was performed for the Stage 1 LoRA adaptation in
 order to evaluate the effect of training duration and LoRA rank. Three LoRA
 ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
 steps. For the files without an explicit checkpoint suffix, the final model is
 interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
 similarity, and vectorization MSE values are summarized together in
-@tab:lora-ablation. Due to computational constraints, the ablation was
+@tab:lora-experiment. Due to computational constraints, the experiment was
 evaluated on a subset of 100 validation samples rather than on the full
 validation set of 1010 samples. The explored grid of ranks and checkpoints is
 therefore intentionally coarse; a more fine-grained sweep over ranks, training
@@ -1273,8 +1273,8 @@ criterion, but was outside the available compute budget.
     lora-table-text[DINO similarity ↑], lora-table-text[0.620], lora-table-text[0.631], lora-table-text[0.617],
     lora-table-text[Vectorization MSE ↓], lora-table-text[178.814], lora-table-text[166.223], lora-table-text[172.532],
   ),
-  caption: [Stage 1 LoRA ablation results.],
-) <tab:lora-ablation>
+  caption: [Stage 1 LoRA experiment results.],
+) <tab:lora-experiment>
 
 #v(1fr)
 #pagebreak()
@@ -1292,10 +1292,10 @@ remains a reasonable practical alternative when inference speed is more
 important, because it preserves most of the semantic-similarity gain while
 using the accelerated turbo sampler.
 
-Based on the rank and checkpoint ablation, the LoRA model with rank 16 at
+Based on the rank and checkpoint experiment, the LoRA model with rank 16 at
 3000 training steps was selected for subsequent Stage 1 experiments. This
 checkpoint achieves the highest DINO similarity and the lowest vectorization
-MSE in the ablation. Although its CLIP similarity is slightly lower than the
+MSE in the experiment. Although its CLIP similarity is slightly lower than the
 best observed value, the difference is small, making this checkpoint a
 reasonable choice for subsequent experiments.
 
