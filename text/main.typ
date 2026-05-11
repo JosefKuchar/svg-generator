@@ -229,12 +229,7 @@ approximately two million SVG samples paired with raster renderings and
 synthetic text descriptions. The dataset is intended to cover a broad range of
 web SVG syntax and primitives, which is important because SVG generation is not
 only a geometric task but also a code-validity task. StarVector is evaluated
-with SVG-Bench on image-to-SVG, text-to-SVG, and diagram-generation tasks. The
-paper also argues that purely pixel-based metrics such as MSE can be misleading
-for vector graphics, because they do not measure compactness, primitive choice,
-or editability. This observation is relevant for this thesis as well: a
-round-trip raster error is useful, but it should be interpreted together with
-properties of the generated vector structure.
+with SVG-Bench on image-to-SVG, text-to-SVG, and diagram-generation tasks.
 
 === OmniSVG
 
