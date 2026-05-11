@@ -678,7 +678,8 @@ image descriptors.
 
 The Bezier branch processes a tensor of segment descriptors of shape
 $(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
-and $D = 13$ is the segment dimensionality. Each segment vector is projected by
+and $D = 13$ is the segment dimensionality, covering coordinates, color,
+opacity, path-structure flags, and the validity flag. Each segment vector is projected by
 a learned linear layer into a hidden space of dimension $H$. The scalar flow
 time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
 a multilayer perceptron. The resulting time embedding is then used to modulate
