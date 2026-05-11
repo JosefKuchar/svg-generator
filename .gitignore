@@ -23,6 +23,7 @@ benchmark-results/
 *.pdf
 
 !text/**/*.png
+!text/assets/svg_bezier_example.svg
 !text/assets/wandb/
 !text/assets/wandb/**
 outputs/

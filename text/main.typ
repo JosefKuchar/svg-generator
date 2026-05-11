@@ -125,7 +125,34 @@ This thesis is related to several research directions at the intersection of
 generative modeling, vector graphics, and multimodal learning. The most
 relevant prior work can be grouped into the following categories.
 
-== Scalable vector graphics and Bezier curves
+== Scalable vector graphics
+
+Scalable Vector Graphics (SVG) is an XML-based format for describing
+two-dimensional vector images. Unlike raster images, which store a fixed grid
+of pixels, an SVG document stores graphical elements such as paths, rectangles,
+circles, gradients, fills, and strokes. The image is produced only when this
+description is rendered, which makes SVG resolution independent and suitable
+for icons, illustrations, diagrams, and other graphics that should remain
+editable after creation.
+
+The central primitive for this work is the SVG path element. A path stores a
+sequence of drawing commands in its `d` attribute. For example, the command
+`M` moves the current point and the command `C` draws a cubic curve from the
+current point to a new endpoint using two intermediate control points. The
+following minimal document draws one cubic path segment:
+
+```xml
+<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M 15 60 C 30 8, 90 8, 105 60"
+    fill="none"
+    stroke="#2563eb"
+    stroke-width="5"
+    stroke-linecap="round" />
+</svg>
+```
+
+== Bezier curves
 
 The Bezier curves used in this work are a standard way of representing curved
 SVG paths. In SVG path data, a cubic Bezier segment is specified by an endpoint
@@ -135,6 +162,11 @@ the paths are rendered @w3c2011svgpaths. This makes cubic Bezier curves a
 natural low-level representation for learning, because they are expressive
 enough to approximate many shapes while still being described by a small fixed
 number of continuous parameters per segment.
+
+#figure(
+  image("assets/svg_bezier_example.svg", width: 65%),
+  caption: [Rendered SVG path with the four points of a cubic Bezier segment.],
+) <fig:svg-bezier-example>
 
 == Text-to-SVG generation
 
