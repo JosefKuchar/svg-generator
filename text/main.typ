@@ -755,7 +755,9 @@ To support classifier-free guidance, the model uses conditioning dropout during
 training @ho2021classifierfree. With a fixed probability, the image-conditioning sequence is replaced
 by a learned null token broadcast across the conditioning length. This teaches
 the network both conditional and unconditional velocity fields within a single
-set of parameters. During inference, the two predictions can be combined as
+set of parameters. Preliminary experiments also showed that conditioning dropout
+improved generalization to validation inputs, so it was retained as part of the
+final training setup. During inference, the two predictions can be combined as
 $ v = v_u + w (v_c - v_u) $
 where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
 recovered.
