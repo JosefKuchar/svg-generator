@@ -703,12 +703,14 @@ contains three sublayers:
 - A position-wise feed-forward network.
 
 Self-attention uses rotary positional embeddings applied to the query and key
-vectors @su2024roformer. This gives the model information about the order of segments within
-the sequence while preserving the attention-based formulation. Cross-attention
-does not use rotary embeddings; instead, it lets each Bezier token attend to
-the visual features extracted from the raster image. In this way, the model can
-combine geometric context from the partially denoised vector sequence with
-semantic and structural cues present in the conditioning image.
+vectors @su2024roformer. This gives the Bezier-token stream information about
+the order of segments within the sequence while preserving the attention-based
+formulation. Cross-attention does not add separate rotary embeddings; instead,
+it uses the position-aware Bezier hidden states as queries and the DINOv3 patch
+features, which already contain spatial information from the visual encoder, as
+keys and values. In this way, each Bezier token can attend to relevant visual
+features while combining geometric context from the partially denoised vector
+sequence with semantic and structural cues present in the conditioning image.
 
 Each transformer block is modulated by the time embedding using adaptive layer
 normalization with gating. More precisely, the time embedding is passed through
