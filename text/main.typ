@@ -396,14 +396,14 @@ adapted to real SVG data. The central experimental question is whether
 sufficiently varied synthetic pretraining can transfer to real vector graphics
 after fine-tuning.
 
-This is a practical advantage of formulating the second stage as
-raster-to-vector generation rather than direct text-to-vector generation. For
-the vectorizer, every procedurally generated vector scene can be rendered to a
-raster image and used immediately as a paired training example. This makes it
-possible to create an effectively unlimited amount of supervised data at low
-cost. In contrast, direct text-to-SVG training would require SVGs paired with
-high-quality textual descriptions, which are much harder to collect at scale
-and are not produced automatically by the vector representation itself.
+This is a practical advantage of the two-stage formulation over direct
+text-to-vector generation. For the vectorizer, every procedurally generated
+vector scene can be rendered to a raster image and used immediately as a paired
+training example. This makes it possible to create an effectively unlimited
+amount of supervised data at low cost. In contrast, direct text-to-SVG training
+would require SVGs paired with high-quality textual descriptions, which are much
+harder to collect at scale and are not produced automatically by the vector
+representation itself.
 
 == Source SVG dataset
 
