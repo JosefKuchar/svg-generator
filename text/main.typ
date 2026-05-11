@@ -1537,7 +1537,7 @@ rather than proving broad vectorization ability.
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/reference/0005.png"),
 
-    [Ours model],
+    [Ours 0.26B],
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/proposed/0002.png"),
@@ -1607,7 +1607,7 @@ favorable cases.
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/reference/0005.png"),
 
-    [Ours model],
+    [Ours 0.26B],
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0000.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0001.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/proposed/0002.png"),
@@ -1700,7 +1700,7 @@ trivially simple file can also be inaccurate.
     table.header(
       [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
     ),
-    [Ours model], [7107.52], [0.653], [0.644], [0.324], [16.04], [103.24],
+    [Ours 0.26B], [7107.52], [0.653], [0.644], [0.324], [16.04], [103.24],
     [OmniSVG1.1 4B], [7696.39], [0.621], [0.631], [0.538], [17.84], [145.46],
     [OmniSVG1.1 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
     [StarVector 1B], [5147.82], [0.652], [0.631], [0.483], [24.26], [143.28],
@@ -1722,7 +1722,7 @@ trivially simple file can also be inaccurate.
     table.header(
       [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
     ),
-    [Ours model], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
+    [Ours 0.26B], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
     [OmniSVG1.1 4B], [9591.49], [0.330], [0.432], [0.461], [32.87], [242.00],
     [OmniSVG1.1 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
     [StarVector 1B], [6339.14], [0.314], [0.297], [0.476], [47.02], [317.25],
@@ -1742,7 +1742,7 @@ trivially simple file can also be inaccurate.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Ours model], [100.0%], [10329.02], [5.27], [4.27], [102.55],
+    [Ours 0.26B], [100.0%], [10329.02], [5.27], [4.27], [102.55],
     [OmniSVG1.1 4B], [99.4%], [5284.03], [5.04], [4.04], [219.53],
     [OmniSVG1.1 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
     [StarVector 1B], [79.0%], [1957.71], [9.17], [4.09], [118.60],
@@ -1762,7 +1762,7 @@ trivially simple file can also be inaccurate.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Ours model], [100.0%], [9090.44], [9.66], [8.66], [90.17],
+    [Ours 0.26B], [100.0%], [9090.44], [9.66], [8.66], [90.17],
     [OmniSVG1.1 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
     [OmniSVG1.1 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
     [StarVector 1B], [43.2%], [4108.50], [30.42], [9.97], [447.18],
@@ -1774,11 +1774,11 @@ trivially simple file can also be inaccurate.
 
 The fidelity tables capture visual reconstruction quality, while the
 complexity tables capture whether the output is a practical vector graphic.
-The proposed model results on the SVG validation split are computed over 1010
+The ours results on the SVG validation split are computed over 1010
 pairs. Additional measured values for this run are MAE 31.47, PSNR 11.17 dB,
 Boundary F1 0.255 at 1 px and 0.409 at 4 px, mean render time 53.23 ms, and no
 rendering errors.
-On the synthetic-generator split, the proposed model results are computed over
+On the synthetic-generator split, the ours results are computed over
 1000 pairs. Additional measured values for this run are MAE 20.65, PSNR 15.68
 dB, Boundary F1 0.336 at 1 px and 0.449 at 4 px, mean render time 53.76 ms, and
 no rendering errors.
@@ -1838,7 +1838,7 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/reference/0004.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0005.png"),
 
-    [Proposed],
+    [Ours 0.26B],
     vectorization-sample("assets/z_image_vectorization/proposed/0000.png"),
     vectorization-sample("assets/z_image_vectorization/proposed/0001.png"),
     vectorization-sample("assets/z_image_vectorization/proposed/0002.png"),
@@ -1903,7 +1903,7 @@ the same behavior over the full generated set.
     table.header(
       [Method], [MSE (0--255) ↓], [MAE (0--255) ↓], [PSNR dB ↑], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑]
     ),
-    [Proposed], [6004.36], [27.31], [12.15], [0.681], [0.651], [0.371],
+    [Ours 0.26B], [6004.36], [27.31], [12.15], [0.681], [0.651], [0.371],
     [OmniSVG1.1 4B], [8973.13], [38.55], [12.07], [0.550], [0.549], [0.527],
     [OmniSVG1.1 8B], [9923.60], [42.47], [11.58], [0.526], [0.532], [0.503],
     [StarVector 1B], [5057.47], [22.35], [13.25], [0.729], [0.690], [0.417],
@@ -1931,7 +1931,7 @@ the same behavior over the full generated set.
       [Hausdorff px ↓],
       [Render time ms ↓],
     ),
-    [Proposed], [100.0%], [0.312], [0.444], [15.62], [102.79], [27.70],
+    [Ours 0.26B], [100.0%], [0.312], [0.444], [15.62], [102.79], [27.70],
     [OmniSVG1.1 4B], [99.2%], [0.412], [0.640], [22.15], [167.65], [23.96],
     [OmniSVG1.1 8B], [98.6%], [0.398], [0.603], [24.05], [172.41], [24.82],
     [StarVector 1B], [49.0%], [0.336], [0.530], [13.09], [88.63], [30.88],
@@ -1951,7 +1951,7 @@ the same behavior over the full generated set.
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header([Method], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Proposed], [8005.76], [4.67], [3.67], [79.53],
+    [Ours 0.26B], [8005.76], [4.67], [3.67], [79.53],
     [OmniSVG1.1 4B], [6696.20], [6.46], [5.46], [244.43],
     [OmniSVG1.1 8B], [6803.54], [10.89], [9.89], [250.28],
     [StarVector 1B], [2102.44], [11.49], [2.87], [40.14],
