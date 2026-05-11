@@ -31,21 +31,33 @@
     Finally, I would like to thank my family for their support.
   ],
   abstract_body: [
-    This thesis studies a two-stage approach to generating scalable vector
-    graphics from text. The first stage adapts a pretrained text-to-image model
-    to produce raster images that are suitable for vectorization. The second
-    stage converts these raster images into a structured representation based
-    on cubic Bezier curves using a conditional flow-matching model.
+    Scalable vector graphics are a natural target format for generated visual
+    content: they are resolution independent, compact, and editable. However,
+    current neural SVG generators still struggle to combine prompt-level
+    semantic understanding with precise geometric output, while classical
+    raster-to-vector tracing preserves pixels at the cost of producing large
+    and often hard-to-edit files. This thesis addresses this gap with a
+    two-stage text-to-SVG pipeline that separates semantic image generation
+    from geometric reconstruction.
 
-    The work focuses on separating semantic image generation from geometric
-    reconstruction. This decomposition makes it possible to use large
-    pretrained raster generators for prompt understanding while training the
-    vectorizer on supervised raster-vector pairs, including procedurally
-    generated synthetic data with known Bezier structure. The thesis describes
-    the data conversion pipeline, the Bezier representation, the synthetic
-    generator, the flow-matching architecture, and the evaluation methodology
-    used to compare the proposed vectorizer with existing SVG-generation and
-    raster-to-vector baselines.
+    The first stage adapts a pretrained text-to-image model to generate raster
+    images in an SVG-like domain. The second stage converts these images into a
+    structured representation of cubic Bezier curves using a conditional
+    flow-matching vectorizer trained on supervised raster-vector pairs,
+    including procedurally generated synthetic data with known Bezier
+    structure. This decomposition allows the pipeline to reuse the semantic
+    strength of large raster generators while training a smaller model
+    specifically for vector geometry.
+
+    Experiments show that the proposed 0.26B-parameter vectorizer is competitive
+    with much larger neural SVG-generation systems. On the synthetic
+    vectorization benchmark, it reduces rendered-image MSE from 6339.14 for
+    StarVector 1B to 2432.57, a 61.6% improvement with roughly four times fewer
+    parameters, and from 9591.49 for OmniSVG1.1 4B, a 74.6% improvement with
+    roughly fifteen times fewer parameters. The results also clarify the
+    remaining trade-offs: classical tracing remains strongest for direct pixel
+    fidelity, whereas the proposed neural vectorizer offers a compact,
+    flow-matching-based route toward editable SVG generation from text.
   ],
   keywords: (
     "scalable vector graphics",
@@ -158,10 +170,7 @@ The Bezier curves used in this work are a standard way of representing curved
 SVG paths. In SVG path data, a cubic Bezier segment is specified by an endpoint
 and two control points relative to the current point; sequences of such
 segments can describe smooth contours, while fills and strokes determine how
-the paths are rendered @w3c2011svgpaths. This makes cubic Bezier curves a
-natural low-level representation for learning, because they are expressive
-enough to approximate many shapes while still being described by a small fixed
-number of continuous parameters per segment.
+the paths are rendered @w3c2011svgpaths.
 
 #figure(
   image("assets/svg_bezier_example.svg", width: 65%),
@@ -229,8 +238,9 @@ The training data for StarVector are collected in SVG-Stack, a large dataset of
 approximately two million SVG samples paired with raster renderings and
 synthetic text descriptions. The dataset is intended to cover a broad range of
 web SVG syntax and primitives, which is important because SVG generation is not
-only a geometric task but also a code-validity task. StarVector is evaluated
-with SVG-Bench on image-to-SVG, text-to-SVG, and diagram-generation tasks.
+only a geometric task, but also requires the model to produce syntactically
+valid SVG markup. StarVector is evaluated with SVG-Bench on image-to-SVG,
+text-to-SVG, and diagram-generation tasks.
 
 === OmniSVG
 
