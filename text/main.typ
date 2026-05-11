@@ -653,14 +653,14 @@ training.
 
 == Model architecture
 
-The predictive model is a conditional flow-matching transformer. Its input
-consists of two parts: a sequence of noisy Bezier-segment descriptors and a
-raster conditioning image. The output is a sequence of the same length and
-dimensionality as the Bezier input, interpreted as a velocity field in
-representation space. The architecture therefore operates directly on the
-continuous tensor representation introduced above and predicts how a noisy
-sample should move toward a valid vector graphic conditioned on the raster
-image.
+The predictive model is a conditional flow-matching @lipman2023flow  transformer
+@vaswani2017attention. Its input consists of two parts: a
+sequence of noisy Bezier-segment descriptors and a raster conditioning image.
+The output is a sequence of the same length and dimensionality as the Bezier
+input, interpreted as a velocity field in representation space. The
+architecture therefore operates directly on the continuous tensor
+representation introduced above and predicts how a noisy sample should move
+toward a valid vector graphic conditioned on the raster image.
 
 The conditioning branch is based on a pretrained DINOv3 visual encoder
 @simeoni2025dinov3,
