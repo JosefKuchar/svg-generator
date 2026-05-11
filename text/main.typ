@@ -75,7 +75,7 @@ output space.
 In this thesis, _vectorization_ refers to raster-to-vector conversion: the
 problem of converting a pixel image into a visually similar vector graphic
 described by geometric primitives. Raster images represent visual content as a
-discrete grid of colored samples, whereas vector graphics describe shapes by
+discrete grid of colored pixels, whereas vector graphics describe shapes by
 parameters such as paths, curves, fills, and strokes. Rendering maps a vector
 description to pixels; vectorization attempts the inverse direction by
 recovering a compact and editable geometric description from raster evidence
@@ -184,8 +184,7 @@ decoder is trained with a next-token objective over SVG code, so inference
 amounts to sampling SVG markup until an end-of-SVG token is produced.
 
 A central design choice in StarVector is to operate in the native SVG code
-space rather than in a restricted curve-only representation. This allows the
-model to use higher-level primitives such as circles, ellipses, polygons, text,
+space. This allows the model to use higher-level primitives such as circles, ellipses, polygons, text,
 and styling constructs when they are appropriate. The motivation is that a
 semantically recognized circle should be emitted as a compact SVG primitive
 rather than approximated by many small Bezier path segments. This distinguishes
