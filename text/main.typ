@@ -376,9 +376,7 @@ The proposed system consists of the following two stages:
 
 - Stage 1: text-to-raster generation. A pretrained Z-Image model
   @imageteam2025zimage is adapted with a LoRA module so that it produces
-  images with characteristics suitable for vector graphics generation. The
-  adapted weights are then applied in the accelerated `Z-Image-Turbo` pipeline
-  for efficient inference.
+  images with characteristics suitable for vector graphics generation.
 - Stage 2: raster-to-vector generation. A custom conditional flow-matching
   model based on flow matching @lipman2023flow is trained from scratch to
   convert the raster image into a sequence of Bezier-segment descriptors,
