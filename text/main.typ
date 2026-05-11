@@ -4,7 +4,7 @@
   title: [Generative Neural Models for Scalable Vector Graphics],
   author: [Josef Kuchař],
   advisor: [Mgr. Michal Štefánik, Ph.D.],
-  department: [Department of Machine Learning and Data Processing],
+  department: [Department of Visual Computing],
   faculty_name: [Faculty of Informatics],
   thesis_type: [Master's Thesis],
   place: "Brno",
