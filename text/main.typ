@@ -206,15 +206,16 @@ generated vector representation.
 
 === StarVector
 
-StarVector formulates SVG synthesis as multimodal code generation. The model is
-conditioned either on a raster image or on a text instruction and then predicts
-the SVG document autoregressively as code. For image-to-SVG generation, the
-raster input is encoded by a vision transformer, projected through an adapter
-into the language-model embedding space, and prepended as visual tokens before
-the SVG token sequence. For text-to-SVG generation, the conditioning signal is
-provided by the language model's ordinary text tokenizer. In both cases, the
-decoder is trained with a next-token objective over SVG code, so inference
-amounts to sampling SVG markup until an end-of-SVG token is produced.
+StarVector @rodriguez2024starvector formulates SVG synthesis as multimodal
+code generation. The model is conditioned either on a raster image or on a text
+instruction and then predicts the SVG document autoregressively as code. For
+image-to-SVG generation, the raster input is encoded by a vision transformer,
+projected through an adapter into the language-model embedding space, and
+prepended as visual tokens before the SVG token sequence. For text-to-SVG
+generation, the conditioning signal is provided by the language model's
+ordinary text tokenizer. In both cases, the decoder is trained with a
+next-token objective over SVG code, so inference amounts to sampling SVG markup
+until an end-of-SVG token is produced.
 
 A central design choice in StarVector is to operate in the native SVG code
 space. This allows the model to use higher-level primitives such as circles, ellipses, polygons, text,
@@ -233,16 +234,16 @@ with SVG-Bench on image-to-SVG, text-to-SVG, and diagram-generation tasks.
 
 === OmniSVG
 
-OmniSVG also uses an autoregressive formulation, but it avoids generating raw
-XML markup directly. Instead, the input SVGs are simplified into a sequence of
-atomic drawing commands and attributes. The representation includes move,
-line, cubic Bezier, elliptical arc, close-path, and fill commands, while
-coordinates and command types are discretized into tokens. This tokenizer
-places vector geometry into the same sequential modeling framework as text and
-image tokens, but it removes much of the syntactic variability of full SVG XML.
-The model is built on a pretrained vision-language model, Qwen2.5-VL, and uses
-text and image inputs as prefix tokens before generating the SVG command
-sequence with a next-token prediction objective.
+OmniSVG @yang2025omnisvg also uses an autoregressive formulation, but it avoids
+generating raw XML markup directly. Instead, the input SVGs are simplified into
+a sequence of atomic drawing commands and attributes. The representation
+includes move, line, cubic Bezier, elliptical arc, close-path, and fill
+commands, while coordinates and command types are discretized into tokens. This
+tokenizer places vector geometry into the same sequential modeling framework as
+text and image tokens, but it removes much of the syntactic variability of full
+SVG XML. The model is built on a pretrained vision-language model, Qwen2.5-VL,
+and uses text and image inputs as prefix tokens before generating the SVG
+command sequence with a next-token prediction objective.
 
 The purpose of this parameterization is to separate the higher-level structure
 of the drawing from low-level coordinate prediction. Raw SVG code contains many
