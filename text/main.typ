@@ -749,12 +749,12 @@ Sampling is performed by solving the learned ordinary differential equation from
 noise toward data. The process starts from an initial sample
 $ x(0) ~ N(0, I) $
 The model then integrates the velocity field from $t = 0$ to $t = 1$ using the
-classical fourth-order Runge-Kutta method with a fixed number of time steps. In
-each integration step, the transformer is evaluated one or more times to obtain
-the required intermediate velocities. The final state is interpreted as a
-predicted Bezier tensor, which is subsequently converted back to vector shapes
-and rendered as SVG. This sampling procedure is deterministic for fixed initial
-noise, fixed conditioning, and fixed integration parameters.
+classical fourth-order Runge-Kutta method @butcher2003numerical with a fixed number of time steps. In each integration step, the transformer is evaluated
+one or more times to obtain the required intermediate velocities. The final
+state is interpreted as a predicted Bezier tensor, which is subsequently
+converted back to vector shapes and rendered as SVG. This sampling procedure is
+deterministic for fixed initial noise, fixed conditioning, and fixed
+integration parameters.
 
 = Training Procedure
 
