@@ -728,9 +728,12 @@ After the stacked transformer blocks, the model applies one final adaptive
 normalization step conditioned on time and then projects the hidden
 representation back to the original Bezier-segment dimension. The final linear
 projection is initialized with zeros, so the network initially predicts a near
-zero velocity field. This is a common stabilization strategy in diffusion-like
-and flow-based transformer models, because it avoids large uncontrolled updates
-at the beginning of training.
+zero velocity field. This follows the zero-initialization principle used in
+DiT-style adaptive layer normalization, where residual branches are initialized
+to make the transformer blocks behave close to the identity at the beginning of
+training @peebles2022dit. In the present flow-matching setting, this avoids
+large uncontrolled updates before the model has learned a meaningful
+time-dependent vector field.
 
 Training follows the rectified-flow formulation. Let $x_1$ denote a ground
 truth Bezier tensor sampled from the dataset and let $x_0$ be Gaussian noise of
