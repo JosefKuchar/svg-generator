@@ -260,9 +260,7 @@ of the drawing from low-level coordinate prediction. Raw SVG code contains many
 equivalent ways to express the same image, for example through transforms,
 groups, or different primitive forms. OmniSVG reduces this ambiguity by
 normalizing SVGs with tools such as `picosvg` and representing them with a
-limited set of atomic commands. At the same time, it remains more expressive
-than icon-only systems because it keeps color fills and supports longer
-sequences for complex illustrations.
+limited set of atomic commands.
 
 OmniSVG is trained and evaluated with MMSVG-2M, a multimodal dataset containing
 about two million SVG assets, including icons, illustrations, and more complex
@@ -278,11 +276,11 @@ this thesis, but they solve the problem in a different place in the pipeline.
 They aim to learn semantic generation and vector-structure generation jointly
 inside a single autoregressive model. The method developed here deliberately
 decomposes the task into raster generation followed by raster-to-vector
-conversion. This decomposition gives up the possibility of producing semantic
-SVG primitives directly from text, but it reduces the data requirement for the
-second stage: the vectorizer can be trained on raster-vector pairs generated
-from known geometry, without requiring natural-language captions for every
-vector sample.
+conversion. In this setup, the vectorizer is not trained to interpret text or
+choose SVG structure from a prompt. Its task is limited to reconstructing
+vector geometry from an image, so it can be trained on synthetic raster-vector
+pairs generated from known shapes rather than on SVG examples annotated with
+natural-language captions.
 
 == Image-to-SVG and vectorization methods
 
