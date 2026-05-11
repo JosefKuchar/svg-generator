@@ -174,19 +174,20 @@ The closest line of work aims to generate SVG content directly from textual
 descriptions. These approaches typically formulate the problem either as code
 generation, where the model predicts SVG tokens or commands autoregressively,
 or as structured graphics generation, where the model predicts vector objects
-and their attributes in a more constrained representation. The main advantage
-of direct text-to-SVG generation is that it avoids an intermediate raster
-representation and can therefore produce editable vector output in a single
-stage. However, this formulation is challenging because the model must jointly
-learn semantic alignment with text and the geometric and syntactic regularities
-of valid SVG documents.
+and their attributes in a more constrained representation
+@rodriguez2024starvector @yang2025omnisvg. The main advantage of direct
+text-to-SVG generation is that it avoids an intermediate raster representation
+and can therefore produce editable vector output in a single stage. However,
+this formulation is challenging because the model must jointly learn semantic
+alignment with text and the geometric and syntactic regularities of valid SVG
+documents.
 
 SVG generation is difficult not only because the output is visual, but also
 because the output is structured code. A model must produce syntactically valid
 path data, choose an ordering of paths and shapes, handle attributes such as
-fill color and opacity, and cope with the fact that multiple SVG programs can
-render to very similar raster images. Recent SVG-generation systems therefore
-either generate full SVG code with a code-oriented language model
+fill color and opacity, and account for the ambiguity that multiple SVG
+programs can render to very similar raster images. Recent SVG-generation
+systems therefore either generate full SVG code with a code-oriented language model
 @rodriguez2024starvector or simplify SVGs into a smaller command vocabulary
 before training @yang2025omnisvg.
 
