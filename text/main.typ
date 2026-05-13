@@ -936,9 +936,8 @@ synthetic scenes. Each generated scene is converted to the tensor
 representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
 an RGB image, and finally processed by the DINOv3 image processor. The dataset
 therefore returns the same type of data as the real dataset, namely a tensor of Bezier
-segments and a corresponding conditioning raster image. This makes the
-synthetic generator a drop-in replacement for supervised training and
-qualitative sampling.
+segments and a corresponding conditioning raster image. The same training and
+sampling code can therefore consume synthetic and SVG-derived examples.
 
 
 == Stage 2 training schedule
