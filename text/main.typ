@@ -1325,10 +1325,10 @@ reasonable choice for subsequent experiments.
 
 The Stage 2 experiments evaluate the conditional flow-matching vectorizer.
 First, architectural ablations compare the flow-matching formulation with an
-autoregressive variant of comparable size, and measure the effect of image
-conditioning. The conditioning ablations compare the full model with a model
-trained without an image encoder while keeping the vectorizer backbone as
-constant as possible.
+autoregressive variant of comparable size, and measure the effect of using a
+pretrained image encoder for the raster input. The image-encoder ablation
+compares the full model with a model trained on raw raster inputs while keeping
+the vectorizer backbone as constant as possible.
 Together, these experiments clarify how much of the performance is due to the
 flow-matching objective, the transformer backbone, and the pretrained visual
 representation.
@@ -1351,32 +1351,32 @@ signal than next-step autoregressive prediction.
   caption: [Flow-matching and autoregressive vectorizer comparison.],
 ) <fig:flow-matching-vs-autoregressive-mse>
 
-The conditioning mechanism was further evaluated by comparing the full
+The image representation was further evaluated by comparing the full
 architecture with a variant trained without the image encoder. In the ablated
-model, the vectorizer still learns the distribution of valid Bezier sequences,
-but it lacks direct visual information about the raster input. This comparison
-therefore tests whether the model is merely learning an unconditional vector
-graphics prior, or whether the DINOv3 image features provide useful
-input-specific guidance.
+model, the vectorizer is still conditioned on the raster input, but receives it
+in a raw form rather than through DINOv3 feature tokens. This comparison
+therefore tests whether the pretrained visual representation provides more
+useful input-specific guidance than directly exposing the vectorizer to the
+image data.
 
 The results in @fig:image-encoder-ablation-mse and
 @fig:image-encoder-ablation-loss are limited to the first 150k training steps.
 The model with the image encoder reaches lower train and validation
 reconstruction MSE and also maintains a lower training loss over the shared
 interval. The difference is especially important on the validation split,
-where the image-conditioned model can adapt the generated Bezier curves to the
-observed raster image instead of relying only on the learned shape prior. This
+where the encoder-based model can adapt the generated Bezier curves to the
+observed raster image more effectively than the raw-input variant. This
 supports the use of a pretrained image encoder as a central part of the
 conditional vectorizer.
 
 #figure(
   image("assets/wandb/image-encoder-ablation_image_mse.pdf", width: 90%),
-  caption: [Image reconstruction error with and without image conditioning.],
+  caption: [Image reconstruction error with encoded and raw raster input.],
 ) <fig:image-encoder-ablation-mse>
 
 #figure(
   image("assets/wandb/image-encoder-ablation_train_loss.pdf", width: 90%),
-  caption: [Training loss with and without image conditioning.],
+  caption: [Training loss with encoded and raw raster input.],
 ) <fig:image-encoder-ablation-loss>
 
 The selected architecture is then used for synthetic pretraining before
