@@ -927,17 +927,15 @@ ensures that every produced scene is valid without altering already generated
 geometry.
 
 The dataset interface is implemented by the `SyntheticBezierDataset` class,
-which generates samples on the fly during training. For index $i$ in epoch $e$, the random seed
-is chosen deterministically as
-$ s_(i,e) = s_0 + i + e N $
-where $s_0$ is a base seed and $N$ is the virtual dataset length. Consequently,
-the same epoch is reproducible, while different epochs expose the model to new
-synthetic scenes. Each generated scene is converted to the tensor
+which generates samples on the fly during training. The stream of synthetic
+scenes is effectively unbounded, so pretraining is not limited to a fixed
+corpus of generated files. Each generated scene is converted to the tensor
 representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
 an RGB image, and finally processed by the DINOv3 image processor. The dataset
-therefore returns the same type of data as the real dataset, namely a tensor of Bezier
-segments and a corresponding conditioning raster image. The same training and
-sampling code can therefore consume synthetic and SVG-derived examples.
+therefore returns the same type of data as the real dataset, namely a tensor of
+Bezier segments and a corresponding conditioning raster image. The same
+training and sampling code can therefore consume synthetic and SVG-derived
+examples.
 
 
 == Stage 2 training schedule
