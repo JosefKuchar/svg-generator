@@ -261,7 +261,7 @@ synthetic text descriptions. The dataset is intended to cover a broad range of
 web SVG syntax and primitives, which is important because SVG generation is not
 only a geometric task, but also requires the model to produce syntactically
 valid SVG markup. StarVector is evaluated with SVG-Bench on image-to-SVG,
-text-to-SVG, and diagram-generation tasks.
+text-to-SVG, and diagram-generation tasks @rodriguez2024starvector.
 
 === OmniSVG
 
@@ -272,22 +272,23 @@ includes move, line, cubic Bezier, elliptical arc, close-path, and fill
 commands, while coordinates and command types are discretized into tokens. This
 tokenizer places vector geometry into the same sequential modeling framework as
 text and image tokens, but it removes much of the syntactic variability of full
-SVG XML. The model is built on a pretrained vision-language model, Qwen2.5-VL,
-and uses text and image inputs as prefix tokens before generating the SVG
-command sequence with a next-token prediction objective.
+SVG XML. The model is built on a pretrained vision-language model, Qwen2.5-VL
+@bai2025qwen25vl, and uses text and image inputs as prefix tokens before
+generating the SVG command sequence with a next-token prediction objective.
 
 The purpose of this parameterization is to separate the higher-level structure
 of the drawing from low-level coordinate prediction. Raw SVG code contains many
 equivalent ways to express the same image, for example through transforms,
 groups, or different primitive forms. OmniSVG reduces this ambiguity by
-normalizing SVGs with tools such as `picosvg` and representing them with a
-limited set of atomic commands.
+normalizing SVGs with tools such as `picosvg` @googlefontsPicosvg and
+representing them with a limited set of atomic commands.
 
 OmniSVG is trained and evaluated with MMSVG-2M, a multimodal dataset containing
 about two million SVG assets, including icons, illustrations, and more complex
 character graphics. Its benchmark covers text-to-SVG, image-to-SVG, and
-character-reference SVG generation. This makes OmniSVG a useful reference point
-for scalable conditional SVG generation: it demonstrates that large
+character-reference SVG generation @yang2025omnisvg. This makes OmniSVG a
+useful reference point for scalable conditional SVG generation: it demonstrates
+that large
 vision-language models can be adapted to produce detailed editable vector
 outputs when a sufficiently standardized SVG tokenizer and large-scale data are
 available.
@@ -366,8 +367,13 @@ vectorization-friendly raster images, then the semantic burden of text
 understanding can be largely delegated to that model, while the second stage
 can focus on geometric reconstruction.
 
-// TODO: Add references on LoRA adaptation and text-to-image models used for
-// stylized or domain-specific generation.
+Prior work on text-to-image customization shows that pretrained generators can
+be adapted to narrower visual concepts or styles without training a new model
+from scratch. Examples include subject-driven fine-tuning with DreamBooth
+@ruiz2023dreambooth, parameter-efficient multi-concept adaptation in Custom
+Diffusion @kumari2023customdiffusion, and style transfer through StyleDrop
+@sohn2023styledrop. LoRA provides the parameter-efficient adaptation mechanism
+used in this thesis @hu2022lowrank.
 
 == Position of this work
 
@@ -540,7 +546,8 @@ sampled with 50 denoising steps and classifier-free guidance
 @ho2021classifierfree scale 4. By
 contrast, Z-Image Turbo was sampled with 8 denoising steps and without
 classifier-free guidance, because the turbo model is guidance-distilled and is
-intended to operate without an explicit CFG term at inference time.
+intended to operate without an explicit CFG term at inference time
+@tongyimaiZImageTurboModelCard.
 
 Classifier-free guidance is a conditioning technique for diffusion models in
 which the model is trained with both conditional and unconditional inputs. At
@@ -564,9 +571,9 @@ then assessed both as images and as inputs for downstream vectorization.
 
 == Training data and LoRA procedure
 
-The LoRA adaptation was trained using the AI-Toolkit framework#footnote[
-  AI-Toolkit project page: https://github.com/ostris/ai-toolkit.
-] with the AdamW optimizer @loshchilov2018decoupled and a learning rate of
+The LoRA adaptation was trained using the AI-Toolkit framework
+@ostrisAIToolkit with the AdamW optimizer @loshchilov2018decoupled and a
+learning rate of
 $1 times 10^(-4)$. This configuration was used as the default starting point
 for the Stage 1 adaptation experiments. The rank and checkpoint selection are
 evaluated in @sec:stage1-evaluation.
@@ -997,8 +1004,9 @@ $
   c_2 = p_2 + frac(2, 3) (q_1 - p_2)
 $
 where $p_0$ and $p_2$ are the original endpoints and $q_1$ is the quadratic
-control point. Elliptic arcs are approximated by the parser library as one or
-more cubic Bezier segments and are stored in the same format. Consequently, all
+control point. Elliptic arcs are approximated by the parser library
+`svgelements` @svgelements as one or more cubic Bezier segments and are stored
+in the same format. Consequently, all
 supported SVG geometry is reduced to a single primitive type.
 
 An additional normalization step is applied when the original SVG uses the
@@ -1185,8 +1193,9 @@ and $D = 13$ is the segment dimensionality, covering coordinates, color,
 opacity, path-structure flags, and the validity flag. Each segment vector is projected by
 a learned linear layer into a hidden space of dimension $H$. The scalar flow
 time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
-a multilayer perceptron. The resulting time embedding is then used to modulate
-all transformer blocks through adaptive layer normalization.
+a multilayer perceptron @vaswani2017attention. The resulting time embedding is
+then used to modulate all transformer blocks through adaptive layer
+normalization.
 
 The backbone itself is a stack of transformer blocks of DiT type
 @peebles2022dit. Each block
@@ -1233,12 +1242,13 @@ training @peebles2022dit. In the present flow-matching setting, this avoids
 large uncontrolled updates before the model has learned a meaningful
 time-dependent vector field.
 
-Training follows the rectified-flow formulation. Let $x_1$ denote a ground
-truth Bezier tensor sampled from the dataset and let $x_0$ be Gaussian noise of
-the same shape. A scalar time $t$ is sampled for each training example from a
-logit-normal distribution obtained by applying the sigmoid function to a
-standard normal sample. The noisy intermediate point is then constructed by
-linear interpolation
+Training follows the rectified-flow formulation @liu2022rectifiedflow. Let
+$x_1$ denote a ground truth Bezier tensor sampled from the dataset and let $x_0$
+be Gaussian noise of the same shape. A scalar time $t$ is sampled for each
+training example from a logit-normal distribution obtained by applying the
+sigmoid function to a standard normal sample, following timestep sampling used
+in rectified-flow transformer training @esser2024rectifiedflowtransformers. The
+noisy intermediate point is then constructed by linear interpolation
 $ x_t = t x_1 + (1 - t) x_0 $
 The target velocity is defined as
 $ v^ast = x_1 - x_0 $
@@ -1396,7 +1406,7 @@ fine-tuning on the SVG Repo data. This training setup tests the central
 hypothesis that synthetic Bezier data provide a useful geometric prior even
 though they are simpler than real SVG graphics. The pretraining run used a
 single NVIDIA H200 GPU for approximately 10 days with batch size 256 and
-FlashAttention 2 enabled.
+FlashAttention 2 enabled @dao2023flashattention2.
 
 === Synthetic pretraining results
 
@@ -2100,5 +2110,5 @@ research. The public implementation and trained model artifacts are listed in
   ].
 
   Both the implementation and the trained model artifacts are released under
-  the Apache License 2.0.
+  the MIT license.
 ]
