@@ -557,6 +557,24 @@ all supported geometry to cubic Bezier segments therefore gives the model a
 single native output type while still preserving the ability to reconstruct
 standard SVG paths @w3c2011svgpaths.
 
+This representation also covers common geometric primitives that are not
+originally specified as cubic curves. Straight line segments are stored as
+degenerate cubic Bezier curves whose control points lie on the line between
+the endpoints. Circular and elliptical arcs are represented by cubic arc
+approximations. For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
+standard symmetric approximation uses control points $(1, kappa)$ and
+$(kappa, 1)$. Matching the midpoint at $t = 1 / 2$ to the circular diagonal
+gives
+$
+  1 / 2 + 3 kappa / 8 = sqrt(2) / 2
+$
+and therefore
+$
+  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498
+$
+@pomaxBezierPrimer. Scaling this construction along the horizontal and
+vertical axes gives the corresponding ellipse approximation.
+
 For learning, the hierarchical SVG structure is converted into a flat sequence
 of segment descriptors. Each segment is represented by a 13-dimensional vector
 $ s = (x_0, y_0, x_1, y_1, x_2, y_2, r, g, b, alpha, f_p, f_s, f_r) $
@@ -900,36 +918,16 @@ in @fig:synthetic-generator-examples.
 
 All generated geometry is expressed as cubic Bezier curves. Straight polygonal
 edges are represented by degenerate cubic segments whose control points lie on
-the corresponding line segment. Circles and ellipses are approximated by four
-cubic Bezier segments using the standard constant $kappa = 0.5522847498$.
-Rounded rectangles and related figures combine linear segments with cubic arc
+the corresponding line segment, while circular and elliptical primitives use
+the cubic arc approximation described in the representation section. Rounded
+rectangles and related figures combine linear segments with such cubic arc
 approximations. Organic blobs are generated differently: first, a set of angles
 is distributed around a circle with random angular perturbation; second, a
 radius is sampled independently for each angle; third, the resulting contour
 points are connected by a closed chain of cubic Bezier segments obtained from a
-Catmull-Rom-style tangent construction. The handle length is scaled by a
+Catmull-Rom-style tangent construction @catmull1974local. The handle length is scaled by a
 smoothness parameter, which allows the generator to control whether the blob is
 smooth, rough, or spiky.
-
-The value of $kappa$ follows from the standard cubic approximation of one
-quadrant of the unit circle @pomaxBezierPrimer. Consider the arc from
-$(1, 0)$ to $(0, 1)$ represented by a cubic Bezier curve with control points
-$(1, kappa)$ and $(kappa, 1)$, which enforces the correct endpoint tangents. At
-$t = 1 / 2$, the cubic Bezier formula gives the midpoint
-$
-  (1 / 2 + 3 kappa / 8, 1 / 2 + 3 kappa / 8)
-$
-If this point is constrained to lie on the circular diagonal
-$(sqrt(2) / 2, sqrt(2) / 2)$, then
-$
-  1 / 2 + 3 kappa / 8 = sqrt(2) / 2
-$
-and therefore
-$
-  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498
-$
-Scaling the same construction along the horizontal and vertical axes gives the
-ellipse approximation used by the generator.
 
 For each sampled shape, geometric parameters such as size, aspect ratio,
 rotation, and contour detail are drawn from random intervals that depend on the
