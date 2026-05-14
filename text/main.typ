@@ -476,15 +476,15 @@ gradients, masks, embedded style blocks, or geometry that exceeds the fixed
 segment budget are excluded or simplified by the preprocessing pipeline
 described below.
 
-== Alternatives to the proposed decomposition
+== Alternative formulation
 
-The first alternative is to adapt a pretrained text-to-raster model directly
-into a text-to-bezier model. This would be conceptually attractive, because it
-would collapse the whole pipeline into one model while preserving the semantic
-knowledge of the pretrained generator. An experiment with this
-approach was performed by comparing a model initialized from pretrained
-text-to-raster weights with a model whose parameters were reset before
-training. The resulting optimization curves are shown in
+The main alternative to the two-stage decomposition is to adapt a pretrained
+text-to-raster model directly into a text-to-bezier model. This would be
+conceptually attractive, because it would collapse the whole pipeline into one
+model while preserving the semantic knowledge of the pretrained generator. An
+experiment with this approach was performed by comparing a model initialized
+from pretrained text-to-raster weights with a model whose parameters were reset
+before training. The resulting optimization curves are shown in
 @fig:pretrained-vs-reset-loss. Over the shared training interval, the reset
 model learns faster and reaches a lower training loss than the model initialized
 from raster-generation weights. This indicates that the pretrained weights do
@@ -500,16 +500,6 @@ text-vector data become available.
   image("assets/wandb/pretrained-vs-reset_train_loss.pdf", width: 90%),
   caption: [Direct adaptation of raster-generation weights to Bezier prediction.],
 ) <fig:pretrained-vs-reset-loss>
-
-The second alternative is to rely on existing vectorizers. The proposed method
-is compared against both classical raster-to-vector conversion tools and recent
-neural systems such as OmniSVG @yang2025omnisvg and StarVector
-@rodriguez2024starvector. The comparison distinguishes
-in-distribution performance from out-of-distribution behavior by evaluating
-methods on both SVG validation samples and synthetic raster images generated
-from known vector ground truth. This setup makes it possible to test whether
-each method reconstructs the original vector structure or overfits to visible
-pixel artifacts.
 
 = Stage 1: Raster Generation
 
