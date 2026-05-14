@@ -2026,11 +2026,11 @@ reliable at preserving the visible raster content.
 
 #heading(level: 1, numbering: none)[Conclusion]
 
-This thesis shows that text-to-SVG generation is best treated as two problems,
-not one. The first is semantic: producing an image that matches a prompt. The
-second is geometric: turning that image into a valid, compact, editable SVG.
-Separating these problems makes the system easier to train, easier to
-evaluate, and easier to improve.
+This thesis shows that text-to-SVG generation is well served by treating it as
+two problems, not one. The first is semantic: producing an image that matches a
+prompt. The second is geometric: turning that image into a valid, compact,
+editable SVG. Separating these problems makes the system easier to train,
+easier to evaluate, and easier to improve.
 
 The strongest visual pipeline in the experiments is the adapted Z-Image raster
 stage followed by `vtracer`. This combination preserves the generated image
