@@ -145,12 +145,13 @@ of pixels, an SVG document stores graphical elements such as paths, rectangles,
 circles, gradients, fills, and strokes. The image is produced only when this
 description is rendered, which makes SVG resolution independent and suitable
 for icons, illustrations, diagrams, and other graphics that should remain
-editable after creation.
+editable after creation @w3c2011svg11.
 
 The central primitive for this work is the SVG path element. A path stores a
 sequence of drawing commands in its `d` attribute. For example, the command
 `M` moves the current point and the command `C` draws a cubic curve from the
-current point to a new endpoint using two intermediate control points. The
+current point to a new endpoint using two intermediate control points
+@w3c2011svgpaths. The
 following minimal document draws one cubic path segment:
 
 ```xml
