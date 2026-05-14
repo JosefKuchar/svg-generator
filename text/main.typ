@@ -380,7 +380,15 @@ The raster image is the interface between the two stages. This separates text
 understanding and visual composition from the geometric problem of producing
 editable SVG paths. The method therefore uses text-to-image generation as a
 source of vectorization-friendly inputs, while leaving the final SVG conversion
-to a dedicated vectorization stage.
+to a dedicated vectorization stage. The high-level pipeline is shown in
+@fig:pipeline.
+
+#figure(
+  image("assets/pipeline.svg", width: 85%),
+  caption: [High-level structure of the proposed text-to-vector pipeline. The
+    second stage can be implemented either by a classical vectorization
+    algorithm or by a learned vectorization model.],
+) <fig:pipeline>
 
 = Problem Formulation and Data
 
