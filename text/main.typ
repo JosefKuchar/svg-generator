@@ -443,7 +443,7 @@ would require SVGs paired with high-quality textual descriptions, which are much
 harder to collect at scale and are not produced automatically by the vector
 representation itself.
 
-== Source SVG dataset
+== Source SVG dataset <sec:source-svg-dataset>
 
 Both stages use the `mikronai/svg-svgrepo` dataset distributed through Hugging
 Face @mikronaiSvgSvgrepo as their source SVG collection. This original dataset
@@ -458,23 +458,18 @@ metadata.
 This structure makes the dataset useful for both parts of the proposed
 pipeline. For Stage 1, the SVG files are rasterized and paired with textual
 captions, yielding image-text examples for LoRA adaptation of the
-text-to-raster model. For Stage 2, this thesis contributes a derived dataset
-created by converting the same source SVG files into the internal Bezier
-representation and rasterizing them to obtain the conditioning images. This
-converted Bezier dataset is published separately on Hugging Face; its public
-split contains 177k training samples, 829 validation samples, and 811 test
-samples after conversion and filtering. The original SVG collection is
-therefore used as a source of semantic supervision for raster generation, while
-the thesis-derived Bezier dataset provides geometric supervision for
+text-to-raster model. For Stage 2, the same source SVG files are converted
+into the internal Bezier representation described later in this chapter. The
+original SVG collection is therefore used as a source of semantic supervision
+for raster generation and as the source material for geometric supervision in
 raster-to-vector learning.
 
 The dataset is heterogeneous because it aggregates graphics from many original
 collections and licenses. This diversity is useful for evaluating
 generalization, but it also requires filtering and normalization before
 training. In particular, SVGs containing unsupported constructs such as
-gradients, masks, embedded style blocks, or geometry that exceeds the fixed
-segment budget are excluded or simplified by the preprocessing pipeline
-described below.
+gradients, masks, or embedded style blocks are excluded, while supported
+geometric content is normalized by the preprocessing pipeline described below.
 
 #let svg-repo-dataset-image(path) = box(
   stroke: 0.5pt + gray,
@@ -1075,6 +1070,25 @@ their common color and opacity forms one `BezierShape`. The final output of the
 parser is therefore a list of shapes in the same hierarchical form that is
 subsequently transformed into the fixed-length tensor representation used for
 training.
+
+=== Converted Bezier dataset
+
+The conversion procedure described above is used to construct the real
+raster-to-vector training data for the second stage. This thesis contributes a
+derived dataset created by converting the SVG files from the source collection
+described in @sec:source-svg-dataset into the internal Bezier representation
+and rasterizing the converted shapes to obtain the conditioning images. The
+dataset therefore contains paired examples consisting of a fixed-length Bezier
+tensor and the corresponding raster image.
+
+The converted Bezier dataset is published separately on Hugging Face, with the
+public artifact listed in @app:implementation-artifacts. Its public split
+contains 177k training samples, 829 validation samples, and 811 test samples
+after conversion and filtering, corresponding to approximately 83% of the
+original default subset. The difference is caused by samples that cannot be
+represented reliably in the current Bezier format: for example SVGs with
+gradients, masks, embedded style blocks, unsupported styling, unsupported
+geometry, or failed path conversion.
 
 == Synthetic data generator
 
