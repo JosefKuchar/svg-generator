@@ -752,9 +752,13 @@ token representation, the modulation takes the form
 $ mod(x) = x dot (1 + gamma) + beta $,
 where $beta$ and $gamma$ are functions of the time embedding. The gated residual
 connection then controls how strongly the output of the corresponding sublayer
-is injected back into the main stream. This design allows the network to adapt
-its computation continuously as a function of flow time, which is essential for
-learning a time-dependent vector field.
+is injected back into the main stream. This adaptive normalization follows the
+conditioning mechanism used in DiT, where timestep and class-conditioning
+information is used to modulate transformer residual blocks @peebles2022dit.
+In this thesis, the same mechanism is used for the flow time: it allows the
+network to vary its computation with $t$, matching the flow-matching
+formulation in which the learned velocity is a time-dependent vector field
+@lipman2023flow.
 
 After the stacked transformer blocks, the model applies one final adaptive
 normalization step conditioned on time and then projects the hidden
