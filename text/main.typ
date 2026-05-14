@@ -410,9 +410,9 @@ stage-specific chapters.
 
 The proposed system consists of the following two stages:
 
-- Stage 1: text-to-raster generation. A pretrained Z-Image model
-  @imageteam2025zimage is adapted with a LoRA module so that it produces
-  images with characteristics suitable for vector graphics generation.
+- Stage 1: text-to-raster generation. A text-conditioned raster generation
+  model produces bitmap images with characteristics suitable for subsequent
+  vector graphics generation.
 - Stage 2: raster-to-vector generation. The raster image can be converted to
   SVG by any vectorization method, for example a classical algorithm such as
   `vtracer` or the custom conditional flow-matching model developed in this
@@ -521,6 +521,24 @@ produce raster outputs that better match the desired properties of vector-like
 illustrations. These properties may include simplified composition, cleaner
 silhouettes, reduced texture complexity, and visual styles that are easier to
 approximate by Bezier curves.
+
+Z-Image was chosen for several practical reasons. The released checkpoints are
+distributed under the Apache-2.0 license, which avoids the non-commercial
+restrictions present in some alternative text-to-image systems and supports an
+open research implementation @tongyimaiZImageModelCard
+@tongyimaiZImageTurboModelCard. The model family is also comparatively compact:
+the Z-Image paper describes a 6B-parameter architecture and explicitly compares
+it with selected contemporary open models with much larger parameter counts,
+including Qwen-Image (20B) @wu2025qwenimagetechnicalreport, FLUX.2 (32B)
+@blackforestlabsFlux2DevModelCard, and HunyuanImage 3.0 (80B)
+@cao2025hunyuanimage @imageteam2025zimage. The accelerated Turbo variant has
+the same model scale, but reduces the number of diffusion evaluations, which
+lowers the cost of repeated raster generation during dataset construction,
+qualitative inspection, and ablation experiments. Finally, prompt adherence was
+a central selection criterion. The reported evaluations include
+human-preference rankings and benchmarks for object-centric generation, dense
+prompt following, and instruction following @imageteam2025zimage. This is
+important because the vectorization stage operates only on the generated raster.
 
 LoRA is a parameter-efficient fine-tuning method. Instead of updating all
 weights of a large pretrained model, it freezes the base weights and learns
