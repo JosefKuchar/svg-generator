@@ -151,19 +151,36 @@ The central primitive for this work is the SVG path element. A path stores a
 sequence of drawing commands in its `d` attribute. For example, the command
 `M` moves the current point and the command `C` draws a cubic curve from the
 current point to a new endpoint using two intermediate control points
-@w3c2011svgpaths. The
-following minimal document draws one cubic path segment:
+@w3c2011svgpaths. @fig:svg-primitives-example shows a minimal SVG document
+with three primitives and its rendered output.
 
+#figure(
+  kind: image,
+  grid(
+    columns: (1.45fr, 1fr),
+    gutter: 10pt,
+    text(size: 7.6pt)[
 ```xml
-<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
-  <path
-    d="M 15 60 C 30 8, 90 8, 105 60"
-    fill="none"
-    stroke="#2563eb"
-    stroke-width="5"
-    stroke-linecap="round" />
+<svg viewBox="0 0 120 80"
+     xmlns="http://www.w3.org/2000/svg">
+  <rect x="12" y="14" width="32" height="32"
+        fill="#f97316" />
+  <circle cx="80" cy="30" r="18"
+          fill="#22c55e" />
+  <path d="M 18 66 C 42 44, 76 86, 104 58"
+        fill="none" stroke="#2563eb"
+        stroke-width="6" stroke-linecap="round" />
 </svg>
 ```
+    ],
+    box(
+      stroke: 0.75pt + gray,
+      inset: 8pt,
+      image("assets/svg_primitives_example.svg", width: 100%),
+    ),
+  ),
+  caption: [A simple SVG document and its rendered output.],
+) <fig:svg-primitives-example>
 
 == Bezier curves
 
