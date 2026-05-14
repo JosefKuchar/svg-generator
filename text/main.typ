@@ -115,10 +115,11 @@ The main contributions are the two-stage pipeline design, the fixed-size
 Bezier representation, the SVG normalization and conversion procedure, the
 synthetic Bezier data generator, the conditional flow-matching vectorizer, and
 the evaluation setup used to compare fidelity and structural complexity. The
-thesis first reviews related work, then formulates the task and data pipeline,
-describes the proposed method and training procedure, evaluates the individual
-stages and the full system, and finally summarizes the achieved results and
-limitations.
+thesis first reviews related work, then formulates the task and data pipeline.
+The main technical chapters then follow the two stages directly: raster
+generation and vectorization are each described together with their training
+setup and evaluation. The final evaluation studies the complete
+pipeline before the thesis summarizes the achieved results and limitations.
 
 The work also considers several alternative formulations of the problem. In
 particular, a direct adaptation of a text-to-raster model into a
@@ -392,10 +393,11 @@ to a dedicated vectorization stage. The high-level pipeline is shown in
 
 = Problem Formulation and Data
 
-This chapter defines the decomposition used by the thesis and describes the
-shared data source used by both stages of the pipeline. It separates the
-question of what is being solved from the implementation details of the neural
-models described in the following chapters.
+This chapter defines the decomposition used by the thesis, describes the
+shared data source used by both stages of the pipeline, and discusses the main
+alternative formulation considered during the work. It separates the question
+of what is being solved from the implementation details described in the
+stage-specific chapters.
 
 == Task decomposition
 
@@ -468,13 +470,50 @@ gradients, masks, embedded style blocks, or geometry that exceeds the fixed
 segment budget are excluded or simplified by the preprocessing pipeline
 described below.
 
-= Proposed Method
+== Alternatives to the proposed decomposition
 
-This chapter describes the proposed two-stage system after the task has been
-formulated. The first stage produces raster images from text, while the second
-stage predicts a structured Bezier representation from a raster image.
+The first alternative is to adapt a pretrained text-to-raster model directly
+into a text-to-bezier model. This would be conceptually attractive, because it
+would collapse the whole pipeline into one model while preserving the semantic
+knowledge of the pretrained generator. An experiment with this
+approach was performed by comparing a model initialized from pretrained
+text-to-raster weights with a model whose parameters were reset before
+training. The resulting optimization curves are shown in
+@fig:pretrained-vs-reset-loss. Over the shared training interval, the reset
+model learns faster and reaches a lower training loss than the model initialized
+from raster-generation weights. This indicates that the pretrained weights do
+not provide a useful initialization for Bezier prediction in this setting.
+Although the original model has learned a strong representation for raster
+image generation, that task requires a substantially different internal
+representation from the one needed to predict structured Bezier control points
+and attributes. The approach is therefore not used as the main method, although
+it remains a possible large-scale direction if substantially more paired
+text-vector data become available.
 
-== Text-to-raster adaptation
+#figure(
+  image("assets/wandb/pretrained-vs-reset_train_loss.pdf", width: 90%),
+  caption: [Direct adaptation of raster-generation weights to Bezier prediction.],
+) <fig:pretrained-vs-reset-loss>
+
+The second alternative is to rely on existing vectorizers. The proposed method
+is compared against both classical raster-to-vector conversion tools and recent
+neural systems such as OmniSVG @yang2025omnisvg and StarVector
+@rodriguez2024starvector. The comparison distinguishes
+in-distribution performance from out-of-distribution behavior by evaluating
+methods on both SVG validation samples and synthetic raster images generated
+from known vector ground truth. This setup makes it possible to test whether
+each method reconstructs the original vector structure or overfits to visible
+pixel artifacts.
+
+= Stage 1: Raster Generation
+
+This chapter describes the first stage of the pipeline. The stage takes a text
+prompt as input and produces a raster image whose visual style is suitable for
+subsequent vectorization. The description therefore covers the model adaptation
+strategy, the LoRA training setup, and the experiments used to select the final
+text-to-raster configuration.
+
+== Model adaptation
 
 
 The first stage is based on the pretrained Z-Image family of image-generation
@@ -523,318 +562,7 @@ prefixed with "SVG illustration with white background. " to bias the generator
 toward clean foreground graphics on a simple canvas. The resulting samples are
 then assessed both as images and as inputs for downstream vectorization.
 
-
-== Raster-to-vector generation
-
-
-The second stage is the main methodological contribution of this work. It takes
-as input a raster image, either drawn from the real dataset or generated by the
-first stage, and predicts a structured vector representation based on Bezier
-curves. Unlike the first stage, this model is developed and trained from
-scratch specifically for the vectorization task. The following sections
-describe the representation, data preparation, synthetic data generation, and
-the architecture of the proposed raster-to-vector model.
-
-== Bezier representation
-
-The vector output used throughout this work is based on a hierarchical
-representation consisting of shapes, paths, and individual Bezier segments.
-A shape corresponds to one filled graphical object and is assigned a single
-RGB color and opacity value. Each shape contains one or more paths, and each
-path consists of a sequence of cubic Bezier curves. In the implementation,
-one curve is stored as a tuple
-$((x_0, y_0), (x_1, y_1), (x_2, y_2), (x_3, y_3))$,
-where $(x_0, y_0)$ is the start point, $(x_1, y_1)$ and $(x_2, y_2)$ are the
-two control points, and $(x_3, y_3)$ is the endpoint. This convention is used
-for geometric manipulation and SVG export.
-
-This homogeneous Bezier representation is motivated by the learning problem as
-well as by the target output format. Flow matching operates naturally in a
-continuous vector space, so a fixed-dimensional continuous descriptor for each
-segment is more suitable than a heterogeneous command language containing
-separate primitives for lines, arcs, rectangles, circles, and paths. Converting
-all supported geometry to cubic Bezier segments therefore gives the model a
-single native output type while still preserving the ability to reconstruct
-standard SVG paths @w3c2011svgpaths.
-
-This representation also covers common geometric primitives that are not
-originally specified as cubic curves. Straight line segments are stored as
-degenerate cubic Bezier curves whose control points lie on the line between
-the endpoints. Circular and elliptical arcs are represented by cubic arc
-approximations. For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
-standard symmetric approximation uses control points $(1, kappa)$ and
-$(kappa, 1)$. Matching the midpoint at $t = 1 / 2$ to the circular diagonal
-gives
-$
-  1 / 2 + 3 kappa / 8 = sqrt(2) / 2
-$
-and therefore
-$
-  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498
-$
-@pomaxBezierPrimer. Scaling this construction along the horizontal and
-vertical axes gives the corresponding ellipse approximation.
-
-For learning, the hierarchical SVG structure is converted into a flat sequence
-of segment descriptors. Each segment is represented by a 13-dimensional vector
-$ s = (x_0, y_0, x_1, y_1, x_2, y_2, r, g, b, alpha, f_p, f_s, f_r) $
-where $(x_0, y_0)$ denotes the start point of the segment,
-$(x_1, y_1)$ and $(x_2, y_2)$ are the control points,
-$(r, g, b)$ is the color, $alpha$ is opacity,
-$f_p$ indicates the beginning of a new SVG path element,
-$f_s$ indicates the beginning of a new subpath within the current path,
-and $f_r$ is a validity flag distinguishing real segments from padding.
-The endpoint is omitted from the learned representation, because it is implied
-by the start point of the following segment. For the last segment in a path,
-the endpoint is defined by the start point of the first segment, which closes
-the contour explicitly.
-
-This convention follows the sequential nature of SVG path data, where each
-command starts from the current point left by the previous command and updates
-that current point after execution @w3c2011svgpaths. Storing endpoints
-implicitly removes one redundant coordinate pair per segment, while still
-allowing the full path to be reconstructed when segment order and path
-boundaries are known.
-
-All quantities are normalized to the interval $[-1, 1]$. Let the original
-raster image have width $W$ and height $H$. Coordinates are normalized with
-respect to the image center
-$ c_x = W / 2 quad c_y = H / 2 $
-and the uniform scale factor
-$ lambda = 2 / max(W, H) $
-The normalized coordinates are therefore
-$
-  tilde(x) = (x - c_x) lambda, quad
-  tilde(y) = (y - c_y) lambda
-$
-This choice preserves aspect ratio and maps the larger image dimension to the
-full interval $[-1, 1]$. Color channels originally stored in $[0, 255]$ are
-mapped linearly to $[-1, 1]$, and opacity values from $[0, 1]$ are mapped by
-the same affine transformation. Binary structural flags are represented as
-$+1$ for true and $-1$ for false, which keeps every output dimension on a
-common numerical scale.
-
-Since the number of segments varies across examples, the model operates on a
-fixed-length tensor of shape $(N, 13)$, where $N$ is the maximum number of
-segments allowed for one sample. If an SVG contains fewer than $N$ segments,
-the remaining rows are padded with zeros and their validity flag is set to
-$-1$. If an SVG contains more than $N$ segments, the representation is
-truncated to the first $N$ segments. The validity flag thus serves two
-purposes: it masks padded positions during learning and enables the decoder to
-ignore non-existent segments during reconstruction.
-
-The inverse mapping reconstructs the hierarchical vector structure from the
-predicted tensor. First, all rows with $f_r \leq 0$ are discarded. The
-remaining normalized coordinates, colors, and opacity values are denormalized
-back to image space and original attribute ranges. The flags $f_p$ and $f_s$
-are thresholded at zero and used to determine whether a segment starts a new
-shape or a new subpath. Because color and opacity are predicted per segment,
-the final attribute of a reconstructed shape is obtained by averaging these
-values over all its constituent segments. Finally, each path is closed by
-connecting the endpoint of every segment to the start point of the next one,
-with the last segment connected back to the first. This yields a compact
-sequence representation that is convenient for neural prediction while still
-preserving the topology required for valid SVG reconstruction.
-
-== SVG conversion to Bezier representation
-
-The source dataset contains SVG files whose graphical content may be expressed
-using a heterogeneous set of primitives, transformations, and grouping
-constructs. Before these data can be used for training, each SVG must be
-converted into a uniform representation compatible with the tensor encoding
-described above. The conversion procedure therefore maps every supported
-graphical element to a collection of filled cubic Bezier paths together with a
-shared color and opacity.
-
-The conversion begins with structural simplification. SVG files are first
-processed externally in Inkscape, a vector graphics editor that supports
-command-line batch processing through actions @inkscapeCommandLine. During this
-stage, all objects are converted to paths and strokes are expanded into filled
-outlines. This step removes many forms of SVG variability and ensures that the
-subsequent parser operates on explicit geometric contours rather than on
-higher-level drawing commands. Several classes of samples are excluded before
-conversion, namely SVGs containing gradient definitions, masks, or embedded
-style blocks. These constructs are not supported by the present representation,
-which assumes a single solid fill color and a scalar opacity for each shape.
-
-After preprocessing, the SVG document is parsed recursively. Group and root
-nodes are traversed until individual drawable shapes are reached. For each
-shape, the fill color is extracted as an RGB triplet and opacity is read from
-the `opacity` or `fill-opacity` attribute, with percentage values converted to
-the unit interval. The fill rule is also preserved, because it determines the
-topological interpretation of nested contours.
-
-Each shape is then rewritten as a path object and reified so that all geometric
-commands are made explicit. The resulting path is decomposed segment by
-segment, and every segment is converted to cubic Bezier form. This conversion
-is exact for native cubic Bezier segments. Straight lines and closing commands
-are represented as degenerate cubic curves whose control points lie on the line
-between the endpoints at one-third and two-thirds of its length. Quadratic
-Bezier segments are elevated to cubic form by the standard degree-elevation
-formula
-$
-  c_1 = p_0 + frac(2, 3) (q_1 - p_0), quad
-  c_2 = p_2 + frac(2, 3) (q_1 - p_2)
-$
-where $p_0$ and $p_2$ are the original endpoints and $q_1$ is the quadratic
-control point. Elliptic arcs are approximated by the parser library as one or
-more cubic Bezier segments and are stored in the same format. Consequently, all
-supported SVG geometry is reduced to a single primitive type.
-
-An additional normalization step is applied when the original SVG uses the
-`evenodd` fill rule. The internal representation and SVG export assume the
-non-zero winding rule, so contour orientations must be adjusted to preserve the
-same filled region. The implemented procedure first splits the curve sequence
-into contiguous subpaths, then estimates the nesting depth of each subpath by
-testing whether a representative point lies inside other subpaths. Subpaths at
-even depth are treated as outer boundaries and subpaths at odd depth as holes.
-Their orientation is then reversed when necessary so that outer contours are
-clockwise and holes are counter-clockwise in SVG image coordinates. This makes
-the geometry compatible with the non-zero rule without changing the visual
-appearance of the shape.
-
-The need for this step comes from the SVG fill-rule definition. Under the
-non-zero rule, whether a point is inside a shape depends on the signed winding
-of contours around that point, while the even-odd rule depends on how many
-times a ray from the point crosses the path @w3c2011svgpaths. The same visual
-hole can therefore require different contour orientation conventions depending
-on the chosen fill rule.
-
-Once all segments have been converted to cubic Bezier curves and, if needed,
-their winding order has been normalized, the curve list is partitioned into
-Bezier paths. A new path is started whenever the start point of the current
-curve does not coincide with the endpoint of the previous one. Each resulting
-subpath is stored as one `BezierPath`, and the collection of all subpaths with
-their common color and opacity forms one `BezierShape`. The final output of the
-parser is therefore a list of shapes in the same hierarchical form that is
-subsequently transformed into the fixed-length tensor representation used for
-training.
-
-== Model architecture
-
-The predictive model is a conditional flow-matching @lipman2023flow  transformer
-@vaswani2017attention. Its input consists of two parts: a
-sequence of noisy Bezier-segment descriptors and a raster conditioning image.
-The output is a sequence of the same length and dimensionality as the Bezier
-input, interpreted as a velocity field in representation space. The
-architecture therefore operates directly on the continuous tensor
-representation introduced above and predicts how a noisy sample should move
-toward a valid vector graphic conditioned on the raster image.
-
-The conditioning branch is based on a pretrained DINOv3 visual encoder
-@simeoni2025dinov3,
-specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. DINOv3 is a
-self-supervised visual foundation model designed to produce transferable visual
-features across a broad range of downstream tasks @simeoni2025dinov3. In this
-work, the encoder is kept frozen throughout training and is used only to
-extract a sequence of visual features from the conditioning raster image.
-Concretely, the model takes the last hidden state of DINOv3 and linearly
-projects it to the internal hidden dimension of the transformer. This yields a
-sequence of conditioning tokens that serve as keys and values in
-cross-attention. Freezing the image encoder reduces the number of trainable
-parameters and stabilizes optimization, while still providing semantically rich
-image descriptors.
-
-The Bezier branch processes a tensor of segment descriptors of shape
-$(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
-and $D = 13$ is the segment dimensionality, covering coordinates, color,
-opacity, path-structure flags, and the validity flag. Each segment vector is projected by
-a learned linear layer into a hidden space of dimension $H$. The scalar flow
-time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
-a multilayer perceptron. The resulting time embedding is then used to modulate
-all transformer blocks through adaptive layer normalization.
-
-The backbone itself is a stack of transformer blocks of DiT type
-@peebles2022dit. Each block
-contains three sublayers:
-
-- RoPE self-attention over the Bezier token sequence.
-- Cross-attention from Bezier tokens to image-conditioning tokens.
-- A position-wise feed-forward network.
-
-Self-attention uses rotary positional embeddings applied to the query and key
-vectors @su2024roformer. This gives the Bezier-token stream information about
-the order of segments within the sequence while preserving the attention-based
-formulation. Cross-attention does not add separate rotary embeddings; instead,
-it uses the position-aware Bezier hidden states as queries and the DINOv3 patch
-features, which already contain spatial information from the visual encoder, as
-keys and values. In this way, each Bezier token can attend to relevant visual
-features while combining geometric context from the partially denoised vector
-sequence with semantic and structural cues present in the conditioning image.
-
-Each transformer block is modulated by the time embedding using adaptive layer
-normalization with gating. More precisely, the time embedding is passed through
-a small modulation network that predicts, for each of the three sublayers, a
-shift vector, a scale vector, and a residual gate. If $x$ denotes a normalized
-token representation, the modulation takes the form
-$ mod(x) = x dot (1 + gamma) + beta $,
-where $beta$ and $gamma$ are functions of the time embedding. The gated residual
-connection then controls how strongly the output of the corresponding sublayer
-is injected back into the main stream. This adaptive normalization follows the
-conditioning mechanism used in DiT, where timestep and class-conditioning
-information is used to modulate transformer residual blocks @peebles2022dit.
-In this thesis, the same mechanism is used for the flow time: it allows the
-network to vary its computation with $t$, matching the flow-matching
-formulation in which the learned velocity is a time-dependent vector field
-@lipman2023flow.
-
-After the stacked transformer blocks, the model applies one final adaptive
-normalization step conditioned on time and then projects the hidden
-representation back to the original Bezier-segment dimension. The final linear
-projection is initialized with zeros, so the network initially predicts a near
-zero velocity field. This follows the zero-initialization principle used in
-DiT-style adaptive layer normalization, where residual branches are initialized
-to make the transformer blocks behave close to the identity at the beginning of
-training @peebles2022dit. In the present flow-matching setting, this avoids
-large uncontrolled updates before the model has learned a meaningful
-time-dependent vector field.
-
-Training follows the rectified-flow formulation. Let $x_1$ denote a ground
-truth Bezier tensor sampled from the dataset and let $x_0$ be Gaussian noise of
-the same shape. A scalar time $t$ is sampled for each training example from a
-logit-normal distribution obtained by applying the sigmoid function to a
-standard normal sample. The noisy intermediate point is then constructed by
-linear interpolation
-$ x_t = t x_1 + (1 - t) x_0 $
-The target velocity is defined as
-$ v^ast = x_1 - x_0 $
-Given $x_t$, $t$, and the image-conditioning tokens, the network predicts a
-velocity field $v_theta(x_t, t, c)$ and is optimized using the mean squared
-error objective
-$ L = ||v_theta(x_t, t, c) - v^ast||_2^2 $
-In the current implementation, this loss is evaluated over the full sequence,
-including padded positions.
-
-To support classifier-free guidance, the model uses conditioning dropout during
-training @ho2021classifierfree. With a fixed probability, the image-conditioning sequence is replaced
-by a learned null token broadcast across the conditioning length. This teaches
-the network both conditional and unconditional velocity fields within a single
-set of parameters. Preliminary experiments also showed that conditioning dropout
-improved generalization to validation inputs, so it was retained as part of the
-final training setup. During inference, the two predictions can be combined as
-$ v = v_u + w (v_c - v_u) $
-where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
-recovered.
-
-Sampling is performed by solving the learned ordinary differential equation from
-noise toward data. The process starts from an initial sample
-$ x(0) ~ N(0, I) $
-The model then integrates the velocity field from $t = 0$ to $t = 1$ using the
-classical fourth-order Runge-Kutta method @butcher2003numerical with a fixed number of time steps. In each integration step, the transformer is evaluated
-one or more times to obtain the required intermediate velocities. The final
-state is interpreted as a predicted Bezier tensor, which is subsequently
-converted back to vector shapes and rendered as SVG. This sampling procedure is
-deterministic for fixed initial noise, fixed conditioning, and fixed
-integration parameters.
-
-= Training Procedure
-
-The training procedure follows the same decomposition as the method. The first
-stage is adapted from a pretrained text-to-image model using LoRA. The second
-stage is trained in two phases: synthetic Bezier pretraining followed by
-fine-tuning on converted SVG data.
-
-== Stage 1 LoRA adaptation
+== Training data and LoRA procedure
 
 The LoRA adaptation was trained using the AI-Toolkit framework#footnote[
   AI-Toolkit project page: https://github.com/ostris/ai-toolkit.
@@ -843,237 +571,7 @@ $1 times 10^(-4)$. This configuration was used as the default starting point
 for the Stage 1 adaptation experiments. The rank and checkpoint selection are
 evaluated in @sec:stage1-evaluation.
 
-== Synthetic data generator
-
-In addition to SVG data collected from external sources, this work uses a
-synthetic data generator. Its purpose is to produce a large number of
-geometrically valid training examples directly in the target Bezier
-representation. This provides precise control over scene complexity,
-guarantees compatibility with the representation used by the model, and makes
-it possible to generate effectively unlimited training data without additional
-annotation or SVG cleaning. This property is central to the proposed training
-strategy. Because the generated vector scene is known exactly, the
-corresponding raster input can be obtained by rendering, yielding a supervised
-raster-to-vector pair without any manual labeling. The synthetic generator
-therefore addresses one of the main data bottlenecks in vector-graphics
-generation: while captioned SVG datasets are limited and expensive to curate,
-uncaptioned vector geometry can be synthesized and rasterized cheaply.
-
-The generator produces scenes composed of multiple filled shapes on a square
-canvas. Each scene contains a random number of objects sampled from a prescribed
-interval. Every object is represented as one `BezierShape` with one or more
-closed `BezierPath` contours, a solid RGB color, and an opacity value. Shape
-opacity is set to one in most cases, while a smaller subset of shapes is drawn
-with reduced opacity in order to expose the model to moderate transparency
-variation.
-
-The available shapes are divided into three categories:
-
-- Primitive shapes: circles, ellipses, squares, rectangles, triangles,
-  pentagons, hexagons, and stars. These objects provide simple closed contours
-  with analytically controlled geometry.
-- Organic shapes: smooth, rough, and spiky blobs generated from perturbed
-  radial samples. These objects introduce irregular boundaries and more varied
-  local curvature.
-- Compound shapes: L-shapes, crosses, arrows, crescents, ring sectors, rounded
-  rectangles, trapezoids, and parallelograms. These objects increase geometric
-  diversity by introducing concavity, varying thickness, and mixed straight and
-  curved boundaries.
-
-This design was chosen to cover both analytically simple contours and shapes
-with more varied topology and curvature. Examples of generated images are shown
-in @fig:synthetic-generator-examples.
-
-#let synthetic-generator-image(path) = box(
-  stroke: 0.75pt + gray,
-  image(path, width: 100%),
-)
-
-#figure(
-  grid(
-    columns: (1fr, 1fr, 1fr, 1fr),
-    gutter: 4pt,
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_01.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_02.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_03.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_04.png"),
-
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_05.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_06.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_07.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_08.png"),
-
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_09.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_10.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_11.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_12.png"),
-
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_13.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_14.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_15.png"),
-    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_16.png"),
-  ),
-  caption: [Examples of images produced by the synthetic data generator.],
-) <fig:synthetic-generator-examples>
-
-All generated geometry is expressed as cubic Bezier curves. Straight polygonal
-edges are represented by degenerate cubic segments whose control points lie on
-the corresponding line segment, while circular and elliptical primitives use
-the cubic arc approximation described in the representation section. Rounded
-rectangles and related figures combine linear segments with such cubic arc
-approximations. Organic blobs are generated differently: first, a set of angles
-is distributed around a circle with random angular perturbation; second, a
-radius is sampled independently for each angle; third, the resulting contour
-points are connected by a closed chain of cubic Bezier segments obtained from a
-Catmull-Rom-style tangent construction @catmull1974local. The handle length is scaled by a
-smoothness parameter, which allows the generator to control whether the blob is
-smooth, rough, or spiky.
-
-For each sampled shape, geometric parameters such as size, aspect ratio,
-rotation, and contour detail are drawn from random intervals that depend on the
-shape category. The object center is then sampled under a margin constraint so
-that the entire shape remains inside the canvas with high probability. An
-approximate extent function is used for this purpose. After construction, the
-outer contour is explicitly oriented counter-clockwise. This establishes a
-consistent winding convention for all synthesized objects.
-
-Some shapes may additionally contain holes. Hole generation is only attempted
-for shape types for which an internal contour can be inserted reliably.
-Candidate hole contours are sampled inside the bounding box of the outer shape,
-scaled to a random fraction of its size, and randomly offset away from the
-exact center. The hole itself may again be circular, polygonal, blob-like, or
-rounded-rectangular. In contrast to the outer boundary, the hole contour is
-forced to clockwise orientation. This opposite winding is necessary because the
-exported SVGs use the non-zero fill rule, under which opposite contour
-directions produce cut-out regions.
-
-A complete synthetic scene is constructed by repeatedly sampling shapes until
-either the requested number of shapes is reached or the global segment budget is
-exhausted. The segment budget is important because the downstream model expects
-a fixed maximum number of Bezier segments per sample. Instead of generating a
-scene first and truncating it afterwards, the generator stops adding shapes as
-soon as the next object would exceed the allowed number of segments. This
-ensures that every produced scene is valid without altering already generated
-geometry.
-
-The dataset interface is implemented by the `SyntheticBezierDataset` class,
-which generates samples on the fly during training. The stream of synthetic
-scenes is effectively unbounded, so pretraining is not limited to a fixed
-corpus of generated files. Each generated scene is converted to the tensor
-representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
-an RGB image, and finally processed by the DINOv3 image processor. The dataset
-therefore returns the same type of data as the real dataset, namely a tensor of
-Bezier segments and a corresponding conditioning raster image. The same
-training and sampling code can therefore consume synthetic and SVG-derived
-examples.
-
-
-== Stage 2 training schedule
-
-The raster-to-vector model is trained in two consecutive phases. The first
-phase consists of pretraining on synthetic data generated procedurally in the
-Bezier representation. The second phase consists of fine-tuning on the SVG
-dataset derived from real vector graphics. This training schedule is motivated
-by the observation that synthetic data and real SVG data provide complementary
-advantages. Synthetic data offer unlimited quantity and precise control over
-geometric variation, while real SVG data provide more realistic structure,
-stylistic diversity, and distributional properties closer to the target use
-case. This distinction is important because automatic vectorization is
-underdetermined from pixels alone: when the vector scene is generated
-procedurally, the exact geometric target is known by construction, whereas for
-ordinary raster images there may be many plausible vector explanations
-@selinger2003potrace@dziuba2023imagevectorization.
-
-=== Synthetic pretraining
-
-In the first phase, the model is exposed to procedurally generated scenes
-containing simple primitives, compound shapes, blobs, and shapes with holes.
-Because these data are generated directly in the target Bezier representation,
-they are guaranteed to be geometrically valid and structurally consistent. This
-stage is intended to teach the model the basic grammar of vector graphics:
-curve continuity, path organization, contour winding, color consistency within
-shapes, and the general relationship between raster appearance and vector
-structure.
-
-Synthetic pretraining is expected to be particularly useful in the early stages
-of optimization, when the model must first learn how valid Bezier-based shapes
-behave before it can model the greater complexity of real-world SVG content.
-The effectively unlimited size of the synthetic dataset also reduces the risk
-of overfitting and allows controlled experiments with scene complexity, segment
-count, and object diversity.
-
-In the current experimental setup, synthetic pretraining was performed on a
-single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
-
-// TODO: Add exact pretraining configuration, including number of epochs,
-// synthetic scene parameters, optimizer settings, and checkpoint selection.
-
-=== Fine-tuning on the SVG dataset
-
-After pretraining, the model is fine-tuned on a dataset obtained from real SVG
-files converted into the internal Bezier representation. This stage adapts the
-model from the simplified synthetic distribution to the more heterogeneous and
-stylized distribution of real vector graphics. Compared with the synthetic
-generator, real SVG data contain richer compositions, more varied contour
-structures, and a broader range of design conventions. Fine-tuning therefore
-serves to align the model with the final task distribution.
-
-Conceptually, the second phase can be viewed as domain adaptation. The model
-enters this phase already equipped with a prior over valid vector geometry and
-must then specialize that prior to the statistics of the target dataset. This
-two-stage training procedure is expected to be more data-efficient and more
-stable than training exclusively on the real SVG dataset from random
-initialization.
-
-// TODO: Add fine-tuning details, including dataset split, learning-rate
-// schedule, stopping criterion, and comparison against training from scratch.
-
-
-= Experiments and Evaluation
-
-This chapter evaluates the two stages of the proposed pipeline and the design
-choices that connect them. The experiments follow the research questions from
-the introduction: adaptation of the text-to-raster model, the usefulness of
-synthetic Bezier pretraining, comparison with classical and neural
-vectorization systems, and the trade-off between raster fidelity, validity,
-compactness, and editability.
-
-== Alternatives to the proposed decomposition
-
-The first alternative is to adapt a pretrained text-to-raster model directly
-into a text-to-bezier model. This would be conceptually attractive, because it
-would collapse the whole pipeline into one model while preserving the semantic
-knowledge of the pretrained generator. An experiment with this
-approach was performed by comparing a model initialized from pretrained
-text-to-raster weights with a model whose parameters were reset before
-training. The resulting optimization curves are shown in
-@fig:pretrained-vs-reset-loss. Over the shared training interval, the reset
-model learns faster and reaches a lower training loss than the model initialized
-from raster-generation weights. This indicates that the pretrained weights do
-not provide a useful initialization for Bezier prediction in this setting.
-Although the original model has learned a strong representation for raster
-image generation, that task requires a substantially different internal
-representation from the one needed to predict structured Bezier control points
-and attributes. The approach is therefore not used as the main method, although
-it remains a possible large-scale direction if substantially more paired
-text-vector data become available.
-
-#figure(
-  image("assets/wandb/pretrained-vs-reset_train_loss.pdf", width: 90%),
-  caption: [Direct adaptation of raster-generation weights to Bezier prediction.],
-) <fig:pretrained-vs-reset-loss>
-
-The second alternative is to rely on existing vectorizers. The proposed method
-is compared against both classical raster-to-vector conversion tools and recent
-neural systems such as OmniSVG @yang2025omnisvg and StarVector
-@rodriguez2024starvector. The comparison distinguishes
-in-distribution performance from out-of-distribution behavior by evaluating
-methods on both SVG validation samples and synthetic raster images generated
-from known vector ground truth. This setup makes it possible to test whether
-each method reconstructs the original vector structure or overfits to visible
-pixel artifacts.
-
-== Stage 1 evaluation <sec:stage1-evaluation>
+== Evaluation <sec:stage1-evaluation>
 
 The comparison of several Stage 1 variants is shown qualitatively in
 @tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
@@ -1347,8 +845,493 @@ MSE in the experiment. Although its CLIP similarity is slightly lower than the
 best observed value, the difference is small, making this checkpoint a
 reasonable choice for subsequent experiments.
 
+= Stage 2: Vectorization
 
-== Stage 2 vectorizer evaluation
+The second stage is the main methodological contribution of this work. It takes
+as input a raster image, either drawn from the real dataset or generated by the
+first stage, and predicts a structured vector representation based on Bezier
+curves. Unlike the first stage, this model is developed and trained from
+scratch specifically for the vectorization task. The following sections
+describe the representation, data preparation, synthetic data generation, and
+the architecture of the proposed raster-to-vector model.
+
+== Bezier representation
+
+The vector output used throughout this work is based on a hierarchical
+representation consisting of shapes, paths, and individual Bezier segments.
+A shape corresponds to one filled graphical object and is assigned a single
+RGB color and opacity value. Each shape contains one or more paths, and each
+path consists of a sequence of cubic Bezier curves. In the implementation,
+one curve is stored as a tuple
+$((x_0, y_0), (x_1, y_1), (x_2, y_2), (x_3, y_3))$,
+where $(x_0, y_0)$ is the start point, $(x_1, y_1)$ and $(x_2, y_2)$ are the
+two control points, and $(x_3, y_3)$ is the endpoint. This convention is used
+for geometric manipulation and SVG export.
+
+This homogeneous Bezier representation is motivated by the learning problem as
+well as by the target output format. Flow matching operates naturally in a
+continuous vector space, so a fixed-dimensional continuous descriptor for each
+segment is more suitable than a heterogeneous command language containing
+separate primitives for lines, arcs, rectangles, circles, and paths. Converting
+all supported geometry to cubic Bezier segments therefore gives the model a
+single native output type while still preserving the ability to reconstruct
+standard SVG paths @w3c2011svgpaths.
+
+This representation also covers common geometric primitives that are not
+originally specified as cubic curves. Straight line segments are stored as
+degenerate cubic Bezier curves whose control points lie on the line between
+the endpoints. Circular and elliptical arcs are represented by cubic arc
+approximations. For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
+standard symmetric approximation uses control points $(1, kappa)$ and
+$(kappa, 1)$. Matching the midpoint at $t = 1 / 2$ to the circular diagonal
+gives
+$
+  1 / 2 + 3 kappa / 8 = sqrt(2) / 2
+$
+and therefore
+$
+  kappa = frac(4, 3) (sqrt(2) - 1) approx 0.5522847498
+$
+@pomaxBezierPrimer. Scaling this construction along the horizontal and
+vertical axes gives the corresponding ellipse approximation.
+
+For learning, the hierarchical SVG structure is converted into a flat sequence
+of segment descriptors. Each segment is represented by a 13-dimensional vector
+$ s = (x_0, y_0, x_1, y_1, x_2, y_2, r, g, b, alpha, f_p, f_s, f_r) $
+where $(x_0, y_0)$ denotes the start point of the segment,
+$(x_1, y_1)$ and $(x_2, y_2)$ are the control points,
+$(r, g, b)$ is the color, $alpha$ is opacity,
+$f_p$ indicates the beginning of a new SVG path element,
+$f_s$ indicates the beginning of a new subpath within the current path,
+and $f_r$ is a validity flag distinguishing real segments from padding.
+The endpoint is omitted from the learned representation, because it is implied
+by the start point of the following segment. For the last segment in a path,
+the endpoint is defined by the start point of the first segment, which closes
+the contour explicitly.
+
+This convention follows the sequential nature of SVG path data, where each
+command starts from the current point left by the previous command and updates
+that current point after execution @w3c2011svgpaths. Storing endpoints
+implicitly removes one redundant coordinate pair per segment, while still
+allowing the full path to be reconstructed when segment order and path
+boundaries are known.
+
+All quantities are normalized to the interval $[-1, 1]$. Let the original
+raster image have width $W$ and height $H$. Coordinates are normalized with
+respect to the image center
+$ c_x = W / 2 quad c_y = H / 2 $
+and the uniform scale factor
+$ lambda = 2 / max(W, H) $
+The normalized coordinates are therefore
+$
+  tilde(x) = (x - c_x) lambda, quad
+  tilde(y) = (y - c_y) lambda
+$
+This choice preserves aspect ratio and maps the larger image dimension to the
+full interval $[-1, 1]$. Color channels originally stored in $[0, 255]$ are
+mapped linearly to $[-1, 1]$, and opacity values from $[0, 1]$ are mapped by
+the same affine transformation. Binary structural flags are represented as
+$+1$ for true and $-1$ for false, which keeps every output dimension on a
+common numerical scale.
+
+Since the number of segments varies across examples, the model operates on a
+fixed-length tensor of shape $(N, 13)$, where $N$ is the maximum number of
+segments allowed for one sample. If an SVG contains fewer than $N$ segments,
+the remaining rows are padded with zeros and their validity flag is set to
+$-1$. If an SVG contains more than $N$ segments, the representation is
+truncated to the first $N$ segments. The validity flag thus serves two
+purposes: it masks padded positions during learning and enables the decoder to
+ignore non-existent segments during reconstruction.
+
+The inverse mapping reconstructs the hierarchical vector structure from the
+predicted tensor. First, all rows with $f_r \leq 0$ are discarded. The
+remaining normalized coordinates, colors, and opacity values are denormalized
+back to image space and original attribute ranges. The flags $f_p$ and $f_s$
+are thresholded at zero and used to determine whether a segment starts a new
+shape or a new subpath. Because color and opacity are predicted per segment,
+the final attribute of a reconstructed shape is obtained by averaging these
+values over all its constituent segments. Finally, each path is closed by
+connecting the endpoint of every segment to the start point of the next one,
+with the last segment connected back to the first. This yields a compact
+sequence representation that is convenient for neural prediction while still
+preserving the topology required for valid SVG reconstruction.
+
+== SVG conversion to Bezier representation
+
+The source dataset contains SVG files whose graphical content may be expressed
+using a heterogeneous set of primitives, transformations, and grouping
+constructs. Before these data can be used for training, each SVG must be
+converted into a uniform representation compatible with the tensor encoding
+described above. The conversion procedure therefore maps every supported
+graphical element to a collection of filled cubic Bezier paths together with a
+shared color and opacity.
+
+The conversion begins with structural simplification. SVG files are first
+processed externally in Inkscape, a vector graphics editor that supports
+command-line batch processing through actions @inkscapeCommandLine. During this
+stage, all objects are converted to paths and strokes are expanded into filled
+outlines. This step removes many forms of SVG variability and ensures that the
+subsequent parser operates on explicit geometric contours rather than on
+higher-level drawing commands. Several classes of samples are excluded before
+conversion, namely SVGs containing gradient definitions, masks, or embedded
+style blocks. These constructs are not supported by the present representation,
+which assumes a single solid fill color and a scalar opacity for each shape.
+
+After preprocessing, the SVG document is parsed recursively. Group and root
+nodes are traversed until individual drawable shapes are reached. For each
+shape, the fill color is extracted as an RGB triplet and opacity is read from
+the `opacity` or `fill-opacity` attribute, with percentage values converted to
+the unit interval. The fill rule is also preserved, because it determines the
+topological interpretation of nested contours.
+
+Each shape is then rewritten as a path object and reified so that all geometric
+commands are made explicit. The resulting path is decomposed segment by
+segment, and every segment is converted to cubic Bezier form. This conversion
+is exact for native cubic Bezier segments. Straight lines and closing commands
+are represented as degenerate cubic curves whose control points lie on the line
+between the endpoints at one-third and two-thirds of its length. Quadratic
+Bezier segments are elevated to cubic form by the standard degree-elevation
+formula
+$
+  c_1 = p_0 + frac(2, 3) (q_1 - p_0), quad
+  c_2 = p_2 + frac(2, 3) (q_1 - p_2)
+$
+where $p_0$ and $p_2$ are the original endpoints and $q_1$ is the quadratic
+control point. Elliptic arcs are approximated by the parser library as one or
+more cubic Bezier segments and are stored in the same format. Consequently, all
+supported SVG geometry is reduced to a single primitive type.
+
+An additional normalization step is applied when the original SVG uses the
+`evenodd` fill rule. The internal representation and SVG export assume the
+non-zero winding rule, so contour orientations must be adjusted to preserve the
+same filled region. The implemented procedure first splits the curve sequence
+into contiguous subpaths, then estimates the nesting depth of each subpath by
+testing whether a representative point lies inside other subpaths. Subpaths at
+even depth are treated as outer boundaries and subpaths at odd depth as holes.
+Their orientation is then reversed when necessary so that outer contours are
+clockwise and holes are counter-clockwise in SVG image coordinates. This makes
+the geometry compatible with the non-zero rule without changing the visual
+appearance of the shape.
+
+The need for this step comes from the SVG fill-rule definition. Under the
+non-zero rule, whether a point is inside a shape depends on the signed winding
+of contours around that point, while the even-odd rule depends on how many
+times a ray from the point crosses the path @w3c2011svgpaths. The same visual
+hole can therefore require different contour orientation conventions depending
+on the chosen fill rule.
+
+Once all segments have been converted to cubic Bezier curves and, if needed,
+their winding order has been normalized, the curve list is partitioned into
+Bezier paths. A new path is started whenever the start point of the current
+curve does not coincide with the endpoint of the previous one. Each resulting
+subpath is stored as one `BezierPath`, and the collection of all subpaths with
+their common color and opacity forms one `BezierShape`. The final output of the
+parser is therefore a list of shapes in the same hierarchical form that is
+subsequently transformed into the fixed-length tensor representation used for
+training.
+
+== Synthetic data generator
+
+In addition to SVG data collected from external sources, this work uses a
+synthetic data generator. Its purpose is to produce a large number of
+geometrically valid training examples directly in the target Bezier
+representation. This provides precise control over scene complexity,
+guarantees compatibility with the representation used by the model, and makes
+it possible to generate effectively unlimited training data without additional
+annotation or SVG cleaning. This property is central to the proposed training
+strategy. Because the generated vector scene is known exactly, the
+corresponding raster input can be obtained by rendering, yielding a supervised
+raster-to-vector pair without any manual labeling. The synthetic generator
+therefore addresses one of the main data bottlenecks in vector-graphics
+generation: while captioned SVG datasets are limited and expensive to curate,
+uncaptioned vector geometry can be synthesized and rasterized cheaply.
+
+The generator produces scenes composed of multiple filled shapes on a square
+canvas. Each scene contains a random number of objects sampled from a prescribed
+interval. Every object is represented as one `BezierShape` with one or more
+closed `BezierPath` contours, a solid RGB color, and an opacity value. Shape
+opacity is set to one in most cases, while a smaller subset of shapes is drawn
+with reduced opacity in order to expose the model to moderate transparency
+variation.
+
+The available shapes are divided into three categories:
+
+- Primitive shapes: circles, ellipses, squares, rectangles, triangles,
+  pentagons, hexagons, and stars. These objects provide simple closed contours
+  with analytically controlled geometry.
+- Organic shapes: smooth, rough, and spiky blobs generated from perturbed
+  radial samples. These objects introduce irregular boundaries and more varied
+  local curvature.
+- Compound shapes: L-shapes, crosses, arrows, crescents, ring sectors, rounded
+  rectangles, trapezoids, and parallelograms. These objects increase geometric
+  diversity by introducing concavity, varying thickness, and mixed straight and
+  curved boundaries.
+
+This design was chosen to cover both analytically simple contours and shapes
+with more varied topology and curvature. Examples of generated images are shown
+in @fig:synthetic-generator-examples.
+
+#let synthetic-generator-image(path) = box(
+  stroke: 0.75pt + gray,
+  image(path, width: 100%),
+)
+
+#figure(
+  grid(
+    columns: (1fr, 1fr, 1fr, 1fr),
+    gutter: 4pt,
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_01.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_02.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_03.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_04.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_05.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_06.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_07.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_08.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_09.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_10.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_11.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_12.png"),
+
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_13.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_14.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_15.png"),
+    synthetic-generator-image("assets/syntetic_generator/synthetic_generator_16.png"),
+  ),
+  caption: [Examples of images produced by the synthetic data generator.],
+) <fig:synthetic-generator-examples>
+
+All generated geometry is expressed as cubic Bezier curves. Straight polygonal
+edges are represented by degenerate cubic segments whose control points lie on
+the corresponding line segment, while circular and elliptical primitives use
+the cubic arc approximation described in the representation section. Rounded
+rectangles and related figures combine linear segments with such cubic arc
+approximations. Organic blobs are generated differently: first, a set of angles
+is distributed around a circle with random angular perturbation; second, a
+radius is sampled independently for each angle; third, the resulting contour
+points are connected by a closed chain of cubic Bezier segments obtained from a
+Catmull-Rom-style tangent construction @catmull1974local. The handle length is scaled by a
+smoothness parameter, which allows the generator to control whether the blob is
+smooth, rough, or spiky.
+
+For each sampled shape, geometric parameters such as size, aspect ratio,
+rotation, and contour detail are drawn from random intervals that depend on the
+shape category. The object center is then sampled under a margin constraint so
+that the entire shape remains inside the canvas with high probability. An
+approximate extent function is used for this purpose. After construction, the
+outer contour is explicitly oriented counter-clockwise. This establishes a
+consistent winding convention for all synthesized objects.
+
+Some shapes may additionally contain holes. Hole generation is only attempted
+for shape types for which an internal contour can be inserted reliably.
+Candidate hole contours are sampled inside the bounding box of the outer shape,
+scaled to a random fraction of its size, and randomly offset away from the
+exact center. The hole itself may again be circular, polygonal, blob-like, or
+rounded-rectangular. In contrast to the outer boundary, the hole contour is
+forced to clockwise orientation. This opposite winding is necessary because the
+exported SVGs use the non-zero fill rule, under which opposite contour
+directions produce cut-out regions.
+
+A complete synthetic scene is constructed by repeatedly sampling shapes until
+either the requested number of shapes is reached or the global segment budget is
+exhausted. The segment budget is important because the downstream model expects
+a fixed maximum number of Bezier segments per sample. Instead of generating a
+scene first and truncating it afterwards, the generator stops adding shapes as
+soon as the next object would exceed the allowed number of segments. This
+ensures that every produced scene is valid without altering already generated
+geometry.
+
+The dataset interface is implemented by the `SyntheticBezierDataset` class,
+which generates samples on the fly during training. The stream of synthetic
+scenes is effectively unbounded, so pretraining is not limited to a fixed
+corpus of generated files. Each generated scene is converted to the tensor
+representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
+an RGB image, and finally processed by the DINOv3 image processor. The dataset
+therefore returns the same type of data as the real dataset, namely a tensor of
+Bezier segments and a corresponding conditioning raster image. The same
+training and sampling code can therefore consume synthetic and SVG-derived
+examples.
+
+== Model architecture
+
+The predictive model is a conditional flow-matching @lipman2023flow  transformer
+@vaswani2017attention. Its input consists of two parts: a
+sequence of noisy Bezier-segment descriptors and a raster conditioning image.
+The output is a sequence of the same length and dimensionality as the Bezier
+input, interpreted as a velocity field in representation space. The
+architecture therefore operates directly on the continuous tensor
+representation introduced above and predicts how a noisy sample should move
+toward a valid vector graphic conditioned on the raster image.
+
+The conditioning branch is based on a pretrained DINOv3 visual encoder
+@simeoni2025dinov3,
+specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. DINOv3 is a
+self-supervised visual foundation model designed to produce transferable visual
+features across a broad range of downstream tasks @simeoni2025dinov3. In this
+work, the encoder is kept frozen throughout training and is used only to
+extract a sequence of visual features from the conditioning raster image.
+Concretely, the model takes the last hidden state of DINOv3 and linearly
+projects it to the internal hidden dimension of the transformer. This yields a
+sequence of conditioning tokens that serve as keys and values in
+cross-attention. Freezing the image encoder reduces the number of trainable
+parameters and stabilizes optimization, while still providing semantically rich
+image descriptors.
+
+The Bezier branch processes a tensor of segment descriptors of shape
+$(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
+and $D = 13$ is the segment dimensionality, covering coordinates, color,
+opacity, path-structure flags, and the validity flag. Each segment vector is projected by
+a learned linear layer into a hidden space of dimension $H$. The scalar flow
+time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
+a multilayer perceptron. The resulting time embedding is then used to modulate
+all transformer blocks through adaptive layer normalization.
+
+The backbone itself is a stack of transformer blocks of DiT type
+@peebles2022dit. Each block
+contains three sublayers:
+
+- RoPE self-attention over the Bezier token sequence.
+- Cross-attention from Bezier tokens to image-conditioning tokens.
+- A position-wise feed-forward network.
+
+Self-attention uses rotary positional embeddings applied to the query and key
+vectors @su2024roformer. This gives the Bezier-token stream information about
+the order of segments within the sequence while preserving the attention-based
+formulation. Cross-attention does not add separate rotary embeddings; instead,
+it uses the position-aware Bezier hidden states as queries and the DINOv3 patch
+features, which already contain spatial information from the visual encoder, as
+keys and values. In this way, each Bezier token can attend to relevant visual
+features while combining geometric context from the partially denoised vector
+sequence with semantic and structural cues present in the conditioning image.
+
+Each transformer block is modulated by the time embedding using adaptive layer
+normalization with gating. More precisely, the time embedding is passed through
+a small modulation network that predicts, for each of the three sublayers, a
+shift vector, a scale vector, and a residual gate. If $x$ denotes a normalized
+token representation, the modulation takes the form
+$ mod(x) = x dot (1 + gamma) + beta $,
+where $beta$ and $gamma$ are functions of the time embedding. The gated residual
+connection then controls how strongly the output of the corresponding sublayer
+is injected back into the main stream. This adaptive normalization follows the
+conditioning mechanism used in DiT, where timestep and class-conditioning
+information is used to modulate transformer residual blocks @peebles2022dit.
+In this thesis, the same mechanism is used for the flow time: it allows the
+network to vary its computation with $t$, matching the flow-matching
+formulation in which the learned velocity is a time-dependent vector field
+@lipman2023flow.
+
+After the stacked transformer blocks, the model applies one final adaptive
+normalization step conditioned on time and then projects the hidden
+representation back to the original Bezier-segment dimension. The final linear
+projection is initialized with zeros, so the network initially predicts a near
+zero velocity field. This follows the zero-initialization principle used in
+DiT-style adaptive layer normalization, where residual branches are initialized
+to make the transformer blocks behave close to the identity at the beginning of
+training @peebles2022dit. In the present flow-matching setting, this avoids
+large uncontrolled updates before the model has learned a meaningful
+time-dependent vector field.
+
+Training follows the rectified-flow formulation. Let $x_1$ denote a ground
+truth Bezier tensor sampled from the dataset and let $x_0$ be Gaussian noise of
+the same shape. A scalar time $t$ is sampled for each training example from a
+logit-normal distribution obtained by applying the sigmoid function to a
+standard normal sample. The noisy intermediate point is then constructed by
+linear interpolation
+$ x_t = t x_1 + (1 - t) x_0 $
+The target velocity is defined as
+$ v^ast = x_1 - x_0 $
+Given $x_t$, $t$, and the image-conditioning tokens, the network predicts a
+velocity field $v_theta(x_t, t, c)$ and is optimized using the mean squared
+error objective
+$ L = ||v_theta(x_t, t, c) - v^ast||_2^2 $
+In the current implementation, this loss is evaluated over the full sequence,
+including padded positions.
+
+To support classifier-free guidance, the model uses conditioning dropout during
+training @ho2021classifierfree. With a fixed probability, the image-conditioning sequence is replaced
+by a learned null token broadcast across the conditioning length. This teaches
+the network both conditional and unconditional velocity fields within a single
+set of parameters. Preliminary experiments also showed that conditioning dropout
+improved generalization to validation inputs, so it was retained as part of the
+final training setup. During inference, the two predictions can be combined as
+$ v = v_u + w (v_c - v_u) $
+where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
+recovered.
+
+Sampling is performed by solving the learned ordinary differential equation from
+noise toward data. The process starts from an initial sample
+$ x(0) ~ N(0, I) $
+The model then integrates the velocity field from $t = 0$ to $t = 1$ using the
+classical fourth-order Runge-Kutta method @butcher2003numerical with a fixed number of time steps. In each integration step, the transformer is evaluated
+one or more times to obtain the required intermediate velocities. The final
+state is interpreted as a predicted Bezier tensor, which is subsequently
+converted back to vector shapes and rendered as SVG. This sampling procedure is
+deterministic for fixed initial noise, fixed conditioning, and fixed
+integration parameters.
+
+== Training schedule
+
+The raster-to-vector model is trained in two consecutive phases. The first
+phase consists of pretraining on synthetic data generated procedurally in the
+Bezier representation. The second phase consists of fine-tuning on the SVG
+dataset derived from real vector graphics. This training schedule is motivated
+by the observation that synthetic data and real SVG data provide complementary
+advantages. Synthetic data offer unlimited quantity and precise control over
+geometric variation, while real SVG data provide more realistic structure,
+stylistic diversity, and distributional properties closer to the target use
+case. This distinction is important because automatic vectorization is
+underdetermined from pixels alone: when the vector scene is generated
+procedurally, the exact geometric target is known by construction, whereas for
+ordinary raster images there may be many plausible vector explanations
+@selinger2003potrace@dziuba2023imagevectorization.
+
+=== Synthetic pretraining
+
+In the first phase, the model is exposed to procedurally generated scenes
+containing simple primitives, compound shapes, blobs, and shapes with holes.
+Because these data are generated directly in the target Bezier representation,
+they are guaranteed to be geometrically valid and structurally consistent. This
+stage is intended to teach the model the basic grammar of vector graphics:
+curve continuity, path organization, contour winding, color consistency within
+shapes, and the general relationship between raster appearance and vector
+structure.
+
+Synthetic pretraining is expected to be particularly useful in the early stages
+of optimization, when the model must first learn how valid Bezier-based shapes
+behave before it can model the greater complexity of real-world SVG content.
+The effectively unlimited size of the synthetic dataset also reduces the risk
+of overfitting and allows controlled experiments with scene complexity, segment
+count, and object diversity.
+
+In the current experimental setup, synthetic pretraining was performed on a
+single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
+
+// TODO: Add exact pretraining configuration, including number of epochs,
+// synthetic scene parameters, optimizer settings, and checkpoint selection.
+
+=== Fine-tuning on the SVG dataset
+
+After pretraining, the model is fine-tuned on a dataset obtained from real SVG
+files converted into the internal Bezier representation. This stage adapts the
+model from the simplified synthetic distribution to the more heterogeneous and
+stylized distribution of real vector graphics. Compared with the synthetic
+generator, real SVG data contain richer compositions, more varied contour
+structures, and a broader range of design conventions. Fine-tuning therefore
+serves to align the model with the final task distribution.
+
+Conceptually, the second phase can be viewed as domain adaptation. The model
+enters this phase already equipped with a prior over valid vector geometry and
+must then specialize that prior to the statistics of the target dataset. This
+two-stage training procedure is expected to be more data-efficient and more
+stable than training exclusively on the real SVG dataset from random
+initialization.
+
+// TODO: Add fine-tuning details, including dataset split, learning-rate
+// schedule, stopping criterion, and comparison against training from scratch.
+
+== Evaluation
 
 The Stage 2 experiments evaluate the conditional flow-matching vectorizer.
 First, architectural ablations compare the flow-matching formulation with an
@@ -1359,6 +1342,8 @@ the vectorizer backbone as constant as possible.
 Together, these experiments clarify how much of the performance is due to the
 flow-matching objective, the transformer backbone, and the pretrained visual
 representation.
+
+=== Architecture ablations
 
 To separate the effect of the generative formulation from the effect of model
 capacity, the flow-matching vectorizer was also compared with an autoregressive
@@ -1838,13 +1823,13 @@ separately from the synthetic-generator results and reads the corresponding
 fidelity and complexity tables together rather than selecting a method from a
 single scalar score.
 
-== End-to-end pipeline evaluation
+= End-to-End Pipeline Evaluation
 
-The previous vectorization experiments use either rasterized SVG validation
+The previous vectorization chapter uses either rasterized SVG validation
 samples or controlled procedural images. A separate evaluation is needed for
 the actual output of the text-to-raster stage, because generated raster images
-have a different error profile from both sources. This section is the pipeline
-evaluation: unlike the controlled benchmark in the previous section, it
+have a different error profile from both sources. This chapter is the pipeline
+evaluation: unlike the controlled benchmark in the previous chapter, it
 measures vectorization of images rendered by the text-to-raster generator
 rather than vectorization of clean dataset or synthetic inputs. The reference
 rasters in this evaluation are produced by the `Z-Image Base prefixed + LoRA`
