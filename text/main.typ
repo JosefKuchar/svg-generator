@@ -476,6 +476,36 @@ gradients, masks, embedded style blocks, or geometry that exceeds the fixed
 segment budget are excluded or simplified by the preprocessing pipeline
 described below.
 
+#let svg-repo-dataset-image(path) = box(
+  stroke: 0.5pt + gray,
+  inset: 2pt,
+  image(path, width: 100%),
+)
+
+#figure(
+  grid(
+    columns: (1fr, 1fr, 1fr, 1fr),
+    gutter: 4pt,
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_01.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_02.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_03.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_04.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_05.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_06.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_07.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_08.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_09.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_10.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_11.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_12.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_13.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_14.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_15.png"),
+    svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_16.png"),
+  ),
+  caption: [Examples of rasterized images from the SVG Repo-derived dataset.],
+) <fig:svg-repo-dataset-examples>
+
 == Alternative formulation
 
 The main alternative to the two-stage decomposition is to adapt a pretrained
