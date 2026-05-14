@@ -370,15 +370,17 @@ can focus on geometric reconstruction.
 
 == Position of this work
 
-The proposed method combines ideas from the above areas but occupies a distinct
-position. It is not a direct text-to-SVG generator, because it introduces an
-intermediate raster representation. It is also not a generic text-to-image
-system, because its raster output is explicitly optimized for subsequent
-vectorization. Finally, although the second stage is a vectorization model, it
-is designed as part of a larger multimodal pipeline rather than as an isolated
-image-processing tool. This combination defines the main contribution of the
-thesis: a modular text-to-vector pipeline in which semantic generation and
-structured geometric generation are addressed by separate but compatible models.
+The proposed method is a two-stage text-to-vector pipeline. The first stage
+uses an adapted text-to-image model to synthesize a raster image from a text
+prompt. The second stage converts this image to SVG, either with a classical
+vectorization algorithm or with the learned vectorization model developed in
+this thesis.
+
+The raster image is the interface between the two stages. This separates text
+understanding and visual composition from the geometric problem of producing
+editable SVG paths. The method therefore uses text-to-image generation as a
+source of vectorization-friendly inputs, while leaving the final SVG conversion
+to a dedicated vectorization stage.
 
 = Problem Formulation and Data
 
