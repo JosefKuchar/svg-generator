@@ -447,24 +447,29 @@ representation itself.
 
 == Source SVG dataset <sec:source-svg-dataset>
 
-Both stages use the `mikronai/svg-svgrepo` dataset distributed through Hugging
-Face @mikronaiSvgSvgrepo as their source SVG collection. This original dataset
-is derived from SVG Repo graphics @svgRepo and is provided as a tabular Parquet
-dataset. At the time of use, the default subset contained approximately 216k
-examples, split into approximately 214k training examples, 1010 validation
-examples, and 1010 test examples. Each row contains the raw SVG markup in the
-`item_svg` field, collection and item identifiers, license metadata, item tags,
-an item title, and four generated text captions with associated generation
-metadata.
+The two-stage formulation requires a source collection that can support both
+semantic supervision and geometric supervision. For Stage 1, SVG files must be
+paired with text so that the raster generator can be adapted to prompts. For
+Stage 2, the same graphical content must be available as vector markup so that
+it can be converted into Bezier targets. A dataset with both SVG code and
+associated captions is therefore useful as a shared source for the whole
+pipeline.
 
-This structure makes the dataset useful for both parts of the proposed
-pipeline. For Stage 1, the SVG files are rasterized and paired with textual
-captions, yielding image-text examples for LoRA adaptation of the
-text-to-raster model. For Stage 2, the same source SVG files are converted
-into the internal Bezier representation described later in this chapter. The
-original SVG collection is therefore used as a source of semantic supervision
-for raster generation and as the source material for geometric supervision in
-raster-to-vector learning.
+Both stages use the `mikronai/svg-svgrepo` dataset distributed through Hugging
+Face @mikronaiSvgSvgrepo as this source SVG collection. The dataset is derived
+from SVG Repo graphics @svgRepo and is provided as a tabular Parquet dataset.
+At the time of use, the default subset contained approximately 216k examples,
+split into approximately 214k training examples, 1010 validation examples, and
+1010 test examples. Each row contains the raw SVG markup in the `item_svg`
+field, collection and item identifiers, license metadata, item tags, an item
+title, and four generated text captions with associated generation metadata.
+
+In the proposed pipeline, the SVG files are rasterized and paired with textual
+captions for LoRA adaptation of the text-to-raster model. The same source SVG
+files are also converted into the internal Bezier representation described
+later in this chapter. The original SVG collection is therefore used as a source
+of semantic supervision for raster generation and as the source material for
+geometric supervision in raster-to-vector learning.
 
 The dataset is heterogeneous because it aggregates graphics from many original
 collections and licenses. This diversity is useful for evaluating
@@ -531,29 +536,38 @@ text-vector data become available.
 
 = Stage 1: Raster Generation
 
-This chapter describes the first stage of the pipeline. The stage takes a text
-prompt as input and produces a raster image whose visual style is suitable for
-subsequent vectorization. The description therefore covers the model adaptation
-strategy, the LoRA training setup, and the experiments used to select the final
-text-to-raster configuration.
+The first stage must provide the vectorizer with images that preserve the
+semantic content of the text prompt while remaining simple enough to be
+approximated by vector paths. This creates a different target from general
+photorealistic image generation: texture, clutter, and ambiguous foreground
+boundaries can make the second stage harder even when the raster image is
+visually plausible. The chapter therefore describes how the text-to-raster
+model is adapted toward a vector-like visual domain, how the LoRA training is
+performed, and how the final raster-generation configuration is selected.
 
 == Model adaptation
 
-
-The first stage is based on the pretrained Z-Image family of image-generation
-models @imageteam2025zimage. In this work, the goal is not to train such a
-model from scratch, but to adapt it to the target visual domain through
-low-rank adaptation @hu2022lowrank. A LoRA
-module is trained on a dataset of image-text pairs so that the model learns to
-produce raster outputs that better match the desired properties of vector-like
-illustrations. These properties may include simplified composition, cleaner
+Training a competitive text-to-image model from scratch is not required for the
+proposed decomposition, because the semantic and compositional knowledge needed
+to interpret text prompts is already present in large pretrained raster
+generators. The adaptation problem is narrower: the model should retain this
+knowledge while shifting its outputs toward simplified composition, cleaner
 silhouettes, reduced texture complexity, and visual styles that are easier to
 approximate by Bezier curves.
 
-Z-Image was chosen for several practical reasons. The released checkpoints are
-distributed under the Apache-2.0 license, which avoids the non-commercial
-restrictions present in some alternative text-to-image systems and supports an
-open research implementation @tongyimaiZImageModelCard
+For this reason, the first stage is based on the pretrained Z-Image family of
+image-generation models @imageteam2025zimage and adapts it to the target visual
+domain through low-rank adaptation @hu2022lowrank. A LoRA module is trained on a
+dataset of image-text pairs so that the model learns to produce raster outputs
+with the desired vector-like properties without updating the full pretrained
+model.
+
+The raster generator must also be practical to use repeatedly, because it is
+needed for qualitative inspection, ablation experiments, and the final
+end-to-end demonstration. Z-Image was chosen partly for this reason. The
+released checkpoints are distributed under the Apache-2.0 license, which avoids
+the non-commercial restrictions present in some alternative text-to-image
+systems and supports an open research implementation @tongyimaiZImageModelCard
 @tongyimaiZImageTurboModelCard. The model family is also comparatively compact:
 the Z-Image paper describes a 6B-parameter architecture and explicitly compares
 it with selected contemporary open models with much larger parameter counts,
@@ -570,13 +584,12 @@ human-preference rankings and benchmarks for object-centric generation, dense
 prompt following, and instruction following @imageteam2025zimage. This is
 important because the vectorization stage operates only on the generated raster.
 
-LoRA is a parameter-efficient fine-tuning method. Instead of updating all
-weights of a large pretrained model, it freezes the base weights and learns
-small trainable low-rank matrices whose product approximates the desired weight
-update @hu2022lowrank. This is useful in the first stage because the model
-should retain the broad semantic and compositional knowledge of the pretrained
-text-to-image system while adapting only a comparatively small number of
-parameters to the SVG-like raster domain.
+The adaptation method should preserve the broad semantic and compositional
+knowledge of the pretrained text-to-image system while changing only a
+comparatively small number of parameters. LoRA provides this parameter-efficient
+fine-tuning mechanism. Instead of updating all weights of a large pretrained
+model, it freezes the base weights and learns small trainable low-rank matrices
+whose product approximates the desired weight update @hu2022lowrank.
 
 For inference, the base Z-Image model and the accelerated Z-Image Turbo
 model were evaluated with different sampling settings. The base model was
@@ -609,12 +622,14 @@ then assessed both as images and as inputs for downstream vectorization.
 
 == Training data and LoRA procedure
 
-The LoRA adaptation was trained using the AI-Toolkit framework
+The Stage 1 training setup is intentionally simple, because the main question is
+whether a lightweight domain adaptation improves raster outputs for downstream
+vectorization rather than whether an extensive fine-tuning recipe can be
+optimized. The LoRA adaptation was trained using the AI-Toolkit framework
 @ostrisAIToolkit with the AdamW optimizer @loshchilov2018decoupled and a
-learning rate of
-$1 times 10^(-4)$. This configuration was used as the default starting point
-for the Stage 1 adaptation experiments. The rank and checkpoint selection are
-evaluated in @sec:stage1-evaluation.
+learning rate of $1 times 10^(-4)$. This configuration was used as the default
+starting point for the Stage 1 adaptation experiments. The rank and checkpoint
+selection are evaluated in @sec:stage1-evaluation.
 
 == Evaluation <sec:stage1-evaluation>
 
@@ -900,35 +915,37 @@ reasonable choice for subsequent experiments.
 
 = Stage 2: Vectorization
 
-The second stage is the main methodological contribution of this work. It takes
-as input a raster image, either drawn from the real dataset or generated by the
-first stage, and predicts a structured vector representation based on Bezier
-curves. Unlike the first stage, this model is developed and trained from
-scratch specifically for the vectorization task. The following sections
-describe the representation, data preparation, synthetic data generation, and
-the architecture of the proposed raster-to-vector model.
+The second stage addresses the part of the pipeline that cannot be delegated to
+a pretrained raster generator: recovering a compact, valid, and editable vector
+description from pixels. This task is ambiguous because the same raster image
+can be explained by many different sets of curves, colors, and path orderings.
+The stage therefore requires both a constrained output representation and a
+model trained specifically for raster-to-vector reconstruction. The following
+sections describe the Bezier representation, data preparation, synthetic data
+generation, and the architecture of the proposed vectorizer.
 
 == Bezier representation
 
-The vector output used throughout this work is based on a hierarchical
-representation consisting of shapes, paths, and individual Bezier segments.
-A shape corresponds to one filled graphical object and is assigned a single
-RGB color and opacity value. Each shape contains one or more paths, and each
-path consists of a sequence of cubic Bezier curves. In the implementation,
-one curve is stored as a tuple
+The representation must satisfy two competing requirements. It should be close
+enough to SVG to reconstruct ordinary path geometry, but regular enough to serve
+as the output space of a neural generative model. Flow matching operates
+naturally in a continuous vector space, so a fixed-dimensional continuous
+descriptor for each segment is more suitable than a heterogeneous command
+language containing separate primitives for lines, arcs, rectangles, circles,
+and paths. Converting all supported geometry to cubic Bezier segments therefore
+gives the model a single native output type while still preserving the ability
+to reconstruct standard SVG paths @w3c2011svgpaths.
+
+The vector output used throughout this work is therefore based on a hierarchical
+representation consisting of shapes, paths, and individual Bezier segments. A
+shape corresponds to one filled graphical object and is assigned a single RGB
+color and opacity value. Each shape contains one or more paths, and each path
+consists of a sequence of cubic Bezier curves. In the implementation, one curve
+is stored as a tuple
 $((x_0, y_0), (x_1, y_1), (x_2, y_2), (x_3, y_3))$,
 where $(x_0, y_0)$ is the start point, $(x_1, y_1)$ and $(x_2, y_2)$ are the
 two control points, and $(x_3, y_3)$ is the endpoint. This convention is used
 for geometric manipulation and SVG export.
-
-This homogeneous Bezier representation is motivated by the learning problem as
-well as by the target output format. Flow matching operates naturally in a
-continuous vector space, so a fixed-dimensional continuous descriptor for each
-segment is more suitable than a heterogeneous command language containing
-separate primitives for lines, arcs, rectangles, circles, and paths. Converting
-all supported geometry to cubic Bezier segments therefore gives the model a
-single native output type while still preserving the ability to reconstruct
-standard SVG paths @w3c2011svgpaths.
 
 This representation also covers common geometric primitives that are not
 originally specified as cubic curves. Straight line segments are stored as
@@ -1244,28 +1261,39 @@ examples.
 
 == Model architecture
 
-The predictive model is a conditional flow-matching @lipman2023flow  transformer
-@vaswani2017attention. Its input consists of two parts: a
-sequence of noisy Bezier-segment descriptors and a raster conditioning image.
-The output is a sequence of the same length and dimensionality as the Bezier
-input, interpreted as a velocity field in representation space. The
-architecture therefore operates directly on the continuous tensor
-representation introduced above and predicts how a noisy sample should move
-toward a valid vector graphic conditioned on the raster image.
+The architecture must solve two coupled problems. It must generate a continuous
+Bezier tensor, and it must keep that tensor aligned with the raster image used
+as conditioning. A conditional flow-matching model is suitable for the first
+requirement because it learns a time-dependent velocity field in the same
+continuous representation space as the Bezier descriptors @lipman2023flow. A
+transformer backbone is suitable for the second requirement because it can model
+dependencies among segment tokens while attending to visual features from the
+input image @vaswani2017attention.
 
-The conditioning branch is based on a pretrained DINOv3 visual encoder
-@simeoni2025dinov3,
-specifically `facebook/dinov3-vits16-pretrain-lvd1689m`. DINOv3 is a
-self-supervised visual foundation model designed to produce transferable visual
-features across a broad range of downstream tasks @simeoni2025dinov3. In this
-work, the encoder is kept frozen throughout training and is used only to
-extract a sequence of visual features from the conditioning raster image.
+The predictive model is therefore a conditional flow-matching transformer. Its
+input consists of two parts: a sequence of noisy Bezier-segment descriptors and
+a raster conditioning image. The output is a sequence of the same length and
+dimensionality as the Bezier input, interpreted as a velocity field in
+representation space. The architecture operates directly on the continuous
+tensor representation introduced above and predicts how a noisy sample should
+move toward a valid vector graphic conditioned on the raster image.
+
+The conditioning image must provide more than raw pixel values: the vectorizer
+needs cues about object boundaries, part structure, and broader visual
+semantics. For this reason, the conditioning branch uses a pretrained DINOv3
+visual encoder @simeoni2025dinov3, specifically
+`facebook/dinov3-vits16-pretrain-lvd1689m`. DINOv3 is a self-supervised visual
+foundation model designed to produce transferable visual features across a
+broad range of downstream tasks @simeoni2025dinov3. In this work, the encoder
+is kept frozen throughout training and is used only to extract a sequence of
+visual features from the conditioning raster image. Freezing the image encoder
+reduces the number of trainable parameters and stabilizes optimization, while
+still providing semantically rich image descriptors.
+
 Concretely, the model takes the last hidden state of DINOv3 and linearly
 projects it to the internal hidden dimension of the transformer. This yields a
 sequence of conditioning tokens that serve as keys and values in
-cross-attention. Freezing the image encoder reduces the number of trainable
-parameters and stabilizes optimization, while still providing semantically rich
-image descriptors.
+cross-attention.
 
 The Bezier branch processes a tensor of segment descriptors of shape
 $(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
@@ -1372,15 +1400,13 @@ integration parameters.
 
 == Training schedule
 
-The raster-to-vector model is trained in two consecutive phases. The first
-phase consists of pretraining on synthetic data generated procedurally in the
-Bezier representation. The second phase consists of fine-tuning on the SVG
-dataset derived from real vector graphics. This training schedule is motivated
-by the observation that synthetic data and real SVG data provide complementary
-advantages. Synthetic data offer unlimited quantity and precise control over
+Synthetic data and real SVG data provide complementary advantages for the
+vectorizer. Synthetic data offer unlimited quantity and precise control over
 geometric variation, while real SVG data provide more realistic structure,
 stylistic diversity, and distributional properties closer to the target use
-case.
+case. The training schedule therefore uses two consecutive phases: pretraining
+on data generated procedurally in the Bezier representation, followed by
+fine-tuning on the SVG dataset derived from real vector graphics.
 
 This distinction is important because automatic vectorization is
 underdetermined from pixels alone: when the vector scene is generated
@@ -1390,18 +1416,16 @@ ordinary raster images there may be many plausible vector explanations
 
 === Synthetic pretraining
 
-In the first phase, the model is exposed to procedurally generated scenes
-containing simple primitives, compound shapes, blobs, and shapes with holes.
-Because these data are generated directly in the target Bezier representation,
-they are guaranteed to be geometrically valid and structurally consistent. This
-stage is intended to teach the model the basic grammar of vector graphics:
-curve continuity, path organization, contour winding, color consistency within
-shapes, and the general relationship between raster appearance and vector
-structure.
+The first phase is intended to teach the model the basic grammar of vector
+graphics before it has to model the greater variability of real SVG files. This
+includes curve continuity, path organization, contour winding, color consistency
+within shapes, and the general relationship between raster appearance and vector
+structure. To provide this signal, the model is exposed to procedurally
+generated scenes containing simple primitives, compound shapes, blobs, and
+shapes with holes. Because these data are generated directly in the target
+Bezier representation, they are guaranteed to be geometrically valid and
+structurally consistent.
 
-Synthetic pretraining is expected to be particularly useful in the early stages
-of optimization, when the model must first learn how valid Bezier-based shapes
-behave before it can model the greater complexity of real-world SVG content.
 The effectively unlimited size of the synthetic dataset also reduces the risk
 of overfitting and allows controlled experiments with scene complexity, segment
 count, and object diversity.
@@ -1414,13 +1438,12 @@ single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
 
 === Fine-tuning on the SVG dataset
 
-After pretraining, the model is fine-tuned on a dataset obtained from real SVG
-files converted into the internal Bezier representation. This stage adapts the
-model from the simplified synthetic distribution to the more heterogeneous and
-stylized distribution of real vector graphics. Compared with the synthetic
-generator, real SVG data contain richer compositions, more varied contour
-structures, and a broader range of design conventions. Fine-tuning therefore
-serves to align the model with the final task distribution.
+Pretraining alone cannot expose the model to the full variability of real
+vector graphics. Compared with the synthetic generator, real SVG data contain
+richer compositions, more varied contour structures, and a broader range of
+design conventions. The model is therefore fine-tuned on SVG files converted
+into the internal Bezier representation, which adapts it from the simplified
+synthetic distribution to the final task distribution.
 
 Conceptually, the second phase can be viewed as domain adaptation. The model
 enters this phase already equipped with a prior over valid vector geometry and
