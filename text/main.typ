@@ -205,7 +205,9 @@ or as structured graphics generation, where the model predicts vector objects
 and their attributes in a more constrained representation
 @rodriguez2024starvector @yang2025omnisvg. The main advantage of direct
 text-to-SVG generation is that it avoids an intermediate raster representation
-and can therefore produce editable vector output in a single stage. However,
+and can therefore produce editable vector output in a single stage.
+
+However,
 this single-stage formulation combines two different tasks. The model must
 first understand what the text prompt describes, such as which objects should
 appear and how they relate to each other. It must then express this drawing as
@@ -514,6 +516,7 @@ before training. The resulting optimization curves are shown in
 model learns faster and reaches a lower training loss than the model initialized
 from raster-generation weights. This indicates that the pretrained weights do
 not provide a useful initialization for Bezier prediction in this setting.
+
 Although the original model has learned a strong representation for raster
 image generation, that task requires a substantially different internal
 representation from the one needed to predict structured Bezier control points
@@ -556,7 +559,9 @@ the Z-Image paper describes a 6B-parameter architecture and explicitly compares
 it with selected contemporary open models with much larger parameter counts,
 including Qwen-Image (20B) @wu2025qwenimagetechnicalreport, FLUX.2 (32B)
 @blackforestlabsFlux2DevModelCard, and HunyuanImage 3.0 (80B)
-@cao2025hunyuanimage @imageteam2025zimage. The accelerated Turbo variant has
+@cao2025hunyuanimage @imageteam2025zimage.
+
+The accelerated Turbo variant has
 the same model scale, but reduces the number of diffusion evaluations, which
 lowers the cost of repeated raster generation during dataset construction,
 qualitative inspection, and ablation experiments. Finally, prompt adherence was
@@ -619,7 +624,9 @@ compared variants include the base Z-Image model, prompt-prefixing strategies,
 the accelerated `Z-Image-Turbo` model, and a LoRA adaptation applied
 to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
 with the reference images, whereas lower vectorization MSE indicates that the
-generated raster outputs are easier to convert in the second stage. CLIP-based
+generated raster outputs are easier to convert in the second stage.
+
+CLIP-based
 similarity uses a joint image-text representation learned from natural-language
 supervision and is therefore useful for measuring semantic alignment
 @radford2021learning. DINO-based similarity uses self-supervised visual
@@ -638,7 +645,9 @@ squared error between the original generated RGB image and this rerendered
 image,
 $ 1 / (3 H W) sum_(c, y, x) (I_(c,y,x) - hat(I)_(c,y,x))^2 $
 where pixel values are measured in the usual 0--255 RGB range. This metric does
-not compare the generated image to the reference image directly. Instead, it
+not compare the generated image to the reference image directly.
+
+Instead, it
 measures how much visual information is lost when the image is approximated by
 a standard vectorization tool, so lower values indicate images whose shapes and
 colors are easier to represent as clean vector graphics.
@@ -760,7 +769,9 @@ similarity, and vectorization MSE values are summarized together in
 @tab:lora-experiment. Due to computational constraints, the experiment was
 evaluated on a subset of 100 validation samples rather than on the full
 validation set of 1010 samples. The explored grid of ranks and checkpoints is
-therefore intentionally coarse; a more fine-grained sweep over ranks, training
+therefore intentionally coarse.
+
+A more fine-grained sweep over ranks, training
 durations, and sampling seeds would provide a more precise model-selection
 criterion, but was outside the available compute budget.
 
@@ -871,7 +882,9 @@ for the turbo model. The best overall semantic similarity is obtained by the
 vectorization error is achieved by `Turbo prefixed`. This indicates that the
 adapted LoRA model improves perceptual alignment with the references, but its
 advantage with respect to downstream vectorization should be verified on a
-larger evaluation. The `Base prefixed + LoRA` configuration is therefore used
+larger evaluation.
+
+The `Base prefixed + LoRA` configuration is therefore used
 as the reference text-to-raster setting in the final end-to-end evaluation,
 where image quality is prioritized. At the same time, `Turbo prefixed + LoRA`
 remains a reasonable practical alternative when inference speed is more
@@ -921,7 +934,9 @@ This representation also covers common geometric primitives that are not
 originally specified as cubic curves. Straight line segments are stored as
 degenerate cubic Bezier curves whose control points lie on the line between
 the endpoints. Circular and elliptical arcs are represented by cubic arc
-approximations. For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
+approximations.
+
+For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
 standard symmetric approximation uses control points $(1, kappa)$ and
 $(kappa, 1)$. Matching the midpoint at $t = 1 / 2$ to the circular diagonal
 gives
@@ -944,6 +959,7 @@ $(r, g, b)$ is the color, $alpha$ is opacity,
 $f_p$ indicates the beginning of a new SVG path element,
 $f_s$ indicates the beginning of a new subpath within the current path,
 and $f_r$ is a validity flag distinguishing real segments from padding.
+
 The endpoint is omitted from the learned representation, because it is implied
 by the start point of the following segment. For the last segment in a path,
 the endpoint is defined by the start point of the first segment, which closes
@@ -968,7 +984,9 @@ $
   tilde(y) = (y - c_y) lambda
 $
 This choice preserves aspect ratio and maps the larger image dimension to the
-full interval $[-1, 1]$. Color channels originally stored in $[0, 255]$ are
+full interval $[-1, 1]$.
+
+Color channels originally stored in $[0, 255]$ are
 mapped linearly to $[-1, 1]$, and opacity values from $[0, 1]$ are mapped by
 the same affine transformation. Binary structural flags are represented as
 $+1$ for true and $-1$ for false, which keeps every output dimension on a
@@ -986,7 +1004,9 @@ ignore non-existent segments during reconstruction.
 The inverse mapping reconstructs the hierarchical vector structure from the
 predicted tensor. First, all rows with $f_r \leq 0$ are discarded. The
 remaining normalized coordinates, colors, and opacity values are denormalized
-back to image space and original attribute ranges. The flags $f_p$ and $f_s$
+back to image space and original attribute ranges.
+
+The flags $f_p$ and $f_s$
 are thresholded at zero and used to determine whether a segment starts a new
 shape or a new subpath. Because color and opacity are predicted per segment,
 the final attribute of a reconstructed shape is obtained by averaging these
@@ -1029,7 +1049,9 @@ commands are made explicit. The resulting path is decomposed segment by
 segment, and every segment is converted to cubic Bezier form. This conversion
 is exact for native cubic Bezier segments. Straight lines and closing commands
 are represented as degenerate cubic curves whose control points lie on the line
-between the endpoints at one-third and two-thirds of its length. Quadratic
+between the endpoints at one-third and two-thirds of its length.
+
+Quadratic
 Bezier segments are elevated to cubic form by the standard degree-elevation
 formula
 $
@@ -1039,8 +1061,9 @@ $
 where $p_0$ and $p_2$ are the original endpoints and $q_1$ is the quadratic
 control point. Elliptic arcs are approximated by the parser library
 `svgelements` @svgelements as one or more cubic Bezier segments and are stored
-in the same format. Consequently, all
-supported SVG geometry is reduced to a single primitive type.
+in the same format.
+
+Consequently, all supported SVG geometry is reduced to a single primitive type.
 
 An additional normalization step is applied when the original SVG uses the
 `evenodd` fill rule. The internal representation and SVG export assume the
@@ -1050,11 +1073,12 @@ into contiguous subpaths, then estimates the nesting depth of each subpath by
 testing whether a representative point lies inside other subpaths. Subpaths at
 even depth are treated as outer boundaries and subpaths at odd depth as holes.
 Their orientation is then reversed when necessary so that outer contours are
-clockwise and holes are counter-clockwise in SVG image coordinates. This makes
-the geometry compatible with the non-zero rule without changing the visual
-appearance of the shape.
+clockwise and holes are counter-clockwise in SVG image coordinates.
 
-The need for this step comes from the SVG fill-rule definition. Under the
+This makes
+the geometry compatible with the non-zero rule without changing the visual
+appearance of the shape. The need for this step comes from the SVG fill-rule
+definition. Under the
 non-zero rule, whether a point is inside a shape depends on the signed winding
 of contours around that point, while the even-odd rule depends on how many
 times a ray from the point crosses the path @w3c2011svgpaths. The same visual
@@ -1098,8 +1122,10 @@ geometrically valid training examples directly in the target Bezier
 representation. This provides precise control over scene complexity,
 guarantees compatibility with the representation used by the model, and makes
 it possible to generate effectively unlimited training data without additional
-annotation or SVG cleaning. This property is central to the proposed training
-strategy. Because the generated vector scene is known exactly, the
+annotation or SVG cleaning.
+
+This property is central to the proposed training strategy. Because the
+generated vector scene is known exactly, the
 corresponding raster input can be obtained by rendering, yielding a supervised
 raster-to-vector pair without any manual labeling. The synthetic generator
 therefore addresses one of the main data bottlenecks in vector-graphics
@@ -1168,7 +1194,9 @@ edges are represented by degenerate cubic segments whose control points lie on
 the corresponding line segment, while circular and elliptical primitives use
 the cubic arc approximation described in the representation section. Rounded
 rectangles and related figures combine linear segments with such cubic arc
-approximations. Organic blobs are generated differently: first, a set of angles
+approximations.
+
+Organic blobs are generated differently: first, a set of angles
 is distributed around a circle with random angular perturbation; second, a
 radius is sampled independently for each angle; third, the resulting contour
 points are connected by a closed chain of cubic Bezier segments obtained from a
@@ -1242,7 +1270,9 @@ image descriptors.
 The Bezier branch processes a tensor of segment descriptors of shape
 $(B, N, D)$, where $B$ is batch size, $N$ is the maximum number of segments,
 and $D = 13$ is the segment dimensionality, covering coordinates, color,
-opacity, path-structure flags, and the validity flag. Each segment vector is projected by
+opacity, path-structure flags, and the validity flag.
+
+Each segment vector is projected by
 a learned linear layer into a hidden space of dimension $H$. The scalar flow
 time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
 a multilayer perceptron @vaswani2017attention. The resulting time embedding is
@@ -1273,11 +1303,14 @@ a small modulation network that predicts, for each of the three sublayers, a
 shift vector, a scale vector, and a residual gate. If $x$ denotes a normalized
 token representation, the modulation takes the form
 $ mod(x) = x dot (1 + gamma) + beta $,
-where $beta$ and $gamma$ are functions of the time embedding. The gated residual
+where $beta$ and $gamma$ are functions of the time embedding.
+
+The gated residual
 connection then controls how strongly the output of the corresponding sublayer
 is injected back into the main stream. This adaptive normalization follows the
 conditioning mechanism used in DiT, where timestep and class-conditioning
 information is used to modulate transformer residual blocks @peebles2022dit.
+
 In this thesis, the same mechanism is used for the flow time: it allows the
 network to vary its computation with $t$, matching the flow-matching
 formulation in which the learned velocity is a time-dependent vector field
@@ -1299,7 +1332,9 @@ $x_1$ denote a ground truth Bezier tensor sampled from the dataset and let $x_0$
 be Gaussian noise of the same shape. A scalar time $t$ is sampled for each
 training example from a logit-normal distribution obtained by applying the
 sigmoid function to a standard normal sample, following timestep sampling used
-in rectified-flow transformer training @esser2024rectifiedflowtransformers. The
+in rectified-flow transformer training @esser2024rectifiedflowtransformers.
+
+The
 noisy intermediate point is then constructed by linear interpolation
 $ x_t = t x_1 + (1 - t) x_0 $
 The target velocity is defined as
@@ -1317,7 +1352,9 @@ by a learned null token broadcast across the conditioning length. This teaches
 the network both conditional and unconditional velocity fields within a single
 set of parameters. Preliminary experiments also showed that conditioning dropout
 improved generalization to validation inputs, so it was retained as part of the
-final training setup. During inference, the two predictions can be combined as
+final training setup.
+
+During inference, the two predictions can be combined as
 $ v = v_u + w (v_c - v_u) $
 where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
 recovered.
@@ -1343,7 +1380,9 @@ by the observation that synthetic data and real SVG data provide complementary
 advantages. Synthetic data offer unlimited quantity and precise control over
 geometric variation, while real SVG data provide more realistic structure,
 stylistic diversity, and distributional properties closer to the target use
-case. This distinction is important because automatic vectorization is
+case.
+
+This distinction is important because automatic vectorization is
 underdetermined from pixels alone: when the vector scene is generated
 procedurally, the exact geometric target is known by construction, whereas for
 ordinary raster images there may be many plausible vector explanations
@@ -1414,7 +1453,9 @@ maximum sequence length, and DINOv3 image encoder, but predicts the Bezier
 sequence step by step rather than learning a continuous denoising vector field.
 The comparison in @fig:flow-matching-vs-autoregressive-mse is capped at the
 first 250k training steps, where both runs have logged train and validation
-image-space MSE. The autoregressive model reduces the reconstruction error
+image-space MSE.
+
+The autoregressive model reduces the reconstruction error
 during training, but remains consistently worse than the flow-matching model
 on both splits. This suggests that, for this fixed Bezier representation and
 model scale, the flow-matching objective provides a more effective training
@@ -1765,7 +1806,9 @@ the Jaccard similarity coefficient @jaccard1901distribution. Boundary F1 first
 extracts edge points from the rendered images and then measures precision and
 recall under a fixed pixel tolerance, following the common boundary-evaluation
 idea of matching contours within a localization tolerance
-@martin2004boundaries. The tables report the 2 px tolerance, which rewards
+@martin2004boundaries.
+
+The tables report the 2 px tolerance, which rewards
 methods whose contours are close to the reference even when the filled regions
 are not identical. Chamfer distance averages the nearest-edge distance in both
 directions between the reference and generated contours @borgefors1988chamfer,
@@ -1877,6 +1920,7 @@ On the synthetic-generator split, the ours results are computed over
 1000 pairs. Additional measured values for this run are MAE 20.65, PSNR 15.68
 dB, Boundary F1 0.336 at 1 px and 0.449 at 4 px, mean render time 53.76 ms, and
 no rendering errors.
+
 This separation is important because a method can obtain a low raster error by
 creating a very large SVG with many paths or path commands. Conversely, a more
 compact SVG may be preferable for editing even when it introduces a small
@@ -1896,7 +1940,9 @@ measures vectorization of images rendered by the text-to-raster generator
 rather than vectorization of clean dataset or synthetic inputs. The reference
 rasters in this evaluation are produced by the `Z-Image Base prefixed + LoRA`
 configuration selected in @sec:stage1-evaluation; the turbo-prefixed LoRA
-variant discussed there is retained as the faster alternative. The Z-Image
+variant discussed there is retained as the faster alternative.
+
+The Z-Image
 stage may produce anti-aliased contours, slight texture, local color variation,
 incomplete boundaries, or other artifacts that are not present in the synthetic
 generator, while also differing from clean SVG Repo renderings. This setting
@@ -1908,7 +1954,9 @@ generated SVG against a reference SVG after rendering both files, this
 experiment uses a separate evaluation script that compares a generated PNG
 directly against the SVG obtained from that PNG. Each input raster is rendered
 from the Z-Image pipeline, vectorized with `vtracer`, rendered back to a PNG
-at the same resolution, and compared with the original raster image. The
+at the same resolution, and compared with the original raster image.
+
+The
 reported numbers therefore evaluate raster-vector-raster consistency on
 generated images, not semantic agreement with a ground-truth SVG. Qualitative
 inspection should focus on whether the vectorization preserves the main shape
@@ -2061,11 +2109,15 @@ stage. Classical tracing is robust on the generated rasters in the narrow sense
 of validity and raster reconstruction: all 1010 images produced renderable SVG
 files, the SSIM is high, and the foreground mask overlap remains close to the
 input. At the same time, the resulting SVGs are large, with more than 1600 path
-commands on average. The OmniSVG evaluations produce much more compact SVG
+commands on average.
+
+The OmniSVG evaluations produce much more compact SVG
 files: OmniSVG1.1 4B averages 6696 bytes and 244 path commands, while OmniSVG1.1 8B
 averages 6804 bytes and 250 path commands. StarVector is more compact still:
 the 1B variant averages 2102 bytes and 40 path commands, while the 8B variant
-averages 1271 bytes and 44 path commands. The StarVector models obtain better
+averages 1271 bytes and 44 path commands.
+
+The StarVector models obtain better
 pixel-level fidelity than OmniSVG on the subset that renders successfully, but
 only about half of their outputs are valid SVGs in this generated-raster
 setting. The neural vectorizers therefore expose a trade-off between
@@ -2122,22 +2174,30 @@ requiring more segments must either be simplified or truncated.
 == Future work
 
 Future work should focus on improving both the expressiveness of the
-representation and the reliability of the full pipeline. One direction is
+representation and the reliability of the full pipeline.
+
+One direction is
 primitive recovery: closed contours could be tested for compatibility with
 circles, ellipses, rectangles, rounded rectangles, polygons, or simple compound
 shapes, and then replaced by the corresponding SVG elements when the
-approximation error is sufficiently small. Another direction is to extend the
+approximation error is sufficiently small.
+
+Another direction is to extend the
 data conversion and renderer to gradients, transparency, masks, and richer
 style attributes. The current pipeline assumes a white background in both the
 text-to-raster stage and the vectorizer training setup. Producing and training
 on transparent raster inputs would better match the common use of SVG graphics
 as foreground assets; methods for transparent image generation, such as
 latent-transparency diffusion @zhang2024latenttransparency, suggest one
-possible way to adapt the first stage. Finally, larger paired vector datasets
+possible way to adapt the first stage.
+
+Finally, larger paired vector datasets
 and stronger conditioning could make it possible to revisit direct
 text-to-vector generation, but the results of this thesis indicate that the
 two-stage formulation remains a useful and data-efficient baseline for further
-research. The public implementation and trained model artifacts are listed in
+research.
+
+The public implementation and trained model artifacts are listed in
 @app:implementation-artifacts.
 
 #thesis_bibliography(read("references.bib", encoding: none))
