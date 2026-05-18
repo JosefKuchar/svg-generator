@@ -25,6 +25,13 @@ The project uses `uv` and Python 3.13.
 uv sync
 ```
 
+For faster transformer attention on compatible CUDA systems, install the
+prebuilt FlashAttention wheel after `uv sync`:
+
+```bash
+uv pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu128torch2.10-cp313-cp313-linux_x86_64.whl
+```
+
 For the default inference path, install `vtracer` and make sure it is available
 on `PATH`. `resvg` is also used for SVG raster previews and several evaluation
 or data-generation utilities.
