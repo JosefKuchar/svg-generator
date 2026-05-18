@@ -221,7 +221,8 @@ The Bezier curves used in this work are a standard way of representing curved
 SVG paths. In SVG path data, a cubic Bezier segment is specified by an endpoint
 and two control points relative to the current point; sequences of such
 segments can describe smooth contours, while fills and strokes determine how
-the paths are rendered @w3c2011svgpaths.
+the paths are rendered @w3c2011svgpaths. The control-point geometry of a
+cubic Bezier segment is illustrated in @fig:svg-bezier-example.
 
 #figure(
   image("assets/svg_bezier_example.svg", width: 65%),
@@ -536,6 +537,8 @@ generalization, but it also requires filtering and normalization before
 training. In particular, SVGs containing unsupported constructs such as
 gradients, masks, or embedded style blocks are excluded, while supported
 geometric content is normalized by the preprocessing pipeline described below.
+Examples from the rasterized dataset are shown in
+@fig:svg-repo-dataset-examples.
 
 #let svg-repo-dataset-image(path) = box(
   stroke: 0.5pt + gray,
@@ -1727,6 +1730,8 @@ OmniSVG @yang2025omnisvg, StarVector @rodriguez2024starvector, and `vtracer`
 @visioncortexVtracer. All methods are evaluated on the same reference set and
 with the same rasterization settings.
 
+==== Qualitative behavior
+
 The quantitative comparison is paired with two qualitative grids. The first
 grid uses samples from the SVG validation split. These examples are useful for
 checking performance on the target distribution, but they should be
@@ -1734,7 +1739,8 @@ interpreted as in-distribution examples: the proposed model is trained on the
 same dataset family, and large external SVG models may also have been exposed
 to visually similar icon data during pretraining. The validation grid therefore
 shows how well the methods handle the type of data used in the main benchmark,
-rather than proving broad vectorization ability.
+rather than proving broad vectorization ability. The validation examples are
+shown in @tab:vectorization-qualitative-validation.
 
 #let vectorization-sample(path) = box(
   width: 100%,
@@ -1809,7 +1815,8 @@ raster-to-vector capability: the methods must recover clean geometric
 structure from rendered images whose underlying shapes, holes, intersections,
 and curve configurations are known. The examples are selected by fixed criteria
 such as sample index and input source, which avoids choosing only visually
-favorable cases.
+favorable cases. The synthetic examples are shown in
+@tab:vectorization-qualitative-synthetic.
 
 #figure(
   table(
@@ -1871,6 +1878,8 @@ favorable cases.
   caption: [Qualitative comparison on synthetic-generator samples. Empty cells indicate invalid output.],
 ) <tab:vectorization-qualitative-synthetic>
 
+==== Rendered fidelity
+
 The quantitative metrics are computed after rendering both SVGs to RGB images
 at the same resolution. MSE is the mean squared difference between
 corresponding RGB pixel values, reported on the 0--255 intensity scale. It
@@ -1900,16 +1909,9 @@ directions between the reference and generated contours @borgefors1988chamfer,
 whereas Hausdorff distance reports the worst nearest-edge discrepancy
 @huttenlocher1993hausdorff. Chamfer therefore measures typical contour
 alignment, while Hausdorff is more sensitive to outliers such as missing
-strokes, distant artifacts, or a single badly placed shape.
-
-SVG validity and complexity are reported separately from visual fidelity. The
-valid SVG rate is the fraction of generated files that can be rendered without
-error; missing or non-renderable files are replaced by a white image for
-fidelity scoring but are counted as failures in the validity table. SVG bytes,
-element count, path count, and path-command count are simple proxies for output
-complexity. Lower values indicate a more compact and potentially more editable
-SVG only when the corresponding fidelity metrics remain competitive, because a
-trivially simple file can also be inaccurate.
+strokes, distant artifacts, or a single badly placed shape. The rendered
+fidelity results are reported in @tab:vectorization-fidelity-validation and
+@tab:vectorization-fidelity-synthetic.
 
 #let metric-header(body) = text(size: 8pt, body)
 
@@ -1971,6 +1973,19 @@ trivially simple file can also be inaccurate.
   caption: [Vectorization fidelity on synthetic-generator samples.],
 ) <tab:vectorization-fidelity-synthetic>
 
+==== SVG validity and editability
+
+SVG validity and complexity are reported separately from visual fidelity. The
+valid SVG rate is the fraction of generated files that can be rendered without
+error; missing or non-renderable files are replaced by a white image for
+fidelity scoring but are counted as failures in the validity table. SVG bytes,
+element count, path count, and path-command count are simple proxies for output
+complexity. Lower values indicate a more compact and potentially more editable
+SVG only when the corresponding fidelity metrics remain competitive, because a
+trivially simple file can also be inaccurate. The validity and complexity
+results are summarized in @tab:vectorization-complexity-validation and
+@tab:vectorization-complexity-synthetic.
+
 #figure(
   table(
     columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr),
@@ -2027,6 +2042,8 @@ trivially simple file can also be inaccurate.
   caption: [SVG validity and complexity on synthetic-generator samples.],
 ) <tab:vectorization-complexity-synthetic>
 
+==== Summary
+
 The validation split shows the expected behavior of the proposed vectorizer.
 It preserves global structure and foreground regions competitively among the
 neural methods, but it is weaker on fine boundary agreement. This follows from
@@ -2082,7 +2099,10 @@ generated images, not semantic agreement with a ground-truth SVG. Qualitative
 inspection should focus on whether the vectorization preserves the main shape
 layout, fill regions, and contour smoothness, and whether small raster
 artifacts are converted into unnecessary paths. Quantitative scores summarize
-the same behavior over the full generated set.
+the same behavior over the full generated set. Qualitative examples are shown
+in @tab:z-image-raster-vectorization-qualitative, rendered-fidelity results in
+@tab:z-image-raster-vectorization-fidelity, and validity and complexity results
+in @tab:z-image-raster-vectorization-complexity.
 
 #figure(
   table(
