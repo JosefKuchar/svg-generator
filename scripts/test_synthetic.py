@@ -3,7 +3,13 @@ Test script for the synthetic dataset generator.
 Generates a random scene, renders it, and saves the output.
 """
 
+from pathlib import Path
+import sys
+
 import typer
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 from synthetic import generate_random_scene
 from representation import shapes_to_tensor, tensor_to_shapes
 from parsing import save_bezier_shapes_to_svg

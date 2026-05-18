@@ -5,8 +5,11 @@ Generates PNG rasters under text/assets/syntetic_generator.
 """
 
 from pathlib import Path
+import sys
 
 import typer
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from parsing import save_bezier_shapes_to_svg
 from raster import render_svg_bg

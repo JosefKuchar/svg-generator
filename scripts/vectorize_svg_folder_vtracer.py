@@ -1,9 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 
 import typer
 from tqdm.auto import tqdm
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from raster import has_raster_tool, render_svg_bg, vectorize_image
 

@@ -640,14 +640,14 @@ meta:
 
 ### EVal
 ```sh
-uv run z-image-dataset.py --batch-size 8 --caption-index 1 --prompt-prefix "SVG illustration with white background. " --output-dir ./z-image-renders/caption-1-prefixed
+uv run python scripts/z-image-dataset.py --batch-size 8 --caption-index 1 --prompt-prefix "SVG illustration with white background. " --output-dir ./z-image-renders/caption-1-prefixed
 # Base
-uv run z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0
+uv run python scripts/z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0
 # Base prefixed
-uv run z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base-prefixed --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0 --prompt-prefix "SVG illustration with white background. "
+uv run python scripts/z-image-dataset.py --batch-size 8 --caption-index 1 --output-dir ./z-image-renders/base-prefixed --model-id "Tongyi-MAI/Z-Image" --num-inference-steps 50 --guidance-scale 4.0 --prompt-prefix "SVG illustration with white background. "
 ```
 ```sh
-uv run python render_svg_svgrepo_valid_raster.py  --output-dir ./raster/reference
+uv run python scripts/render_svg_svgrepo_valid_raster.py  --output-dir ./raster/reference
 ```
 
 ```sh

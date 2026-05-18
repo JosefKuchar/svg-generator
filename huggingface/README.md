@@ -109,7 +109,7 @@ processor, image_encoder = load_dino_encoder(device=device)
 For folder-based PNG to SVG inference:
 
 ```bash
-uv run python vectorize_png_folder_model.py ./pngs ./svgs \
+uv run python scripts/vectorize_png_folder_model.py ./pngs ./svgs \
   --model-repo-id JosefKuchar/svg-generator \
   --batch-size 1 \
   --steps 50 \

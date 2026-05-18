@@ -1,8 +1,11 @@
 from pathlib import Path
+import sys
 
 import typer
 from datasets import load_dataset
 from tqdm.auto import tqdm
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from raster import render_svg_bg
 

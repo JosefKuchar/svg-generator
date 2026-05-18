@@ -11,7 +11,7 @@ Example:
   ./scripts/run_z_image_loras.sh ./z-image-renders ./lora-runs ./more-loras
 
 This script scans each provided directory recursively for .safetensors files and
-runs z-image-dataset.py once per LoRA.
+runs scripts/z-image-dataset.py once per LoRA.
 EOF
 }
 
@@ -65,7 +65,7 @@ for lora_file in "${lora_files[@]}"; do
   echo "Running LoRA: $lora_file"
   echo "Output dir:   $output_dir"
 
-  uv run python z-image-dataset.py \
+  uv run python scripts/z-image-dataset.py \
     --output-dir "$output_dir" \
     --caption-index 1 \
     --num-samples 100 \
