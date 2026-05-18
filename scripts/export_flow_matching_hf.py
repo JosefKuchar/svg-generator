@@ -8,7 +8,7 @@ from safetensors.torch import save_file
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from flow_matching_hf import CONFIG_NAME, DEFAULT_SUBFOLDER, WEIGHTS_NAME
+from hub import CONFIG_NAME, DEFAULT_SUBFOLDER, WEIGHTS_NAME
 
 
 app = typer.Typer(pretty_exceptions_show_locals=False)

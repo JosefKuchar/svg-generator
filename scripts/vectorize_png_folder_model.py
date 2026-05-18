@@ -9,7 +9,7 @@ from PIL import Image
 from tqdm.auto import tqdm
 
 import model as model_module
-from flow_matching_hf import (
+from hub import (
     CONFIG_NAME,
     DEFAULT_SUBFOLDER,
     DINO_MODEL_NAME,

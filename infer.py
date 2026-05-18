@@ -7,7 +7,7 @@ import typer
 from diffusers import ZImagePipeline
 from PIL import Image
 
-from flow_matching_hf import (
+from hub import (
     DEFAULT_SUBFOLDER,
     DINO_MODEL_NAME,
     load_dino_encoder,

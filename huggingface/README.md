@@ -94,7 +94,7 @@ The model can be loaded with the helper code from the project repository:
 
 ```python
 import torch
-from flow_matching_hf import load_dino_encoder, load_flow_matching_from_hub
+from hub import load_dino_encoder, load_flow_matching_from_hub
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
