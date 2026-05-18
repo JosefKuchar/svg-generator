@@ -2274,6 +2274,10 @@ value of the pipeline decomposition: text understanding and visual composition
 are handled by a pretrained raster generator, while the final SVG is obtained
 by a separate vectorization step.
 
+StarVector is omitted from this comparison because its public 1B and 8B
+checkpoints are released for image-to-SVG vectorization, not text-to-SVG
+generation @starvectorHuggingFaceModels.
+
 The examples show a clear qualitative advantage for the pipeline formulation on
 these prompts. The proposed pipeline usually preserves the requested object and
 icon-like composition, whereas both OmniSVG variants often produce incomplete,
