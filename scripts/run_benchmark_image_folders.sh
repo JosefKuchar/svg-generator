@@ -5,15 +5,15 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./run_benchmark_image_folders.sh FIRST_FOLDER SECOND_FOLDER_PREFIX OUTPUT_DIR [BENCHMARK_ARGS...]
+  ./scripts/run_benchmark_image_folders.sh FIRST_FOLDER SECOND_FOLDER_PREFIX OUTPUT_DIR [BENCHMARK_ARGS...]
 
 Example:
-  ./run_benchmark_image_folders.sh ./targets ./runs/render- ./benchmark-results --metric clip_similarity --batch-size 8
+  ./scripts/run_benchmark_image_folders.sh ./targets ./runs/render- ./benchmark-results --metric clip_similarity --batch-size 8
 
 This script finds directories matching SECOND_FOLDER_PREFIX* and runs
-benchmark_image_folders.py once per matching folder:
+scripts/benchmark_image_folders.py once per matching folder:
 
-  benchmark_image_folders.py FIRST_FOLDER MATCHING_FOLDER [BENCHMARK_ARGS...]
+  scripts/benchmark_image_folders.py FIRST_FOLDER MATCHING_FOLDER [BENCHMARK_ARGS...]
 
 The stdout/stderr for each run is saved to OUTPUT_DIR/<matching-folder-name>.txt.
 EOF
@@ -69,6 +69,6 @@ for second_folder in "${matching_dirs[@]}"; do
   echo "  folder_b: $second_folder"
   echo "  output:   $output_file"
 
-  uv run python benchmark_image_folders.py "$first_folder" "$second_folder" "$@" \
+  uv run python scripts/benchmark_image_folders.py "$first_folder" "$second_folder" "$@" \
     >"$output_file" 2>&1
 done

@@ -3,7 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 import os
 from pathlib import Path
+import sys
 import tempfile
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 import torch

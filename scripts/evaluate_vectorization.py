@@ -3,10 +3,13 @@ import math
 import re
 import statistics
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 import typer

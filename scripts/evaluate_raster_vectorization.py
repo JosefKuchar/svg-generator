@@ -1,9 +1,12 @@
 import csv
 import math
 import statistics
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import typer
 from PIL import Image

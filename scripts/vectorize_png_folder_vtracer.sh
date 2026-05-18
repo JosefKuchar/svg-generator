@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./vectorize_png_folder_vtracer.sh [OPTIONS] INPUT_DIR OUTPUT_DIR [-- VTRACER_ARGS...]
+  ./scripts/vectorize_png_folder_vtracer.sh [OPTIONS] INPUT_DIR OUTPUT_DIR [-- VTRACER_ARGS...]
 
 Options:
   -r, --recursive   Process PNG files recursively and preserve subdirectories.
@@ -13,9 +13,9 @@ Options:
   -h, --help        Show this help message.
 
 Examples:
-  ./vectorize_png_folder_vtracer.sh ./pngs ./svgs
-  ./vectorize_png_folder_vtracer.sh --recursive ./pngs ./svgs
-  ./vectorize_png_folder_vtracer.sh ./pngs ./svgs -- --colormode color --hierarchical stacked
+  ./scripts/vectorize_png_folder_vtracer.sh ./pngs ./svgs
+  ./scripts/vectorize_png_folder_vtracer.sh --recursive ./pngs ./svgs
+  ./scripts/vectorize_png_folder_vtracer.sh ./pngs ./svgs -- --colormode color --hierarchical stacked
 
 Each input PNG is written to OUTPUT_DIR with the same base name and a .svg suffix.
 Additional arguments after -- are passed directly to vtracer.

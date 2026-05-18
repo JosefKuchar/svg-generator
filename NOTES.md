@@ -57,7 +57,7 @@ ssh -L 8675:localhost:8675 akeso
 ### Dataset
 Generate dataset
 ```sh
-uv run export_svg_svgrepo_dataset.py --caption-index 1 --caption-prefix "SVG illustration with white background. " --num-samples 8000
+uv run python scripts/export_svg_svgrepo_dataset.py --caption-index 1 --caption-prefix "SVG illustration with white background. " --num-samples 8000
 ```
 
 Config
@@ -653,25 +653,25 @@ uv run python render_svg_svgrepo_valid_raster.py  --output-dir ./raster/referenc
 ```sh
 # Metrics
 # Base
-uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/base
+uv run python scripts/benchmark_image_folders.py ./raster/reference/ z-image-renders/base
 clip_similarity: 0.818210
 dino_similarity: 0.509159
 vectorization_mse: 266.565137
 
 # Base prefixed
-uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/base-prefixed
+uv run python scripts/benchmark_image_folders.py ./raster/reference/ z-image-renders/base-prefixed
 clip_similarity: 0.819865
 dino_similarity: 0.545802
 vectorization_mse: 230.160058
 
 # Turbo
-uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo
+uv run python scripts/benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo
 clip_similarity: 0.826786
 dino_similarity: 0.509892
 vectorization_mse: 227.691742
 
 # Turbo prefixed
-uv run benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo-prefixed
+uv run python scripts/benchmark_image_folders.py ./raster/reference/ z-image-renders/turbo-prefixed
 clip_similarity: 0.871237
 dino_similarity: 0.583856
 vectorization_mse: 142.711678
@@ -687,7 +687,7 @@ TODOS:
 
 
 ```
-xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0485_reference/
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0485_reference/
 Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:58<00:00,  1.30it/s]
 pairs: 1010
 mse: 7444.155031
@@ -707,7 +707,7 @@ gen_path_commands: 112.230693
 render_time_ms: 51.473508
 gen_render_errors: 0
 
-xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0130_reference/
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0130_reference/
 Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:59<00:00,  1.30it/s]
 pairs: 1010
 mse: 7656.750692
@@ -727,7 +727,7 @@ gen_path_commands: 103.140594
 render_time_ms: 50.874528
 gen_render_errors: 0
 
-xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0627_reference/
+xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_vectorization.py outputs/svg-svgrepo-valid-svgs/ model_outputs/0627_reference/
 Evaluating pairs:   1%|██▎                                                                                                                                                     | 15/1010 [00:11<12:57,  1.28it/s]Evaluating pairs: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:53<00:00,  1.31it/s]
 pairs: 1010
 mse: 7107.516058
@@ -780,7 +780,7 @@ Starbector 1b: 8:57:37
 
 
 ```
-Add and update numbers for the quantitative end2end, you will figure out the variants from the commands xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-
+Add and update numbers for the quantitative end2end, you will figure out the variants from the commands xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_raster_vectorization.py z-
   image-renders/base_prefixed_lora/ star-vector-raster/base-1b/
   Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [06:17<00:00,
   2.67it/s]
@@ -804,7 +804,7 @@ Add and update numbers for the quantitative end2end, you will figure out the var
   svg_path_commands: 40.135354
   render_time_ms: 30.876259
   missing_svg: 0
-  render_errors: 515 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ star-vector-raster/base-8b/
+  render_errors: 515 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ star-vector-raster/base-8b/
   Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [06:22<00:00,
   2.64it/s]
   images: 1010
@@ -827,7 +827,7 @@ Add and update numbers for the quantitative end2end, you will figure out the var
   svg_path_commands: 44.360784
   render_time_ms: 25.694973
   missing_svg: 0
-  render_errors: 500 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ ../../OmniSVG/rendered2_4b
+  render_errors: 500 xkuchar@akeso:/var/tmp/xkuchar/projects/svg-generator$ uv run python scripts/evaluate_raster_vectorization.py z-image-renders/base_prefixed_lora/ ../../OmniSVG/rendered2_4b
   Evaluating raster/vector pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1010/1010 [12:49<00:00,
   valid: 1002
   invalid: 8

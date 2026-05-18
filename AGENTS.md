@@ -9,7 +9,7 @@ This project is a raster to bezier curve vectorizer. The model is flow matching 
 - `model.py` - main model implementation
 - `representation.py` - bezier curve representation and utilities
 - `dataset.py` - dataset loading and preprocessing
-- `main.py` - main training loop
+- `train.py` - main training loop
 - `infer.py` - inference script for testing trained models
 - `raster.py` - utilities for raster image processing
 - `parsing.py` - utilities for creating dataset from SVG files

@@ -5,10 +5,10 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./run_z_image_loras.sh OUTPUT_ROOT LORA_DIR [LORA_DIR ...]
+  ./scripts/run_z_image_loras.sh OUTPUT_ROOT LORA_DIR [LORA_DIR ...]
 
 Example:
-  ./run_z_image_loras.sh ./z-image-renders ./lora-runs ./more-loras
+  ./scripts/run_z_image_loras.sh ./z-image-renders ./lora-runs ./more-loras
 
 This script scans each provided directory recursively for .safetensors files and
 runs z-image-dataset.py once per LoRA.
