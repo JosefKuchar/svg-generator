@@ -1166,7 +1166,7 @@ subpath is stored as one `BezierPath`, and the collection of all subpaths with
 their common color and opacity forms one `BezierShape`. The final output of the
 parser is therefore a list of shapes in the same hierarchical form that is
 subsequently transformed into the fixed-length tensor representation used for
-training. //TODO: ukazka nebo neco
+training.
 
 === Converted Bezier dataset
 
