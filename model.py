@@ -169,7 +169,7 @@ class AdaLNBlock(nn.Module):
         """Self-attention with RoPE."""
         B, S, D = x.shape
 
-        if FLASH_ATTN_AVAILABLE:
+        if FLASH_ATTN_AVAILABLE and x.device.type == "cuda":
             # Flash Attention expects [batch, seq_len, num_heads, head_dim] format
             q = self.q_proj(x).view(B, S, self.num_heads, self.head_dim)
             k = self.k_proj(x).view(B, S, self.num_heads, self.head_dim)
@@ -228,7 +228,7 @@ class AdaLNBlock(nn.Module):
         B, S_q, D = q_input.shape
         S_kv = kv_input.shape[1]
 
-        if FLASH_ATTN_AVAILABLE:
+        if FLASH_ATTN_AVAILABLE and q_input.device.type == "cuda":
             # Flash Attention expects [batch, seq_len, num_heads, head_dim] format
             q = self.cross_q_proj(q_input).view(B, S_q, self.num_heads, self.head_dim)
             k = self.cross_k_proj(kv_input).view(B, S_kv, self.num_heads, self.head_dim)
@@ -335,18 +335,23 @@ class FlowMatchingTransformer(pl.LightningModule):
         cond_drop_prob: float = 0.1,  # Probability to drop conditioning
         learning_rate: float = 1e-4,
         warmup_steps: int = 0,
+        load_image_encoder: bool = True,
+        image_encoder_model: str = "facebook/dinov3-vits16-pretrain-lvd1689m",
     ):
         super().__init__()
         self.save_hyperparameters()
         self.cond_drop_prob = cond_drop_prob
 
-        self.image_encoder = AutoModel.from_pretrained(
-            "facebook/dinov3-vits16-pretrain-lvd1689m",
-            dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        self.image_encoder.requires_grad_(False)
-        self.image_encoder.eval()
+        if load_image_encoder:
+            self.image_encoder = AutoModel.from_pretrained(
+                image_encoder_model,
+                dtype=torch.bfloat16,
+                device_map="auto",
+            )
+            self.image_encoder.requires_grad_(False)
+            self.image_encoder.eval()
+        else:
+            self.image_encoder = None
 
         # 1. Embeddings
         self.x_embedder = nn.Linear(input_dim, hidden_size)
@@ -445,6 +450,8 @@ class FlowMatchingTransformer(pl.LightningModule):
         # x_1: Real Data
         # cond: Conditioning
         x_1, images = batch
+        if self.image_encoder is None:
+            raise RuntimeError("image_encoder is required for training")
         images = images.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         batch_size = x_1.size(0)
         device = x_1.device
@@ -625,6 +632,8 @@ class FlowMatchingTransformer(pl.LightningModule):
 
         # batch is (curve_tensor, image_tensor)
         target_curves, images_input = batch
+        if self.image_encoder is None:
+            raise RuntimeError("image_encoder is required for validation inference")
         images_input = images_input.squeeze(1)  # [B, 1, 3, H, W] -> [B, 3, H, W]
         num_samples = images_input.shape[0]
 

@@ -4,9 +4,17 @@ import torch
 import typer
 from PIL import Image
 from tqdm.auto import tqdm
-from transformers import AutoImageProcessor
 
 import model as model_module
+from flow_matching_hf import (
+    CONFIG_NAME,
+    DEFAULT_SUBFOLDER,
+    DINO_MODEL_NAME,
+    WEIGHTS_NAME,
+    load_dino_encoder,
+    load_flow_matching_from_files,
+    load_flow_matching_from_hub,
+)
 from model import FlowMatchingTransformer
 from parsing import save_bezier_shapes_to_svg
 from raster import render_svg_bg
@@ -16,7 +24,6 @@ from representation import tensor_to_shapes
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 PNG_SUFFIXES = {".png"}
-DINO_MODEL_NAME = "facebook/dinov3-vits16-pretrain-lvd1689m"
 
 
 def _png_paths(folder: Path, recursive: bool) -> list[Path]:
@@ -55,6 +62,44 @@ def _load_rgb_image(path: Path) -> Image.Image:
         return image.convert("RGB")
 
 
+def _load_module(
+    checkpoint: Path | None,
+    model_repo_id: str | None,
+    model_subfolder: str,
+    device: torch.device,
+) -> FlowMatchingTransformer:
+    if checkpoint is not None and model_repo_id is not None:
+        raise typer.BadParameter("Use either --checkpoint or --model-repo-id, not both")
+
+    if model_repo_id is not None:
+        print(f"Loading flow-matching model from Hub: {model_repo_id}/{model_subfolder}")
+        return load_flow_matching_from_hub(
+            repo_id=model_repo_id,
+            subfolder=model_subfolder,
+            device=device,
+        )
+
+    if checkpoint is None:
+        raise typer.BadParameter("Either --checkpoint or --model-repo-id is required")
+
+    print(f"Loading checkpoint: {checkpoint}")
+    if checkpoint.suffix == ".safetensors":
+        config_path = checkpoint.with_name(CONFIG_NAME)
+        if not config_path.exists():
+            raise typer.BadParameter(
+                f"Missing config for safetensors checkpoint: {config_path}"
+            )
+        return load_flow_matching_from_files(checkpoint, config_path, device=device)
+
+    module = FlowMatchingTransformer.load_from_checkpoint(
+        str(checkpoint),
+        map_location=device,
+    )
+    module.to(device)
+    module.eval()
+    return module
+
+
 def _batched(items: list[Path], batch_size: int):
     for start in range(0, len(items), batch_size):
         yield items[start : start + batch_size]
@@ -66,15 +111,25 @@ def main(
         ..., exists=True, file_okay=False, dir_okay=True, readable=True
     ),
     output_dir: Path = typer.Argument(..., file_okay=False, dir_okay=True),
-    checkpoint: Path = typer.Option(
-        ...,
+    checkpoint: Path | None = typer.Option(
+        None,
         "--checkpoint",
         "-c",
-        exists=True,
         file_okay=True,
         dir_okay=False,
         readable=True,
-        help="PyTorch Lightning checkpoint for FlowMatchingTransformer.",
+        help=(
+            "Local PyTorch Lightning .ckpt or exported "
+            f"{WEIGHTS_NAME}. Required unless --model-repo-id is set."
+        ),
+    ),
+    model_repo_id: str | None = typer.Option(
+        None,
+        help="Hugging Face model repo containing the exported flow-matching files.",
+    ),
+    model_subfolder: str = typer.Option(
+        DEFAULT_SUBFOLDER,
+        help="Subfolder in the Hugging Face repo containing config and weights.",
     ),
     batch_size: int = typer.Option(
         8,
@@ -136,15 +191,23 @@ def main(
     if preview_png_dir is not None:
         preview_png_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading checkpoint: {checkpoint}")
-    module = FlowMatchingTransformer.load_from_checkpoint(
-        str(checkpoint),
-        map_location=resolved_device,
+    module = _load_module(
+        checkpoint=checkpoint,
+        model_repo_id=model_repo_id,
+        model_subfolder=model_subfolder,
+        device=resolved_device,
     )
-    module.to(resolved_device)
-    module.eval()
 
-    processor = AutoImageProcessor.from_pretrained(DINO_MODEL_NAME)
+    if module.image_encoder is None:
+        processor, image_encoder = load_dino_encoder(
+            device=resolved_device,
+            model_name=DINO_MODEL_NAME,
+        )
+    else:
+        from transformers import AutoImageProcessor
+
+        processor = AutoImageProcessor.from_pretrained(DINO_MODEL_NAME)
+        image_encoder = module.image_encoder
 
     written = 0
     skipped = 0
@@ -158,7 +221,7 @@ def main(
                 "pixel_values"
             ].to(resolved_device)
 
-            cond = module.image_encoder(pixel_values=pixel_values).last_hidden_state
+            cond = image_encoder(pixel_values=pixel_values).last_hidden_state
             samples = module.sample(
                 cond.float(),
                 steps=steps,
