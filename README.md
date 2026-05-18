@@ -4,20 +4,20 @@
 
 <table>
   <tr>
-    <td align="center"><img src="huggingface/assets/lighthouse.svg" width="120" alt="A simple lighthouse icon"></td>
-    <td align="center"><img src="huggingface/assets/rocket.svg" width="120" alt="A minimal rocket icon"></td>
-    <td align="center"><img src="huggingface/assets/cat.svg" width="120" alt="A cute cat face icon"></td>
-    <td align="center"><img src="huggingface/assets/potion.svg" width="120" alt="A magic potion bottle with bubbles, sparkles, cork, and label"></td>
-    <td align="center"><img src="huggingface/assets/cabin.svg" width="120" alt="A cozy cabin in the woods with a chimney, pine trees, and a crescent moon"></td>
-    <td align="center"><img src="huggingface/assets/steampunk.svg" width="120" alt="A steampunk hot air balloon with gears, ropes, basket, and brass details"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/lighthouse.svg" width="120" alt="A simple lighthouse icon"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/rocket.svg" width="120" alt="A minimal rocket icon"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/cat.svg" width="120" alt="A cute cat face icon"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/potion.svg" width="120" alt="A magic potion bottle with bubbles, sparkles, cork, and label"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/cabin.svg" width="120" alt="A cozy cabin in the woods with a chimney, pine trees, and a crescent moon"></td>
+    <td align="center" width="16.66%"><img src="huggingface/assets/steampunk.svg" width="120" alt="A steampunk hot air balloon with gears, ropes, basket, and brass details"></td>
   </tr>
   <tr>
-    <td align="center"><small>a simple lighthouse icon</small></td>
-    <td align="center"><small>A minimal rocket icon</small></td>
-    <td align="center"><small>A cute cat face icon</small></td>
-    <td align="center"><small>A magic potion bottle with bubbles, sparkles, cork, and label</small></td>
-    <td align="center"><small>A cozy cabin in the woods with a chimney, pine trees, and a crescent moon</small></td>
-    <td align="center"><small>A steampunk hot air balloon with gears, ropes, basket, and brass details</small></td>
+    <td align="center" width="16.66%"><sub>a simple lighthouse icon</sub></td>
+    <td align="center" width="16.66%"><sub>A minimal rocket icon</sub></td>
+    <td align="center" width="16.66%"><sub>A cute cat face icon</sub></td>
+    <td align="center" width="16.66%"><sub>A magic potion bottle with bubbles, sparkles, cork, and label</sub></td>
+    <td align="center" width="16.66%"><sub>A cozy cabin in the woods with a chimney, pine trees, and a crescent moon</sub></td>
+    <td align="center" width="16.66%"><sub>A steampunk hot air balloon with gears, ropes, basket, and brass details</sub></td>
   </tr>
 </table>
 
