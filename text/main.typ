@@ -2365,7 +2365,11 @@ text prompts_. The pipeline is organized into two stages: a semantic stage that
 generates a raster image matching the prompt, and a geometric stage that
 converts the raster image into _a valid, compact, editable SVG_. This
 decomposition makes the individual stages easier to train and evaluate while
-still supporting end-to-end SVG generation from unseen prompts.
+still supporting end-to-end SVG generation from unseen prompts. In the
+qualitative end-to-end comparison, the proposed pipeline clearly outperforms
+the tested direct OmniSVG baselines: it preserves the requested objects and
+icon-like compositions, while the baselines frequently produce incomplete,
+distorted, or semantically mismatched SVGs.
 
 The best rendered-image fidelity in the end-to-end experiments is achieved by
 _the image-generation model adapted in this thesis from Z-Image_, followed by
