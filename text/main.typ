@@ -560,21 +560,17 @@ approximate by Bezier curves.
 
 For this reason, the first stage is based on the pretrained Z-Image family of
 image-generation models @imageteam2025zimage and adapts it to the target visual
-domain through low-rank adaptation @hu2022lowrank. A LoRA module is trained on a
-dataset of image-text pairs so that the model learns to produce raster outputs
-with the desired vector-like properties without updating the full pretrained
-model.
+domain using paired image-text examples. The goal of this adaptation is to make
+the model produce raster outputs with the desired vector-like properties while
+retaining the semantic coverage of the pretrained generator.
 
 The raster generator must also be practical to use repeatedly, because it is
 needed for qualitative inspection, ablation experiments, and the final
-end-to-end demonstration. Z-Image was chosen partly for this reason. The
-released checkpoints are distributed under the Apache-2.0 license, which avoids
-the non-commercial restrictions present in some alternative text-to-image
-systems and supports an open research implementation @tongyimaiZImageModelCard
-@tongyimaiZImageTurboModelCard. The model family is also comparatively compact:
-the Z-Image paper describes a 6B-parameter architecture and explicitly compares
-it with selected contemporary open models with much larger parameter counts,
-including Qwen-Image (20B) @wu2025qwenimagetechnicalreport, FLUX.2 (32B)
+end-to-end demonstration. Z-Image provides a comparatively compact starting
+point for these experiments: the Z-Image paper describes a 6B-parameter
+architecture and reports performance competitive with selected contemporary
+open models with much larger parameter counts, including Qwen-Image (20B)
+@wu2025qwenimagetechnicalreport, FLUX.2 (32B)
 @blackforestlabsFlux2DevModelCard, and HunyuanImage 3.0 (80B)
 @cao2025hunyuanimage @imageteam2025zimage.
 
@@ -592,7 +588,11 @@ knowledge of the pretrained text-to-image system while changing only a
 comparatively small number of parameters. LoRA provides this parameter-efficient
 fine-tuning mechanism. Instead of updating all weights of a large pretrained
 model, it freezes the base weights and learns small trainable low-rank matrices
-whose product approximates the desired weight update @hu2022lowrank.
+whose product approximates the desired weight update @hu2022lowrank. Because
+the original weights are not overwritten, this also reduces the risk of
+forgetting the pretrained model's general prompt-following and image-generation
+capabilities, consistent with findings on parameter-efficient fine-tuning in
+vision transformers @bafghi2024peftvitforgetting.
 
 For inference, the base Z-Image model and the accelerated Z-Image Turbo
 model were evaluated with different sampling settings. The base model was
@@ -636,24 +636,18 @@ selection are evaluated in @sec:stage1-evaluation.
 
 == Evaluation <sec:stage1-evaluation>
 
-The comparison of several Stage 1 variants is shown qualitatively in
-@tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
-compared variants include the base Z-Image model, prompt-prefixing strategies,
-the accelerated `Z-Image-Turbo` model, and a LoRA adaptation applied
-to the turbo pipeline. Higher CLIP and DINO similarity indicate better alignment
-with the reference images, whereas lower vectorization MSE indicates that the
-generated raster outputs are easier to convert in the second stage.
-
-CLIP-based
-similarity uses a joint image-text representation learned from natural-language
-supervision and is therefore useful for measuring semantic alignment
-@radford2021learning. DINO-based similarity uses self-supervised visual
-features intended to transfer across image distributions and tasks
+Both CLIP and DINO scores are computed as cosine similarities between
+normalized feature vectors,
+$ "sim"(a, b) = (a dot b) / (||a||_2 ||b||_2) $
+CLIP-based similarity uses a joint image-text representation learned from
+natural-language supervision and is therefore useful for measuring semantic
+alignment @radford2021learning. DINO-based similarity uses self-supervised
+visual features intended to transfer across image distributions and tasks
 @oquab2023dinov2. Both types of feature-space similarity are also relevant
 because they have been reported to correlate well with human preference in
 vector-graphics evaluation @rodriguez2024starvector.
 
-The vectorization MSE is a round-trip traceability metric. For each generated
+The vectorization MSE measures how well a raster image can be vectorized. For each generated
 raster image, the benchmark first converts the image to SVG using `vtracer`, an
 open-source raster-to-vector converter that traces color raster images into SVG
 paths @visioncortexVtracer, with its default command-line settings. The
@@ -678,120 +672,18 @@ SVG may differ slightly at the pixel level @selinger2003potrace
 proxy for traceability, not as a replacement for evaluating path count,
 primitive structure, or editability.
 
-#figure(
-  table(
-    columns: (2.5fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left + horizon, center, center, center, center),
-    inset: 4pt,
-    stroke: (x, y) => (
-      left: none,
-      top: if y == 0 {
-        none
-      } else {
-        0.4pt
-      },
-    ),
-    [Reference],
-    image("assets/raster/reference/0001.png", width: 100%),
-    image("assets/raster/reference/0002.png", width: 100%),
-    image("assets/raster/reference/0003.png", width: 100%),
-    image("assets/raster/reference/0004.png", width: 100%),
+The LoRA adaptation was first evaluated separately in order to select a rank
+and checkpoint for the Stage 1 comparison. Three LoRA ranks, namely 4, 16, and
+64, were evaluated at checkpoints saved every 500 steps. The resulting CLIP
+similarity, DINO similarity, and vectorization MSE values are summarized in
+@tab:lora-experiment. Due to computational
+constraints, the experiment was evaluated on a subset of 100 validation samples
+rather than on the full validation set of 1010 samples. The explored grid of
+ranks and checkpoints is therefore intentionally coarse.
 
-    [Z-Image Base],
-    image("assets/raster/base/0001.png", width: 100%),
-    image("assets/raster/base/0002.png", width: 100%),
-    image("assets/raster/base/0003.png", width: 100%),
-    image("assets/raster/base/0004.png", width: 100%),
-
-    [Z-Image Base\ prefixed],
-    image("assets/raster/base_prefixed/0001.png", width: 100%),
-    image("assets/raster/base_prefixed/0002.png", width: 100%),
-    image("assets/raster/base_prefixed/0003.png", width: 100%),
-    image("assets/raster/base_prefixed/0004.png", width: 100%),
-
-    [Z-Image Base\ prefixed + LoRA],
-    image("assets/raster/base_prefixed_lora/0001.png", width: 100%),
-    image("assets/raster/base_prefixed_lora/0002.png", width: 100%),
-    image("assets/raster/base_prefixed_lora/0003.png", width: 100%),
-    image("assets/raster/base_prefixed_lora/0004.png", width: 100%),
-
-    [Z-Image Turbo],
-    image("assets/raster/turbo/0001.png", width: 100%),
-    image("assets/raster/turbo/0002.png", width: 100%),
-    image("assets/raster/turbo/0003.png", width: 100%),
-    image("assets/raster/turbo/0004.png", width: 100%),
-
-    [Z-Image Turbo\ prefixed],
-    image("assets/raster/turbo_prefixed/0001.png", width: 100%),
-    image("assets/raster/turbo_prefixed/0002.png", width: 100%),
-    image("assets/raster/turbo_prefixed/0003.png", width: 100%),
-    image("assets/raster/turbo_prefixed/0004.png", width: 100%),
-
-    [Z-Image Turbo\ prefixed + LoRA],
-    image("assets/raster/turbo_prefixed_lora/0001.png", width: 100%),
-    image("assets/raster/turbo_prefixed_lora/0002.png", width: 100%),
-    image("assets/raster/turbo_prefixed_lora/0003.png", width: 100%),
-    image("assets/raster/turbo_prefixed_lora/0004.png", width: 100%),
-
-    table.cell(colspan: 5, inset: 1.5pt)[],
-
-    [OmniSVG1.1 8B],
-    image("assets/raster/omnisvg_8b/0001.png", width: 100%),
-    image("assets/raster/omnisvg_8b/0002.png", width: 100%),
-    image("assets/raster/omnisvg_8b/0003.png", width: 100%),
-    image("assets/raster/omnisvg_8b/0004.png", width: 100%),
-
-    [OmniSVG1.1 4B],
-    image("assets/raster/omnisvg_4b/0001.png", width: 100%),
-    image("assets/raster/omnisvg_4b/0002.png", width: 100%),
-    image("assets/raster/omnisvg_4b/0003.png", width: 100%),
-    image("assets/raster/omnisvg_4b/0004.png", width: 100%),
-  ),
-  caption: [Qualitative Stage 1 comparison of text-to-raster model variants.],
-) <tab:stage1-raster-examples>
-
-#figure(
-  table(
-    columns: (3.1fr, 1fr, 1fr, 1fr),
-    align: (left + horizon, center, center, center),
-    inset: 6pt,
-    stroke: (x, y) => (
-      left: none,
-      top: if y == 0 { none } else { 0.4pt },
-    ),
-    table.header(
-      [Variant],
-      [#text(size: 8pt)[CLIP\ similarity] ↑],
-      [#text(size: 8pt)[DINO\ similarity] ↑],
-      [#text(size: 8pt)[Vectorization MSE] ↓],
-    ),
-    [Z-Image Base], [0.818], [0.509], [266.565],
-    [Z-Image Base prefixed], [0.820], [0.546], [230.160],
-    [Z-Image Base prefixed + LoRA], [#strong[0.883]], [#strong[0.617]], [145.453],
-    [Z-Image Turbo], [0.827], [0.510], [227.692],
-    [Z-Image Turbo prefixed], [0.871], [0.584], [142.712],
-    [Z-Image Turbo prefixed + LoRA], [0.879], [0.600], [143.175],
-    table.cell(colspan: 4, inset: 1.5pt)[],
-    [OmniSVG1.1 8B], [0.834], [0.425], [#strong[51.146]],
-    [OmniSVG1.1 4B], [0.828], [0.391], [57.621],
-  ),
-  caption: [Stage 1 benchmark of text-to-raster model variants.],
-) <tab:stage1-benchmark>
-
-An additional experiment was performed for the Stage 1 LoRA adaptation in
-order to evaluate the effect of training duration and LoRA rank. Three LoRA
-ranks, namely 4, 16, and 64, were evaluated at checkpoints saved every 500
-steps. For the files without an explicit checkpoint suffix, the final model is
-interpreted as the 5000-step checkpoint. The resulting CLIP similarity, DINO
-similarity, and vectorization MSE values are summarized together in
-@tab:lora-experiment. Due to computational constraints, the experiment was
-evaluated on a subset of 100 validation samples rather than on the full
-validation set of 1010 samples. The explored grid of ranks and checkpoints is
-therefore intentionally coarse.
-
-A more fine-grained sweep over ranks, training
-durations, and sampling seeds would provide a more precise model-selection
-criterion, but was outside the available compute budget.
+A more fine-grained sweep over ranks, training durations, and sampling seeds
+would provide a more precise model-selection criterion, but was outside the
+available compute budget.
 
 #let lora-table-text(body, weight: "regular") = text(size: 10pt, weight: weight, body)
 
@@ -888,26 +780,11 @@ criterion, but was outside the available compute budget.
     lora-table-text[DINO similarity ↑], lora-table-text[0.620], lora-table-text[0.631], lora-table-text[0.617],
     lora-table-text[Vectorization MSE ↓], lora-table-text[178.814], lora-table-text[166.223], lora-table-text[172.532],
   ),
-  caption: [Stage 1 LoRA experiment results.],
+  caption: [Stage 1 LoRA experiment comparing model quality across different LoRA ranks and training steps.],
 ) <tab:lora-experiment>
 
 #v(1fr)
 #pagebreak()
-
-The results suggest that prompt prefixing has a substantial effect, especially
-for the turbo model. The best overall semantic similarity is obtained by the
-`Base prefixed + LoRA` configuration, while the lowest
-vectorization error is achieved by `Turbo prefixed`. This indicates that the
-adapted LoRA model improves perceptual alignment with the references, but its
-advantage with respect to downstream vectorization should be verified on a
-larger evaluation.
-
-The `Base prefixed + LoRA` configuration is therefore used
-as the reference text-to-raster setting in the final end-to-end evaluation,
-where image quality is prioritized. At the same time, `Turbo prefixed + LoRA`
-remains a reasonable practical alternative when inference speed is more
-important, because it preserves most of the semantic-similarity gain while
-using the accelerated turbo sampler.
 
 Based on the rank and checkpoint experiment, the LoRA model with rank 16 at
 3000 training steps was selected for subsequent Stage 1 experiments. This
@@ -915,6 +792,133 @@ checkpoint achieves the highest DINO similarity and the lowest vectorization
 MSE in the experiment. Although its CLIP similarity is slightly lower than the
 best observed value, the difference is small, making this checkpoint a
 reasonable choice for subsequent experiments.
+
+The selected LoRA checkpoint is then used in the broader Stage 1 comparison.
+The comparison of several Stage 1 variants is shown qualitatively in
+@tab:stage1-raster-examples and quantitatively in @tab:stage1-benchmark. The
+compared variants include the base Z-Image model, prompt-prefixing strategies,
+the accelerated `Z-Image-Turbo` model, and the LoRA adaptation applied to both
+the base and turbo model variants. Higher CLIP and DINO similarity indicate
+better alignment with the reference images, whereas lower vectorization MSE
+indicates that the generated raster outputs are easier to convert in the
+second stage.
+
+#figure(
+  table(
+    columns: (2.5fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left + horizon, center, center, center, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: none,
+      top: if y == 0 {
+        none
+      } else {
+        0.4pt
+      },
+    ),
+    [Reference],
+    image("assets/raster/reference/0001.png", width: 100%),
+    image("assets/raster/reference/0002.png", width: 100%),
+    image("assets/raster/reference/0003.png", width: 100%),
+    image("assets/raster/reference/0004.png", width: 100%),
+
+    [Z-Image Base],
+    image("assets/raster/base/0001.png", width: 100%),
+    image("assets/raster/base/0002.png", width: 100%),
+    image("assets/raster/base/0003.png", width: 100%),
+    image("assets/raster/base/0004.png", width: 100%),
+
+    [Z-Image Base\ prefixed],
+    image("assets/raster/base_prefixed/0001.png", width: 100%),
+    image("assets/raster/base_prefixed/0002.png", width: 100%),
+    image("assets/raster/base_prefixed/0003.png", width: 100%),
+    image("assets/raster/base_prefixed/0004.png", width: 100%),
+
+    [Z-Image Base\ prefixed + LoRA],
+    image("assets/raster/base_prefixed_lora/0001.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0002.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0003.png", width: 100%),
+    image("assets/raster/base_prefixed_lora/0004.png", width: 100%),
+
+    [Z-Image Turbo],
+    image("assets/raster/turbo/0001.png", width: 100%),
+    image("assets/raster/turbo/0002.png", width: 100%),
+    image("assets/raster/turbo/0003.png", width: 100%),
+    image("assets/raster/turbo/0004.png", width: 100%),
+
+    [Z-Image Turbo\ prefixed],
+    image("assets/raster/turbo_prefixed/0001.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0002.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0003.png", width: 100%),
+    image("assets/raster/turbo_prefixed/0004.png", width: 100%),
+
+    [Z-Image Turbo\ prefixed + LoRA],
+    image("assets/raster/turbo_prefixed_lora/0001.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0002.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0003.png", width: 100%),
+    image("assets/raster/turbo_prefixed_lora/0004.png", width: 100%),
+
+    table.cell(colspan: 5, inset: 1.5pt)[],
+
+    [OmniSVG1.1 8B],
+    image("assets/raster/omnisvg_8b/0001.png", width: 100%),
+    image("assets/raster/omnisvg_8b/0002.png", width: 100%),
+    image("assets/raster/omnisvg_8b/0003.png", width: 100%),
+    image("assets/raster/omnisvg_8b/0004.png", width: 100%),
+
+    [OmniSVG1.1 4B],
+    image("assets/raster/omnisvg_4b/0001.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0002.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0003.png", width: 100%),
+    image("assets/raster/omnisvg_4b/0004.png", width: 100%),
+  ),
+  caption: [Qualitative Stage 1 comparison of text-to-raster model variants alongside existing text-to-SVG models.],
+) <tab:stage1-raster-examples>
+
+#figure(
+  table(
+    columns: (3.1fr, 1fr, 1fr, 1fr),
+    align: (left + horizon, center, center, center),
+    inset: 6pt,
+    stroke: (x, y) => (
+      left: none,
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header(
+      [Variant],
+      [#text(size: 8pt)[CLIP\ similarity] ↑],
+      [#text(size: 8pt)[DINO\ similarity] ↑],
+      [#text(size: 8pt)[Vectorization MSE] ↓],
+    ),
+    [Z-Image Base], [0.818], [0.509], [266.565],
+    [Z-Image Base prefixed], [0.820], [0.546], [230.160],
+    [Z-Image Base prefixed + LoRA], [#strong[0.883]], [#strong[0.617]], [145.453],
+    [Z-Image Turbo], [0.827], [0.510], [227.692],
+    [Z-Image Turbo prefixed], [0.871], [0.584], [#strong[142.712]],
+    [Z-Image Turbo prefixed + LoRA], [0.879], [0.600], [143.175],
+    table.cell(colspan: 4, inset: 1.5pt)[],
+    [OmniSVG1.1 8B], [0.834], [0.425], [51.146],
+    [OmniSVG1.1 4B], [0.828], [0.391], [57.621],
+  ),
+  caption: [Stage 1 benchmark of text-to-raster model variants. For comparison, the metrics are also reported for the existing text-to-SVG model OmniSVG.],
+) <tab:stage1-benchmark>
+
+The results suggest that prompt prefixing, i.e. adding a fixed SVG-style
+instruction before each user prompt, has a substantial effect, especially for
+the turbo model. The best overall semantic similarity is obtained by the `Base
+prefixed + LoRA` configuration, while the lowest vectorization error is
+achieved by `Turbo prefixed`. The LoRA adaptation
+substantially improves both semantic similarity and vectorization MSE for the
+base model, but for the turbo model its effect is mostly limited to semantic
+similarity: the vectorization MSE remains nearly unchanged compared with
+`Turbo prefixed`.
+
+The `Base prefixed + LoRA` configuration is therefore used
+as the reference text-to-raster setting in the final end-to-end evaluation,
+where image quality is prioritized. At the same time, `Turbo prefixed + LoRA`
+remains a reasonable practical alternative when inference speed is more
+important, because it preserves most of the semantic-similarity gain while
+using the accelerated turbo sampler.
 
 = Stage 2: Vectorization
 
@@ -931,13 +935,13 @@ generation, and the architecture of the proposed vectorizer.
 
 The representation must satisfy two competing requirements. It should be close
 enough to SVG to reconstruct ordinary path geometry, but regular enough to serve
-as the output space of a neural generative model. Flow matching operates
-naturally in a continuous vector space, so a fixed-dimensional continuous
-descriptor for each segment is more suitable than a heterogeneous command
-language containing separate primitives for lines, arcs, rectangles, circles,
-and paths. Converting all supported geometry to cubic Bezier segments therefore
-gives the model a single native output type while still preserving the ability
-to reconstruct standard SVG paths @w3c2011svgpaths.
+as the output space of a neural generative model. A fixed-dimensional
+continuous descriptor for each segment is more suitable for this purpose than a
+heterogeneous command language containing separate primitives for lines, arcs,
+rectangles, circles, and paths. Converting all supported geometry to cubic
+Bezier segments therefore gives the model a single native output type while
+still preserving the ability to reconstruct standard SVG paths
+@w3c2011svgpaths.
 
 The vector output used throughout this work is therefore based on a hierarchical
 representation consisting of shapes, paths, and individual Bezier segments. A
@@ -951,10 +955,10 @@ two control points, and $(x_3, y_3)$ is the endpoint. This convention is used
 for geometric manipulation and SVG export.
 
 This representation also covers common geometric primitives that are not
-originally specified as cubic curves. Straight line segments are stored as
-degenerate cubic Bezier curves whose control points lie on the line between
-the endpoints. Circular and elliptical arcs are represented by cubic arc
-approximations.
+originally specified as cubic curves. A straight line segment is a special case
+of a cubic Bezier curve where both control points lie on the segment between
+the endpoints, so the curve has no deviation from the line. Circular and
+elliptical arcs are represented by cubic arc approximations.
 
 For a unit quarter circle from $(1, 0)$ to $(0, 1)$, the
 standard symmetric approximation uses control points $(1, kappa)$ and
@@ -1038,19 +1042,19 @@ preserving the topology required for valid SVG reconstruction.
 
 == SVG conversion to Bezier representation
 
-The source dataset contains SVG files whose graphical content may be expressed
-using a heterogeneous set of primitives, transformations, and grouping
-constructs. Before these data can be used for training, each SVG must be
-converted into a uniform representation compatible with the tensor encoding
-described above. The conversion procedure therefore maps every supported
-graphical element to a collection of filled cubic Bezier paths together with a
-shared color and opacity.
+Raw SVG files are too varied to be used directly by the fixed tensor
+representation. They may contain different primitive types, nested groups,
+transforms, strokes, and style attributes. Before these data can be used for
+training, each SVG must therefore be converted into a uniform representation
+compatible with the tensor encoding described above. The conversion procedure
+maps every supported graphical element to a collection of filled cubic Bezier
+paths together with a shared color and opacity.
 
 The conversion begins with structural simplification. SVG files are first
-processed externally in Inkscape, a vector graphics editor that supports
-command-line batch processing through actions @inkscapeCommandLine. During this
+processed externally in Inkscape, a vector graphics editor
+@inkscapeCommandLine. During this
 stage, all objects are converted to paths and strokes are expanded into filled
-outlines. This step removes many forms of SVG variability and ensures that the
+outlines. This step removes many forms of SVG variability and ensures that the // TODO: tady mozna nejaka ilutrace nebo neco
 subsequent parser operates on explicit geometric contours rather than on
 higher-level drawing commands. Several classes of samples are excluded before
 conversion, namely SVGs containing gradient definitions, masks, or embedded
@@ -1068,8 +1072,8 @@ Each shape is then rewritten as a path object and reified so that all geometric
 commands are made explicit. The resulting path is decomposed segment by
 segment, and every segment is converted to cubic Bezier form. This conversion
 is exact for native cubic Bezier segments. Straight lines and closing commands
-are represented as degenerate cubic curves whose control points lie on the line
-between the endpoints at one-third and two-thirds of its length.
+use the degenerate cubic representation described above.
+// TODO: Zkontrolovat jestli to neni nejak divne vyduplikovany mezi tema sekcema
 
 Quadratic
 Bezier segments are elevated to cubic form by the standard degree-elevation
@@ -1085,25 +1089,16 @@ in the same format.
 
 Consequently, all supported SVG geometry is reduced to a single primitive type.
 
-An additional normalization step is applied when the original SVG uses the
-`evenodd` fill rule. The internal representation and SVG export assume the
-non-zero winding rule, so contour orientations must be adjusted to preserve the
-same filled region. The implemented procedure first splits the curve sequence
-into contiguous subpaths, then estimates the nesting depth of each subpath by
-testing whether a representative point lies inside other subpaths. Subpaths at
-even depth are treated as outer boundaries and subpaths at odd depth as holes.
-Their orientation is then reversed when necessary so that outer contours are
-clockwise and holes are counter-clockwise in SVG image coordinates.
-
-This makes
-the geometry compatible with the non-zero rule without changing the visual
-appearance of the shape. The need for this step comes from the SVG fill-rule
-definition. Under the
-non-zero rule, whether a point is inside a shape depends on the signed winding
-of contours around that point, while the even-odd rule depends on how many
-times a ray from the point crosses the path @w3c2011svgpaths. The same visual
-hole can therefore require different contour orientation conventions depending
-on the chosen fill rule.
+When the original SVG uses the `evenodd` fill rule, the converted paths are
+normalized to the non-zero winding rule used by the internal representation and
+export. The procedure splits the curve sequence into subpaths, estimates their
+nesting depth, treats even-depth subpaths as outer boundaries and odd-depth
+subpaths as holes, and reverses their orientation when necessary. This preserves
+the filled region while making the shape compatible with the non-zero rule.
+This conversion is needed because the non-zero rule uses signed contour winding,
+whereas the even-odd rule uses ray-crossing parity. #footnote[The official SVG
+`fill-rule` definition describes the `nonzero` and `evenodd` algorithms:
+https://www.w3.org/TR/2011/REC-SVG11-20110816/painting.html#FillRuleProperty.]
 
 Once all segments have been converted to cubic Bezier curves and, if needed,
 their winding order has been normalized, the curve list is partitioned into
@@ -1113,7 +1108,7 @@ subpath is stored as one `BezierPath`, and the collection of all subpaths with
 their common color and opacity forms one `BezierShape`. The final output of the
 parser is therefore a list of shapes in the same hierarchical form that is
 subsequently transformed into the fixed-length tensor representation used for
-training.
+training. //TODO: ukazka nebo neco
 
 === Converted Bezier dataset
 
@@ -1131,8 +1126,8 @@ contains 177k training samples, 829 validation samples, and 811 test samples
 after conversion and filtering, corresponding to approximately 83% of the
 original default subset. The difference is caused by samples that cannot be
 represented reliably in the current Bezier format: for example SVGs with
-gradients, masks, embedded style blocks, unsupported styling, unsupported
-geometry, or failed path conversion.
+gradients, masks, embedded CSS style blocks, patterned fills, or filter
+effects.
 
 == Synthetic data generator
 
@@ -1227,8 +1222,10 @@ smooth, rough, or spiky.
 For each sampled shape, geometric parameters such as size, aspect ratio,
 rotation, and contour detail are drawn from random intervals that depend on the
 shape category. The object center is then sampled under a margin constraint so
-that the entire shape remains inside the canvas with high probability. An
-approximate extent function is used for this purpose. After construction, the
+that the entire shape remains inside the canvas with high probability. For
+this purpose, the generator estimates how far the transformed shape can extend
+from its center and samples only center positions that leave enough margin to
+the canvas boundary. After construction, the
 outer contour is explicitly oriented counter-clockwise. This establishes a
 consistent winding convention for all synthesized objects.
 
@@ -1259,8 +1256,7 @@ representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
 an RGB image, and finally processed by the DINOv3 image processor. The dataset
 therefore returns the same type of data as the real dataset, namely a tensor of
 Bezier segments and a corresponding conditioning raster image. The same
-training and sampling code can therefore consume synthetic and SVG-derived
-examples.
+training and sampling code can therefore consume synthetic and real data.
 
 == Model architecture
 
