@@ -46,15 +46,15 @@
     data. This decomposition reuses the semantic strength of large raster
     generators while training a smaller model specifically for vector geometry.
 
-    Experiments show that the 0.26B-parameter vectorizer is competitive with
-    neural SVG systems that are 4--31 times larger when reliability,
-    compactness, and rendered fidelity are considered together. Flow matching
-    also outperforms an autoregressive variant of comparable size. On generated
-    rasters, the model produces renderable SVGs for all inputs, unlike the
-    StarVector baselines, which succeed for roughly half of them. Compared with
-    classical tracing, its outputs are more compact but less pixel-faithful. The
-    results identify conditional flow matching as a compact neural route toward
-    editable SVG generation from text.
+    Experiments support this decomposition at both the vectorization and
+    end-to-end levels. The 0.26B-parameter vectorizer is competitive with
+    neural SVG systems that are 4--31 times larger, and flow matching
+    outperforms an autoregressive variant of comparable size. On generated
+    rasters, it produces valid, compact SVGs more reliably than the StarVector
+    baselines, while remaining less pixel-faithful than classical tracing. In
+    qualitative end-to-end examples, the full pipeline outperforms the tested
+    direct OmniSVG baselines by producing more complete and semantically
+    aligned SVGs.
   ],
   keywords: (
     "scalable vector graphics",
