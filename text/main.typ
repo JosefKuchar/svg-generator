@@ -220,8 +220,8 @@ data, assign attributes such as fill color and opacity, decide how shapes are
 layered, and handle the ambiguity that multiple SVG programs can render to very
 similar raster images. Recent SVG-generation systems therefore either generate
 full SVG code with a code-oriented language model @rodriguez2024starvector or
-simplify SVGs into a smaller command vocabulary before training
-@yang2025omnisvg.
+simplify SVGs by removing most SVG attributes and restricting paths to a small
+set of basic draw commands before training @yang2025omnisvg.
 
 From the perspective of this thesis, direct text-to-SVG methods are important
 as a conceptual baseline. They address the same end goal as the proposed
@@ -232,9 +232,11 @@ generation stage and a dedicated vectorization stage.
 
 Representative recent examples include StarVector @rodriguez2024starvector and
 OmniSVG @yang2025omnisvg. Both systems treat SVG generation as a sequence
-modeling problem, but they differ in how much of the SVG language they expose
-to the model and in how they connect visual or textual conditioning to the
-generated vector representation.
+modeling problem, but they make different choices about the output
+representation. StarVector predicts native SVG markup, whereas OmniSVG
+normalizes SVGs into tokenized atomic path and fill commands. The two systems
+also differ in how they connect visual or textual conditioning to the generated
+vector representation.
 
 === StarVector
 
@@ -274,9 +276,14 @@ includes move, line, cubic Bezier, elliptical arc, close-path, and fill
 commands, while coordinates and command types are discretized into tokens. This
 tokenizer places vector geometry into the same sequential modeling framework as
 text and image tokens, but it removes much of the syntactic variability of full
-SVG XML. The model is built on a pretrained vision-language model, Qwen2.5-VL
-@bai2025qwen25vl, and uses text and image inputs as prefix tokens before
-generating the SVG command sequence with a next-token prediction objective.
+SVG XML. For example, the same filled rectangle can be written as a `rect`
+element, as a `path` with line and close-path commands, inside a group that
+inherits its fill color, or under a coordinate transform. A normalized command
+sequence reduces these alternatives to explicit drawing operations and
+attributes. The model is built on a pretrained vision-language model,
+Qwen2.5-VL @bai2025qwen25vl, and uses text and image inputs as prefix tokens
+before generating the SVG command sequence with a next-token prediction
+objective.
 
 The purpose of this parameterization is to separate the higher-level structure
 of the drawing from low-level coordinate prediction. Raw SVG code contains many
@@ -332,9 +339,18 @@ how a noisy vector representation should move toward a valid raster-conditioned
 vector graphic.
 
 Representative approaches include differentiable vector-graphics
-rasterization for optimization and learning @li2020diffvg, layer-wise image
-vectorization @ma2022live, and learned SVG representations such as DeepSVG
-@carlier2020deepsvg.
+rasterization for optimization and learning @li2020diffvg and learned SVG
+representations such as DeepSVG @carlier2020deepsvg.
+
+These works motivate parts of the problem formulation, but they are not direct
+baselines for the evaluation used in this thesis. DiffVG supplies a
+differentiable rasterizer and optimization substrate; turning it into a
+comparable method would require specifying an additional image-fitting pipeline,
+including the primitive budget, initialization, losses, and optimization
+schedule. DeepSVG, in turn, studies generative modeling of existing SVG
+sequences rather than raster-conditioned vectorization. The empirical
+evaluation therefore compares selected systems that can be run as end-to-end
+image-to-SVG methods on the same input set.
 
 Existing vectorizers also serve as empirical baselines. Classical systems such
 as Potrace @selinger2003potrace and `vtracer` @visioncortexVtracer are strong
