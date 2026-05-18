@@ -1099,8 +1099,8 @@ subpaths as holes, and reverses their orientation when necessary. This preserves
 the filled region while making the shape compatible with the non-zero rule.
 This conversion is needed because the non-zero rule uses signed contour winding,
 whereas the even-odd rule uses ray-crossing parity. #footnote[The official SVG
-`fill-rule` definition describes the `nonzero` and `evenodd` algorithms:
-https://www.w3.org/TR/2011/REC-SVG11-20110816/painting.html#FillRuleProperty.]
+  `fill-rule` definition describes the `nonzero` and `evenodd` algorithms:
+  https://www.w3.org/TR/2011/REC-SVG11-20110816/painting.html#FillRuleProperty.]
 
 Once all segments have been converted to cubic Bezier curves and, if needed,
 their winding order has been normalized, the curve list is partitioned into
@@ -1582,7 +1582,7 @@ predicted Bezier representation back to an image.
       left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    [Train reference],
+    [Train\ reference],
     pretraining-sample("assets/pretraining/train/ref/0000.png"),
     pretraining-sample("assets/pretraining/train/ref/0001.png"),
     pretraining-sample("assets/pretraining/train/ref/0002.png"),
@@ -1590,7 +1590,7 @@ predicted Bezier representation back to an image.
     pretraining-sample("assets/pretraining/train/ref/0004.png"),
     pretraining-sample("assets/pretraining/train/ref/0005.png"),
 
-    [Train generated],
+    [Train\ output],
     pretraining-sample("assets/pretraining/train/generated/0000.png"),
     pretraining-sample("assets/pretraining/train/generated/0001.png"),
     pretraining-sample("assets/pretraining/train/generated/0002.png"),
@@ -1598,7 +1598,7 @@ predicted Bezier representation back to an image.
     pretraining-sample("assets/pretraining/train/generated/0004.png"),
     pretraining-sample("assets/pretraining/train/generated/0005.png"),
 
-    [SVG validation reference],
+    [Validation reference],
     pretraining-sample("assets/pretraining/val/ref/0000.png"),
     pretraining-sample("assets/pretraining/val/ref/0001.png"),
     pretraining-sample("assets/pretraining/val/ref/0002.png"),
@@ -1606,7 +1606,7 @@ predicted Bezier representation back to an image.
     pretraining-sample("assets/pretraining/val/ref/0004.png"),
     pretraining-sample("assets/pretraining/val/ref/0005.png"),
 
-    [SVG validation generated],
+    [Validation output],
     pretraining-sample("assets/pretraining/val/generated/0000.png"),
     pretraining-sample("assets/pretraining/val/generated/0001.png"),
     pretraining-sample("assets/pretraining/val/generated/0002.png"),
@@ -1860,23 +1860,32 @@ complexity. Lower values indicate a more compact and potentially more editable
 SVG only when the corresponding fidelity metrics remain competitive, because a
 trivially simple file can also be inaccurate.
 
+#let metric-header(body) = text(size: 8pt, body)
+
 #figure(
   table(
     columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header(
-      [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
+      [Method],
+      metric-header[MSE (0--255) ↓],
+      metric-header[SSIM ↑],
+      metric-header[Mask IoU ↑],
+      metric-header[Boundary F1 at 2 px ↑],
+      metric-header[Chamfer px ↓],
+      metric-header[Hausdorff px ↓],
     ),
-    [Ours 0.26B], [7107.52], [0.653], [0.644], [0.324], [16.04], [103.24],
-    [OmniSVG1.1 4B], [7696.39], [0.621], [0.631], [0.538], [17.84], [145.46],
+    [Ours 0.26B], [7107.52], [#strong[0.653]], [#strong[0.644]], [0.324], [#strong[16.04]], [#strong[103.24]],
+    [OmniSVG1.1 4B], [7696.39], [0.621], [0.631], [#strong[0.538]], [17.84], [145.46],
     [OmniSVG1.1 8B], [8425.56], [0.589], [0.608], [0.516], [18.89], [149.69],
-    [StarVector 1B], [5147.82], [0.652], [0.631], [0.483], [24.26], [143.28],
+    [StarVector 1B], [#strong[5147.82]], [0.652], [0.631], [0.483], [24.26], [143.28],
     [StarVector 8B], [8449.48], [0.461], [0.444], [0.441], [38.75], [229.73],
+    table.cell(colspan: 7, inset: 1.5pt)[],
     [`vtracer`], [92.01], [0.994], [0.984], [0.886], [1.26], [17.20],
   ),
   caption: [Vectorization fidelity on SVG validation samples.],
@@ -1888,17 +1897,24 @@ trivially simple file can also be inaccurate.
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header(
-      [Method], [MSE (0--255) ↓], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑], [Chamfer px ↓], [Hausdorff px ↓]
+      [Method],
+      metric-header[MSE (0--255) ↓],
+      metric-header[SSIM ↑],
+      metric-header[Mask IoU ↑],
+      metric-header[Boundary F1 at 2 px ↑],
+      metric-header[Chamfer px ↓],
+      metric-header[Hausdorff px ↓],
     ),
-    [Ours 0.26B], [2432.57], [0.725], [0.758], [0.390], [14.50], [108.82],
+    [Ours 0.26B], [#strong[2432.57]], [#strong[0.725]], [#strong[0.758]], [0.390], [#strong[14.50]], [#strong[108.82]],
     [OmniSVG1.1 4B], [9591.49], [0.330], [0.432], [0.461], [32.87], [242.00],
     [OmniSVG1.1 8B], [11024.09], [0.283], [0.407], [0.436], [36.07], [253.81],
     [StarVector 1B], [6339.14], [0.314], [0.297], [0.476], [47.02], [317.25],
-    [StarVector 8B], [7536.35], [0.137], [0.104], [0.496], [59.58], [401.38],
+    [StarVector 8B], [7536.35], [0.137], [0.104], [#strong[0.496]], [59.58], [401.38],
+    table.cell(colspan: 7, inset: 1.5pt)[],
     [`vtracer`], [23.95], [0.997], [0.993], [0.920], [1.03], [20.45],
   ),
   caption: [Vectorization fidelity on synthetic-generator samples.],
@@ -1910,15 +1926,23 @@ trivially simple file can also be inaccurate.
     align: (left, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Ours 0.26B], [100.0%], [10329.02], [5.27], [4.27], [102.55],
-    [OmniSVG1.1 4B], [99.4%], [5284.03], [5.04], [4.04], [219.53],
+    table.header(
+      [Method],
+      metric-header[Valid SVG rate ↑],
+      metric-header[SVG bytes ↓],
+      metric-header[Elements ↓],
+      metric-header[Paths ↓],
+      metric-header[Path commands ↓],
+    ),
+    [Ours 0.26B], [#strong[100.0%]], [10329.02], [5.27], [4.27], [#strong[102.55]],
+    [OmniSVG1.1 4B], [99.4%], [5284.03], [#strong[5.04]], [#strong[4.04]], [219.53],
     [OmniSVG1.1 8B], [99.3%], [5296.17], [8.62], [7.62], [206.38],
-    [StarVector 1B], [79.0%], [1957.71], [9.17], [4.09], [118.60],
+    [StarVector 1B], [79.0%], [#strong[1957.71]], [9.17], [4.09], [118.60],
     [StarVector 8B], [65.1%], [2220.83], [10.63], [5.36], [213.25],
+    table.cell(colspan: 6, inset: 1.5pt)[],
     [`vtracer`], [100.0%], [14370.11], [10.68], [9.68], [364.55],
   ),
   caption: [SVG validity and complexity on SVG validation samples.],
@@ -1930,15 +1954,23 @@ trivially simple file can also be inaccurate.
     align: (left, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Method], [Valid SVG rate ↑], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Ours 0.26B], [100.0%], [9090.44], [9.66], [8.66], [90.17],
+    table.header(
+      [Method],
+      metric-header[Valid SVG rate ↑],
+      metric-header[SVG bytes ↓],
+      metric-header[Elements ↓],
+      metric-header[Paths ↓],
+      metric-header[Path commands ↓],
+    ),
+    [Ours 0.26B], [#strong[100.0%]], [9090.44], [#strong[9.66]], [#strong[8.66]], [#strong[90.17]],
     [OmniSVG1.1 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
     [OmniSVG1.1 8B], [98.6%], [9658.08], [29.95], [28.95], [400.92],
-    [StarVector 1B], [43.2%], [4108.50], [30.42], [9.97], [447.18],
+    [StarVector 1B], [43.2%], [#strong[4108.50]], [30.42], [9.97], [447.18],
     [StarVector 8B], [20.5%], [5354.53], [40.59], [14.22], [962.31],
+    table.cell(colspan: 6, inset: 1.5pt)[],
     [`vtracer`], [100.0%], [24468.73], [14.66], [13.66], [625.33],
   ),
   caption: [SVG validity and complexity on synthetic-generator samples.],
@@ -2000,14 +2032,14 @@ the same behavior over the full generated set.
 
 #figure(
   table(
-    columns: (1.25fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (2.2fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left + horizon, center, center, center, center, center, center),
     inset: 3pt,
     stroke: (x, y) => (
       left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    [Reference\ (Z-Image Base\ prefixed + LoRA)],
+    [Reference],
     vectorization-sample("assets/z_image_vectorization/reference/0000.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0001.png"),
     vectorization-sample("assets/z_image_vectorization/reference/0002.png"),
@@ -2055,6 +2087,8 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/starvector_8b/0004.png"),
     vectorization-sample("assets/z_image_vectorization/starvector_8b/0005.png"),
 
+    table.cell(colspan: 7, inset: 1.5pt)[],
+
     [`vtracer`],
     vectorization-sample("assets/z_image_vectorization/vtracer/0000.png"),
     vectorization-sample("assets/z_image_vectorization/vtracer/0001.png"),
@@ -2063,8 +2097,8 @@ the same behavior over the full generated set.
     vectorization-sample("assets/z_image_vectorization/vtracer/0004.png"),
     vectorization-sample("assets/z_image_vectorization/vtracer/0005.png"),
   ),
-  caption: [Qualitative vectorization of generated raster images. The reference
-    row contains rasters generated by the `Z-Image Base prefixed + LoRA`
+  caption: [Qualitative comparison of vectorizers on rasters generated by the selected Stage 1 model. The reference
+    row contains the input rasters from the `Z-Image Base prefixed + LoRA`
     configuration from @sec:stage1-evaluation. Empty cells indicate invalid output.],
 ) <tab:z-image-raster-vectorization-qualitative>
 
@@ -2074,68 +2108,62 @@ the same behavior over the full generated set.
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
-      top: if y == 0 { none } else { 0.4pt },
-    ),
-    table.header(
-      [Method], [MSE (0--255) ↓], [MAE (0--255) ↓], [PSNR dB ↑], [SSIM ↑], [Mask IoU ↑], [Boundary F1 at 2 px ↑]
-    ),
-    [Ours 0.26B], [6004.36], [27.31], [12.15], [0.681], [0.651], [0.371],
-    [OmniSVG1.1 4B], [8973.13], [38.55], [12.07], [0.550], [0.549], [0.527],
-    [OmniSVG1.1 8B], [9923.60], [42.47], [11.58], [0.526], [0.532], [0.503],
-    [StarVector 1B], [5057.47], [22.35], [13.25], [0.729], [0.690], [0.417],
-    [StarVector 8B], [6592.78], [27.77], [12.08], [0.622], [0.596], [0.427],
-    [`vtracer`], [145.45], [2.57], [30.91], [0.984], [0.971], [0.866],
-  ),
-  caption: [Raster-vector-raster fidelity on generated raster images.],
-) <tab:z-image-raster-vectorization-fidelity>
-
-#figure(
-  table(
-    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center, center, center),
-    inset: 4pt,
-    stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
     table.header(
       [Method],
-      [Valid SVG rate ↑],
-      [Boundary F1 at 1 px ↑],
-      [Boundary F1 at 4 px ↑],
-      [Chamfer px ↓],
-      [Hausdorff px ↓],
-      [Render time ms ↓],
+      metric-header[MSE (0--255) ↓],
+      metric-header[SSIM ↑],
+      metric-header[Mask IoU ↑],
+      metric-header[Boundary F1 at 2 px ↑],
+      metric-header[Chamfer px ↓],
+
+      metric-header[Hausdorff px ↓],
     ),
-    [Ours 0.26B], [100.0%], [0.312], [0.444], [15.62], [102.79], [27.70],
-    [OmniSVG1.1 4B], [99.2%], [0.412], [0.640], [22.15], [167.65], [23.96],
-    [OmniSVG1.1 8B], [98.6%], [0.398], [0.603], [24.05], [172.41], [24.82],
-    [StarVector 1B], [49.0%], [0.336], [0.530], [13.09], [88.63], [30.88],
-    [StarVector 8B], [50.5%], [0.361], [0.506], [18.50], [120.81], [25.69],
-    [`vtracer`], [100.0%], [0.696], [0.948], [1.93], [27.91], [23.10],
+    [Ours 0.26B], [6004.36], [0.681], [0.651], [0.371], [15.62], [102.79],
+    [OmniSVG1.1 4B], [8973.13], [0.550], [0.549], [#strong[0.527]], [22.15], [167.65],
+    [OmniSVG1.1 8B], [9923.60], [0.526], [0.532], [0.503], [24.05], [172.41],
+    [StarVector 1B],
+    [#strong[5057.47]],
+    [#strong[0.729]],
+    [#strong[0.690]],
+    [0.417],
+    [#strong[13.09]],
+    [#strong[88.63]],
+    [StarVector 8B], [6592.78], [0.622], [0.596], [0.427], [18.50], [120.81],
+    table.cell(colspan: 7, inset: 1.5pt)[],
+    [`vtracer`], [145.45], [0.984], [0.971], [0.866], [1.93], [27.91],
   ),
-  caption: [Validity, contour alignment, and rendering cost on generated raster images.],
-) <tab:z-image-raster-vectorization-boundary>
+  caption: [Vectorization fidelity on generated raster images.],
+) <tab:z-image-raster-vectorization-fidelity>
 
 #figure(
   table(
-    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr),
-    align: (left, center, center, center, center),
+    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
-      left: if x == 0 { none } else { 0.4pt },
+      left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Method], [SVG bytes ↓], [Elements ↓], [Paths ↓], [Path commands ↓]),
-    [Ours 0.26B], [8005.76], [4.67], [3.67], [79.53],
-    [OmniSVG1.1 4B], [6696.20], [6.46], [5.46], [244.43],
-    [OmniSVG1.1 8B], [6803.54], [10.89], [9.89], [250.28],
-    [StarVector 1B], [2102.44], [11.49], [2.87], [40.14],
-    [StarVector 8B], [1270.68], [7.10], [2.31], [44.36],
-    [`vtracer`], [60192.09], [95.84], [94.84], [1779.18],
+    table.header(
+      [Method],
+      metric-header[Valid SVG rate ↑],
+      metric-header[SVG bytes ↓],
+      metric-header[Elements ↓],
+      metric-header[Paths ↓],
+      metric-header[Path commands ↓],
+    ),
+    [Ours 0.26B], [#strong[100.0%]], [8005.76], [#strong[4.67]], [3.67], [79.53],
+    [OmniSVG1.1 4B], [99.2%], [6696.20], [6.46], [5.46], [244.43],
+    [OmniSVG1.1 8B], [98.6%], [6803.54], [10.89], [9.89], [250.28],
+    [StarVector 1B], [49.0%], [2102.44], [11.49], [2.87], [#strong[40.14]],
+    [StarVector 8B], [50.5%], [#strong[1270.68]], [7.10], [#strong[2.31]], [44.36],
+    table.cell(colspan: 6, inset: 1.5pt)[],
+    [`vtracer`], [100.0%], [60192.09], [95.84], [94.84], [1779.18],
   ),
-  caption: [SVG complexity on generated raster images.],
+  caption: [SVG validity and complexity on generated raster images.],
 ) <tab:z-image-raster-vectorization-complexity>
 
 These results show two different failure modes of the final vectorization
