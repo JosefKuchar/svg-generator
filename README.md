@@ -2,6 +2,25 @@
 
 ## Generative Neural Models for Scalable Vector Graphics
 
+<table>
+  <tr>
+    <td align="center"><img src="huggingface/assets/lighthouse.svg" width="120" alt="A simple lighthouse icon"></td>
+    <td align="center"><img src="huggingface/assets/rocket.svg" width="120" alt="A minimal rocket icon"></td>
+    <td align="center"><img src="huggingface/assets/cat.svg" width="120" alt="A cute cat face icon"></td>
+    <td align="center"><img src="huggingface/assets/potion.svg" width="120" alt="A magic potion bottle with bubbles, sparkles, cork, and label"></td>
+    <td align="center"><img src="huggingface/assets/cabin.svg" width="120" alt="A cozy cabin in the woods with a chimney, pine trees, and a crescent moon"></td>
+    <td align="center"><img src="huggingface/assets/steampunk.svg" width="120" alt="A steampunk hot air balloon with gears, ropes, basket, and brass details"></td>
+  </tr>
+  <tr>
+    <td align="center"><small>a simple lighthouse icon</small></td>
+    <td align="center"><small>A minimal rocket icon</small></td>
+    <td align="center"><small>A cute cat face icon</small></td>
+    <td align="center"><small>A magic potion bottle with bubbles, sparkles, cork, and label</small></td>
+    <td align="center"><small>A cozy cabin in the woods with a chimney, pine trees, and a crescent moon</small></td>
+    <td align="center"><small>A steampunk hot air balloon with gears, ropes, basket, and brass details</small></td>
+  </tr>
+</table>
+
 This repository contains a two-stage neural pipeline for generating SVG images
 from text prompts. The first stage uses Z-Image with an SVG-domain LoRA to
 generate a raster image. The second stage converts the raster image to SVG,

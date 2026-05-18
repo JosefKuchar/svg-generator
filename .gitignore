@@ -24,6 +24,7 @@ benchmark-results/
 
 !text/**/*.png
 !text/**/*.svg
+!huggingface/assets/**
 !text/assets/wandb/
 !text/assets/wandb/**
 outputs/
