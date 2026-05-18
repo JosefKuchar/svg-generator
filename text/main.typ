@@ -1915,7 +1915,7 @@ trivially simple file can also be inaccurate.
 
 #figure(
   table(
-    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (1.7fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
@@ -1924,9 +1924,9 @@ trivially simple file can also be inaccurate.
     ),
     table.header(
       [Method],
-      metric-header[MSE (0--255) ↓],
+      metric-header[MSE\ (0--255) ↓],
       metric-header[SSIM ↑],
-      metric-header[Mask IoU ↑],
+      metric-header[Mask\ IoU ↑],
       metric-header[Boundary F1 at 2 px ↑],
       metric-header[Chamfer px ↓],
       metric-header[Hausdorff px ↓],
@@ -1944,7 +1944,7 @@ trivially simple file can also be inaccurate.
 
 #figure(
   table(
-    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (1.7fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
@@ -1953,9 +1953,9 @@ trivially simple file can also be inaccurate.
     ),
     table.header(
       [Method],
-      metric-header[MSE (0--255) ↓],
+      metric-header[MSE\ (0--255) ↓],
       metric-header[SSIM ↑],
-      metric-header[Mask IoU ↑],
+      metric-header[Mask\ IoU ↑],
       metric-header[Boundary F1 at 2 px ↑],
       metric-header[Chamfer px ↓],
       metric-header[Hausdorff px ↓],
@@ -1982,11 +1982,11 @@ trivially simple file can also be inaccurate.
     ),
     table.header(
       [Method],
-      metric-header[Valid SVG rate ↑],
+      metric-header[Valid\ SVG rate ↑],
       metric-header[SVG bytes ↓],
       metric-header[Elements ↓],
       metric-header[Paths ↓],
-      metric-header[Path commands ↓],
+      metric-header[Path\ commands ↓],
     ),
     [Ours 0.26B], [#strong[100.0%]], [10329.02], [5.27], [4.27], [#strong[102.55]],
     [OmniSVG1.1 4B], [99.4%], [5284.03], [#strong[5.04]], [#strong[4.04]], [219.53],
@@ -2010,11 +2010,11 @@ trivially simple file can also be inaccurate.
     ),
     table.header(
       [Method],
-      metric-header[Valid SVG rate ↑],
+      metric-header[Valid SVG\ rate ↑],
       metric-header[SVG bytes ↓],
       metric-header[Elements ↓],
       metric-header[Paths ↓],
-      metric-header[Path commands ↓],
+      metric-header[Path\ commands ↓],
     ),
     [Ours 0.26B], [#strong[100.0%]], [9090.44], [#strong[9.66]], [#strong[8.66]], [#strong[90.17]],
     [OmniSVG1.1 4B], [99.2%], [9165.78], [13.72], [12.72], [393.75],
@@ -2155,7 +2155,7 @@ the same behavior over the full generated set.
 
 #figure(
   table(
-    columns: (1.4fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    columns: (1.7fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
     align: (left, center, center, center, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
@@ -2164,9 +2164,9 @@ the same behavior over the full generated set.
     ),
     table.header(
       [Method],
-      metric-header[MSE (0--255) ↓],
+      metric-header[MSE\ (0--255) ↓],
       metric-header[SSIM ↑],
-      metric-header[Mask IoU ↑],
+      metric-header[Mask\ IoU ↑],
       metric-header[Boundary F1 at 2 px ↑],
       metric-header[Chamfer px ↓],
 
@@ -2200,11 +2200,11 @@ the same behavior over the full generated set.
     ),
     table.header(
       [Method],
-      metric-header[Valid SVG rate ↑],
+      metric-header[Valid SVG\ rate ↑],
       metric-header[SVG bytes ↓],
       metric-header[Elements ↓],
       metric-header[Paths ↓],
-      metric-header[Path commands ↓],
+      metric-header[Path\ commands ↓],
     ),
     [Ours 0.26B], [#strong[100.0%]], [8005.76], [#strong[4.67]], [3.67], [79.53],
     [OmniSVG1.1 4B], [99.2%], [6696.20], [6.46], [5.46], [244.43],
