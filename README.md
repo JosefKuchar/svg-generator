@@ -178,6 +178,18 @@ The Hugging Face model repository contains:
 The flow-matching vectorizer is conditioned on
 `facebook/dinov3-vits16-pretrain-lvd1689m`, which is loaded separately.
 
+## Main Dependencies
+
+- PyTorch - model implementation, tensor operations, and inference.
+- PyTorch Lightning - training loop, checkpointing, and validation logging.
+- Diffusers - Z-Image pipeline and LoRA loading.
+- Transformers - DINOv3 image encoder and image preprocessing.
+- Hugging Face Hub/Datasets - published model artifacts and training datasets.
+- Typer - command-line interfaces for inference, training, and utilities.
+- `vtracer` - default classical raster-to-SVG vectorizer.
+- `resvg` - SVG rasterization for previews, data generation, and evaluation.
+- FlashAttention - optional faster CUDA attention for supported systems.
+
 ## License
 
 This repository is licensed under the MIT License.
