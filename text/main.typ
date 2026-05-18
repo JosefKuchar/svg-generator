@@ -2257,26 +2257,40 @@ pipeline because an invalid second-stage SVG breaks the generated result. The
 than StarVector 1B, about 15 times smaller than OmniSVG 4B, and about 31 times
 smaller than the 8B baselines.
 
-== Text-to-SVG examples with the proposed pipeline
+== End-to-end text-to-SVG comparison
 
 The quantitative evaluation above measures the behavior of the vectorization
 stage on generated rasters, but the full goal of the thesis is a text-to-SVG
 system. It is therefore useful to also inspect complete outputs where a text
 prompt is first rendered by the adapted Z-Image stage and then converted into
-SVG by the proposed flow-matching vectorizer.
+SVG by a vectorization stage.
 
-@fig:text-svg-proposed-pipeline shows examples produced by the public
-end-to-end pipeline and compares them with OmniSVG outputs for the same
-prompts. The prompts are the same prompts used in the project README.
+@fig:text-svg-proposed-pipeline compares the proposed two-stage pipeline with
+OmniSVG, which generates SVG directly from text. The pipeline variant shown in
+the figure uses the adapted `Z-Image Base prefixed + LoRA` model followed by
+`vtracer`, because this combination gives the strongest rendered fidelity in
+the end-to-end experiments. This comparison therefore isolates the practical
+value of the pipeline decomposition: text understanding and visual composition
+are handled by a pretrained raster generator, while the final SVG is obtained
+by a separate vectorization step.
+
+The examples show a clear qualitative advantage for the pipeline formulation on
+these prompts. The proposed pipeline usually preserves the requested object and
+icon-like composition, whereas both OmniSVG variants often produce incomplete,
+distorted, or semantically mismatched drawings. The direct text-to-SVG models
+remain attractive because they avoid an intermediate raster image, but these
+examples indicate that the intermediate raster representation can make the
+overall system substantially more robust.
 
 #let text-svg-output(path) = box(
-  width: 54pt,
-  inset: 4pt,
+  width: 66pt,
+  inset: 2pt,
   stroke: 0.4pt + gray,
   image(path, width: 100%),
 )
 
 #let text-svg-prompt(body) = text(size: 8.5pt, body)
+#let text-svg-model-header(body) = text(size: 9pt, body)
 
 #let text-svg-row(prompt, proposed, omnisvg-4b, omnisvg-8b) = (
   text-svg-prompt(prompt),
@@ -2287,22 +2301,57 @@ prompts. The prompts are the same prompts used in the project README.
 
 #figure(
   table(
-    columns: (1fr, 72pt, 72pt, 72pt),
-    align: (left + horizon, center),
+    columns: (1.5fr, 1fr, 1fr, 1fr),
+    align: (left + horizon, center, center, center),
     inset: 4pt,
     stroke: (x, y) => (
       left: none,
       top: if y == 0 { none } else { 0.4pt },
     ),
-    table.header([Prompt], [`Z-Image Base + LoRA + vtracer` SVG], [OmniSVG1.1 4B], [OmniSVG1.1 8B]),
-    ..text-svg-row([a simple lighthouse icon], "assets/text_svg_pipeline/lighthouse.svg", "assets/text_svg_pipeline/omnisvg_4b/lighthouse.svg", "assets/text_svg_pipeline/omnisvg_8b/lighthouse.svg"),
-    ..text-svg-row([A minimal rocket icon], "assets/text_svg_pipeline/rocket.svg", "assets/text_svg_pipeline/omnisvg_4b/rocket.svg", "assets/text_svg_pipeline/omnisvg_8b/rocket.svg"),
-    ..text-svg-row([A cute cat face icon], "assets/text_svg_pipeline/cat.svg", "assets/text_svg_pipeline/omnisvg_4b/cat.svg", "assets/text_svg_pipeline/omnisvg_8b/cat.svg"),
-    ..text-svg-row([A magic potion bottle with bubbles, sparkles, cork, and label], "assets/text_svg_pipeline/potion.svg", "assets/text_svg_pipeline/omnisvg_4b/potion.svg", "assets/text_svg_pipeline/omnisvg_8b/potion.svg"),
-    ..text-svg-row([A cozy cabin in the woods with a chimney, pine trees, and a crescent moon], "assets/text_svg_pipeline/cabin.svg", "assets/text_svg_pipeline/omnisvg_4b/cabin.svg", "assets/text_svg_pipeline/omnisvg_8b/cabin.svg"),
-    ..text-svg-row([A steampunk hot air balloon with gears, ropes, basket, and brass details], "assets/text_svg_pipeline/steampunk.svg", "assets/text_svg_pipeline/omnisvg_4b/steampunk.svg", "assets/text_svg_pipeline/omnisvg_8b/steampunk.svg"),
+    table.header(
+      [Prompt],
+      text-svg-model-header[Proposed pipeline\ Z-Image + vtracer],
+      text-svg-model-header[Direct text-to-SVG\ OmniSVG1.1 4B],
+      text-svg-model-header[Direct text-to-SVG\ OmniSVG1.1 8B],
+    ),
+    ..text-svg-row(
+      [a simple lighthouse icon],
+      "assets/text_svg_pipeline/lighthouse.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/lighthouse.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/lighthouse.svg",
+    ),
+    ..text-svg-row(
+      [A minimal rocket icon],
+      "assets/text_svg_pipeline/rocket.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/rocket.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/rocket.svg",
+    ),
+    ..text-svg-row(
+      [A cute cat face icon],
+      "assets/text_svg_pipeline/cat.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/cat.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/cat.svg",
+    ),
+    ..text-svg-row(
+      [A magic potion bottle with bubbles, sparkles, cork, and label],
+      "assets/text_svg_pipeline/potion.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/potion.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/potion.svg",
+    ),
+    ..text-svg-row(
+      [A cozy cabin in the woods with a chimney, pine trees, and a crescent moon],
+      "assets/text_svg_pipeline/cabin.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/cabin.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/cabin.svg",
+    ),
+    ..text-svg-row(
+      [A steampunk hot air balloon with gears, ropes, basket, and brass details],
+      "assets/text_svg_pipeline/steampunk.svg",
+      "assets/text_svg_pipeline/omnisvg_4b/steampunk.svg",
+      "assets/text_svg_pipeline/omnisvg_8b/steampunk.svg",
+    ),
   ),
-  caption: [Text-to-SVG examples generated by the proposed end-to-end pipeline and OmniSVG.],
+  caption: [End-to-end text-to-SVG examples generated by the proposed two-stage pipeline and by direct OmniSVG baselines.],
 ) <fig:text-svg-proposed-pipeline>
 
 #heading(level: 1, numbering: none)[Conclusion]
