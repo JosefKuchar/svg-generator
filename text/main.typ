@@ -148,6 +148,8 @@ questions:
 - What trade-offs arise between raster fidelity, SVG validity, compactness, and
   practical editability?
 
+#pagebreak()
+
 To answer these questions, the thesis develops the components needed for an
 end-to-end text-to-SVG pipeline: a training procedure for adapting a pretrained
 text-to-image model to an SVG-like raster domain, an SVG normalization
@@ -1325,13 +1327,20 @@ transformer backbone is suitable for the second requirement because it can model
 dependencies among segment tokens while attending to visual features from the
 input image @vaswani2017attention.
 
-The predictive model is therefore a conditional flow-matching transformer. Its
-input consists of two parts: a sequence of noisy Bezier-segment descriptors and
-a raster conditioning image. The output is a sequence of the same length and
-dimensionality as the Bezier input, interpreted as a velocity field in
-representation space. The architecture operates directly on the continuous
-tensor representation introduced above and predicts how a noisy sample should
-move toward a valid vector graphic conditioned on the raster image.
+The predictive model is therefore a conditional flow-matching transformer, shown
+at a high level in @fig:vectorizer-architecture. Its input consists of two
+parts: a sequence of noisy Bezier-segment descriptors and a raster conditioning
+image. The output is a sequence of the same length and dimensionality as the
+Bezier input, interpreted as a velocity field in representation space. The
+architecture operates directly on the continuous tensor representation
+introduced above and predicts how a noisy sample should move toward a valid
+vector graphic conditioned on the raster image.
+
+#figure(
+  image("assets/architecture.svg", width: 90%),
+  caption: [High-level structure of the proposed conditional flow-matching
+    vectorizer.],
+) <fig:vectorizer-architecture>
 
 === Training objective
 
@@ -1490,10 +1499,14 @@ of overfitting and allows controlled experiments with scene complexity, segment
 count, and object diversity.
 
 In the current experimental setup, synthetic pretraining was performed on a
-single NVIDIA H200 GPU with batch size 256 for approximately 10 days.
-
-// TODO: Add exact pretraining configuration, including number of epochs,
-// synthetic scene parameters, optimizer settings, and checkpoint selection.
+single NVIDIA H200 GPU with batch size 256 for approximately 10 days, totaling
+about 1.5 million optimization steps. The model used hidden size 768, 16
+transformer layers, 12 attention heads, and a maximum sequence length of 256
+Bezier segments. Optimization used AdamW with learning rate $1e-4$, bfloat16
+mixed precision, gradient clipping with norm 1.0, and FlashAttention 2
+@dao2023flashattention2. Conditioning dropout was applied with probability
+10%. Synthetic scenes contained between 1 and 10 shapes, and the checkpoint was
+selected according to the lowest validation rendered-image MSE.
 
 === Fine-tuning on the SVG dataset
 
@@ -1504,15 +1517,13 @@ design conventions. The model is therefore fine-tuned on SVG files converted
 into the internal Bezier representation, which adapts it from the simplified
 synthetic distribution to the final task distribution.
 
-Conceptually, the second phase can be viewed as domain adaptation. The model
-enters this phase already equipped with a prior over valid vector geometry and
-must then specialize that prior to the statistics of the target dataset. This
-two-stage training procedure is expected to be more data-efficient and more
-stable than training exclusively on the real SVG dataset from random
-initialization.
-
-// TODO: Add fine-tuning details, including dataset split, learning-rate
-// schedule, stopping criterion, and comparison against training from scratch.
+Fine-tuning was initialized from the selected synthetic-pretraining checkpoint.
+The run was performed on a single NVIDIA L40S GPU for approximately 6 days,
+covering about 1.5 million optimization steps over 600 epochs. The checkpoint
+used for evaluation was again selected according to the lowest validation
+rendered-image MSE. Optimization used AdamW with learning rate $5e-5$, 1000
+warmup steps, bfloat16 mixed precision, gradient clipping with norm 1.0, and
+conditioning dropout with probability 10%.
 
 == Evaluation
 
@@ -1579,9 +1590,7 @@ conditional vectorizer.
 The selected architecture is then used for synthetic pretraining before
 fine-tuning on the SVG Repo data. This training setup tests the central
 hypothesis that synthetic Bezier data provide a useful geometric prior even
-though they are simpler than real SVG graphics. The pretraining run used a
-single NVIDIA H200 GPU for approximately 10 days with batch size 256 and
-FlashAttention 2 enabled @dao2023flashattention2.
+though they are simpler than real SVG graphics.
 
 === Synthetic pretraining results
 
@@ -1692,18 +1701,6 @@ samples and therefore complements the loss curve.
   image("assets/wandb/floral-glade-79_image_mse.pdf", width: 90%),
   caption: [Image reconstruction error during fine-tuning on SVG Repo data.],
 ) <fig:vectorizer-finetuning-mse>
-
-
-=== Flow-matching inference experiment
-
-// TODO: Doplnit nebo smazat pokud nebude cas.
-Inference requires numerical integration of the learned velocity field. The
-number of integration steps directly affects runtime and reconstruction
-quality. The inference experiment therefore evaluates several fixed step counts
-and measures the resulting output quality, topology, and rendering error.
-This experiment is important because an excessively small number of steps may
-produce unstable or incomplete geometry, while too many steps increase runtime
-without necessarily improving the final SVG.
 
 === Vectorization benchmark on controlled inputs
 
