@@ -2027,24 +2027,27 @@ trivially simple file can also be inaccurate.
   caption: [SVG validity and complexity on synthetic-generator samples.],
 ) <tab:vectorization-complexity-synthetic>
 
-The fidelity tables capture visual reconstruction quality, while the
-complexity tables capture whether the output is a practical vector graphic.
-The ours results on the SVG validation split are computed over 1010
-pairs. Additional measured values for this run are MAE 31.47, PSNR 11.17 dB,
-Boundary F1 0.255 at 1 px and 0.409 at 4 px, mean render time 53.23 ms, and no
-rendering errors.
-On the synthetic-generator split, the ours results are computed over
-1000 pairs. Additional measured values for this run are MAE 20.65, PSNR 15.68
-dB, Boundary F1 0.336 at 1 px and 0.449 at 4 px, mean render time 53.76 ms, and
-no rendering errors.
+The validation split shows the expected behavior of the proposed vectorizer.
+It preserves global structure and foreground regions competitively among the
+neural methods, but it is weaker on fine boundary agreement. This follows from
+the fixed-capacity Bezier representation: the model must approximate the
+raster with a limited number of segments instead of tracing every edge.
 
-This separation is important because a method can obtain a low raster error by
-creating a very large SVG with many paths or path commands. Conversely, a more
-compact SVG may be preferable for editing even when it introduces a small
-raster-space error. The interpretation therefore treats the validation results
-separately from the synthetic-generator results and reads the corresponding
-fidelity and complexity tables together rather than selecting a method from a
-single scalar score.
+The synthetic-generator split tests the same model outside the SVG Repo
+validation distribution. In this setting, the proposed method leads the neural
+methods on MSE, SSIM, Mask IoU, Chamfer distance, and Hausdorff distance, while
+StarVector has higher Boundary F1. It also produces valid SVGs for every
+sample. The autoregressive baselines lose reliability on this split, especially
+the StarVector models, which makes validity part of the result rather than an
+implementation detail.
+
+`vtracer` remains the best method when the goal is raster reconstruction only.
+Its cost is structural complexity: it uses far more paths and path commands
+than the neural methods. The proposed model trades some visual accuracy for a
+simpler SVG while keeping a 100% valid-output rate on both splits. This result
+is obtained with a 0.26B-parameter model, about 4 times smaller than StarVector
+1B, about 15 times smaller than OmniSVG 4B, and about 31 times smaller than
+the 8B baselines.
 
 = End-to-End Pipeline Evaluation
 
@@ -2217,26 +2220,26 @@ the same behavior over the full generated set.
   caption: [SVG validity and complexity on generated raster images.],
 ) <tab:z-image-raster-vectorization-complexity>
 
-These results show two different failure modes of the final vectorization
-stage. Classical tracing is robust on the generated rasters in the narrow sense
-of validity and raster reconstruction: all 1010 images produced renderable SVG
-files, the SSIM is high, and the foreground mask overlap remains close to the
-input. At the same time, the resulting SVGs are large, with more than 1600 path
-commands on average.
+On generated rasters, the proposed vectorizer is not the best raster
+reconstructor. `vtracer` preserves the bitmap most accurately, and StarVector
+1B is stronger on several fidelity metrics among neural methods. The proposed
+model instead gives the most reliable neural output: all generated inputs
+produce renderable SVGs, with substantially fewer paths and commands than
+classical tracing.
 
-The OmniSVG evaluations produce much more compact SVG
-files: OmniSVG1.1 4B averages 6696 bytes and 244 path commands, while OmniSVG1.1 8B
-averages 6804 bytes and 250 path commands. StarVector is more compact still:
-the 1B variant averages 2102 bytes and 40 path commands, while the 8B variant
-averages 1271 bytes and 44 path commands.
+Generated rasters contain anti-aliasing, imperfect boundaries, local texture,
+and other artifacts from the first stage.
+`vtracer` follows these details and therefore produces large SVGs. The proposed
+model suppresses some fine detail, which hurts contour precision, but keeps the
+result closer to a compact object-level drawing.
 
-The StarVector models obtain better
-pixel-level fidelity than OmniSVG on the subset that renders successfully, but
-only about half of their outputs are valid SVGs in this generated-raster
-setting. The neural vectorizers therefore expose a trade-off between
-compactness, fidelity on successful outputs, and reliability. On raster images
-produced by the Z-Image stage, direct tracing remains substantially more
-reliable at preserving the visible raster content.
+The autoregressive baselines show the remaining trade-off. Some successful
+outputs are more faithful or more compact than the proposed model, but many
+outputs are invalid in this setting. That failure is critical in an end-to-end
+pipeline because an invalid second-stage SVG breaks the generated result. The
+0.26B flow-matching model avoids this failure while being about 4 times smaller
+than StarVector 1B, about 15 times smaller than OmniSVG 4B, and about 31 times
+smaller than the 8B baselines.
 
 #heading(level: 1, numbering: none)[Conclusion]
 
