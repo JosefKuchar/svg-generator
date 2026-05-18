@@ -161,18 +161,18 @@ with three primitives and its rendered output.
     columns: (1.45fr, 1fr),
     gutter: 10pt,
     text(size: 7.6pt)[
-```xml
-<svg viewBox="0 0 120 80"
-     xmlns="http://www.w3.org/2000/svg">
-  <rect x="12" y="14" width="32" height="32"
-        fill="#f97316" />
-  <circle cx="80" cy="30" r="18"
-          fill="#22c55e" />
-  <path d="M 18 66 C 42 44, 76 86, 104 58"
-        fill="none" stroke="#2563eb"
-        stroke-width="6" stroke-linecap="round" />
-</svg>
-```
+      ```xml
+      <svg viewBox="0 0 120 80"
+           xmlns="http://www.w3.org/2000/svg">
+        <rect x="12" y="14" width="32" height="32"
+              fill="#f97316" />
+        <circle cx="80" cy="30" r="18"
+                fill="#22c55e" />
+        <path d="M 18 66 C 42 44, 76 86, 104 58"
+              fill="none" stroke="#2563eb"
+              stroke-width="6" stroke-linecap="round" />
+      </svg>
+      ```
     ],
     box(
       stroke: 0.75pt + gray,
@@ -492,14 +492,17 @@ geometric content is normalized by the preprocessing pipeline described below.
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_02.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_03.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_04.png"),
+
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_05.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_06.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_07.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_08.png"),
+
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_09.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_10.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_11.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_12.png"),
+
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_13.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_14.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_15.png"),
@@ -628,7 +631,7 @@ vectorization rather than whether an extensive fine-tuning recipe can be
 optimized. The LoRA adaptation was trained using the AI-Toolkit framework
 @ostrisAIToolkit with the AdamW optimizer @loshchilov2018decoupled and a
 learning rate of $1 times 10^(-4)$. This configuration was used as the default
-starting point for the Stage 1 adaptation experiments. The rank and checkpoint
+starting point for the Stage 1 adaptation experiments. The LoRA rank and checkpoint
 selection are evaluated in @sec:stage1-evaluation.
 
 == Evaluation <sec:stage1-evaluation>
@@ -669,7 +672,7 @@ colors are easier to represent as clean vector graphics.
 
 This metric should not be interpreted as a complete measure of vector quality.
 As noted in prior vectorization work, a low pixel error can still correspond to
-an overly complex SVG with many redundant paths, while a compact and editable
+an overly complex SVG with many redundant paths, while a compact and easy-to-edit
 SVG may differ slightly at the pixel level @selinger2003potrace
 @rodriguez2024starvector. The metric is therefore used here as a practical
 proxy for traceability, not as a replacement for evaluating path count,
@@ -762,15 +765,15 @@ primitive structure, or editability.
       [#text(size: 8pt)[DINO\ similarity] ↑],
       [#text(size: 8pt)[Vectorization MSE] ↓],
     ),
-    [Z-Image Base], [0.818210], [0.509159], [266.565137],
-    [Z-Image Base prefixed], [0.819865], [0.545802], [230.160058],
-    [Z-Image Base prefixed + LoRA], [#strong[0.882769]], [#strong[0.617481]], [145.452631],
-    [Z-Image Turbo], [0.826786], [0.509892], [227.691742],
-    [Z-Image Turbo prefixed], [0.871237], [0.583856], [142.711678],
-    [Z-Image Turbo prefixed + LoRA], [0.879104], [0.600208], [143.174617],
+    [Z-Image Base], [0.818], [0.509], [266.565],
+    [Z-Image Base prefixed], [0.820], [0.546], [230.160],
+    [Z-Image Base prefixed + LoRA], [#strong[0.883]], [#strong[0.617]], [145.453],
+    [Z-Image Turbo], [0.827], [0.510], [227.692],
+    [Z-Image Turbo prefixed], [0.871], [0.584], [142.712],
+    [Z-Image Turbo prefixed + LoRA], [0.879], [0.600], [143.175],
     table.cell(colspan: 4, inset: 1.5pt)[],
-    [OmniSVG1.1 8B], [0.833605], [0.425360], [#strong[51.145968]],
-    [OmniSVG1.1 4B], [0.828205], [0.391314], [57.620655],
+    [OmniSVG1.1 8B], [0.834], [0.425], [#strong[51.146]],
+    [OmniSVG1.1 4B], [0.828], [0.391], [57.621],
   ),
   caption: [Stage 1 benchmark of text-to-raster model variants.],
 ) <tab:stage1-benchmark>
@@ -1278,6 +1281,42 @@ representation space. The architecture operates directly on the continuous
 tensor representation introduced above and predicts how a noisy sample should
 move toward a valid vector graphic conditioned on the raster image.
 
+=== Training objective
+
+Training follows the rectified-flow formulation @liu2022rectifiedflow. Let
+$x_1$ denote a ground truth Bezier tensor sampled from the dataset and let $x_0$
+be Gaussian noise of the same shape. A scalar time $t$ is sampled for each
+training example from a logit-normal distribution obtained by applying the
+sigmoid function to a standard normal sample, following timestep sampling used
+in rectified-flow transformer training @esser2024rectifiedflowtransformers.
+
+The noisy intermediate point is then constructed by linear interpolation
+$ x_t = t x_1 + (1 - t) x_0 $
+The target velocity is defined as
+$ v^ast = x_1 - x_0 $
+Given $x_t$, $t$, and the image-conditioning tokens, the network predicts a
+velocity field $v_theta(x_t, t, c)$ and is optimized using the mean squared
+error objective
+$ L = ||v_theta(x_t, t, c) - v^ast||_2^2 $
+In the current implementation, this loss is evaluated over the full sequence,
+including padded positions.
+
+The model uses conditioning dropout during training, as recommended by
+@ho2021classifierfree to enable classifier-free guidance and improve
+generalization. With a fixed probability, the image-conditioning sequence is replaced
+by a learned null token broadcast across the conditioning length. This teaches
+the network both conditional and unconditional velocity fields within a single
+set of parameters. Preliminary experiments also showed that conditioning dropout
+improved generalization to validation inputs, so it was retained as part of the
+final training setup.
+
+During inference, the two predictions can be combined as
+$ v = v_u + w (v_c - v_u) $
+where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
+recovered.
+
+=== Network architecture
+
 The conditioning image must provide more than raw pixel values: the vectorizer
 needs cues about object boundaries, part structure, and broader visual
 semantics. For this reason, the conditioning branch uses a pretrained DINOv3
@@ -1330,7 +1369,7 @@ normalization with gating. More precisely, the time embedding is passed through
 a small modulation network that predicts, for each of the three sublayers, a
 shift vector, a scale vector, and a residual gate. If $x$ denotes a normalized
 token representation, the modulation takes the form
-$ mod(x) = x dot (1 + gamma) + beta $,
+$ mod(x) = x dot (1 + gamma) + beta $
 where $beta$ and $gamma$ are functions of the time embedding.
 
 The gated residual
@@ -1354,38 +1393,6 @@ to make the transformer blocks behave close to the identity at the beginning of
 training @peebles2022dit. In the present flow-matching setting, this avoids
 large uncontrolled updates before the model has learned a meaningful
 time-dependent vector field.
-
-Training follows the rectified-flow formulation @liu2022rectifiedflow. Let
-$x_1$ denote a ground truth Bezier tensor sampled from the dataset and let $x_0$
-be Gaussian noise of the same shape. A scalar time $t$ is sampled for each
-training example from a logit-normal distribution obtained by applying the
-sigmoid function to a standard normal sample, following timestep sampling used
-in rectified-flow transformer training @esser2024rectifiedflowtransformers.
-
-The
-noisy intermediate point is then constructed by linear interpolation
-$ x_t = t x_1 + (1 - t) x_0 $
-The target velocity is defined as
-$ v^ast = x_1 - x_0 $
-Given $x_t$, $t$, and the image-conditioning tokens, the network predicts a
-velocity field $v_theta(x_t, t, c)$ and is optimized using the mean squared
-error objective
-$ L = ||v_theta(x_t, t, c) - v^ast||_2^2 $
-In the current implementation, this loss is evaluated over the full sequence,
-including padded positions.
-
-To support classifier-free guidance, the model uses conditioning dropout during
-training @ho2021classifierfree. With a fixed probability, the image-conditioning sequence is replaced
-by a learned null token broadcast across the conditioning length. This teaches
-the network both conditional and unconditional velocity fields within a single
-set of parameters. Preliminary experiments also showed that conditioning dropout
-improved generalization to validation inputs, so it was retained as part of the
-final training setup.
-
-During inference, the two predictions can be combined as
-$ v = v_u + w (v_c - v_u) $
-where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
-recovered.
 
 Sampling is performed by solving the learned ordinary differential equation from
 noise toward data. The process starts from an initial sample
@@ -1532,9 +1539,12 @@ training objective decreases rapidly during the initial phase and then enters
 a slower refinement regime, indicating that the model first learns coarse
 Bezier-structure prediction before improving smaller geometric and appearance
 errors. The image-space MSE is measured by rendering predicted vectors back to
-raster images and comparing them with the corresponding synthetic targets. It
-therefore provides a complementary reconstruction-oriented view of pretraining
-quality, in addition to the direct flow-matching loss.
+raster images and comparing them with the corresponding targets. In
+@fig:vectorizer-pretraining-mse, the training curve is evaluated on synthetic
+pretraining samples, whereas the validation curve is evaluated on validation
+samples from the SVG dataset. The metric therefore provides a complementary
+reconstruction-oriented view of both pretraining quality and transfer to real
+SVG-derived data, in addition to the direct flow-matching loss.
 
 #figure(
   image("assets/wandb/classic-serenity-74_train_loss.pdf", width: 90%),
@@ -1551,9 +1561,11 @@ in @tab:vectorizer-pretraining-samples. The training examples indicate that
 the model has learned to vectorize samples from the synthetic generator: the
 predicted Bezier representations preserve the main silhouettes, colors, and
 compound-shape structure of the references. The validation examples further
-suggest that this learned geometric prior generalizes reasonably well to data
-from the SVG dataset, despite the visual and structural differences between
-procedurally generated scenes and real vector graphics. In each case, the
+suggest that this learned geometric prior transfers to data from the SVG
+dataset, but they also expose a remaining domain gap caused by the visual and
+structural differences between procedurally generated scenes and real vector
+graphics. This gap motivates the subsequent fine-tuning stage on real
+SVG-derived data. In each case, the
 generated image is produced by sampling the flow-matching vectorizer
 conditioned on the corresponding raster reference and then rendering the
 predicted Bezier representation back to an image.
@@ -1630,11 +1642,12 @@ samples and therefore complements the loss curve.
 ) <fig:vectorizer-finetuning-mse>
 
 
-=== Flow-matching inference ablation
+=== Flow-matching inference experiment
 
+// TODO: Doplnit nebo smazat pokud nebude cas.
 Inference requires numerical integration of the learned velocity field. The
 number of integration steps directly affects runtime and reconstruction
-quality. The inference ablation therefore evaluates several fixed step counts
+quality. The inference experiment therefore evaluates several fixed step counts
 and measures the resulting output quality, topology, and rendering error.
 This experiment is important because an excessively small number of steps may
 produce unstable or incomplete geometry, while too many steps increase runtime
@@ -1651,7 +1664,7 @@ therefore to measure raster-to-vector quality under reproducible conditions,
 rather than to claim end-to-end pipeline performance.
 
 The comparison includes classical vectorization tools and recent neural
-SVG-generation systems. It emphasizes not only pixel-level reconstruction, but
+SVG-vectorization systems. It emphasizes not only pixel-level reconstruction, but
 also properties important for editable vector graphics, such as path count,
 node count, topological cleanliness, robustness to controlled input variation,
 and ease of manual editing.
@@ -1736,7 +1749,7 @@ rather than proving broad vectorization ability.
     vectorization-sample("assets/vectorization_qualitative/validation/starvector_8b/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/validation/starvector_8b/0005.png"),
   ),
-  caption: [Qualitative comparison on SVG validation samples.],
+  caption: [Qualitative comparison on SVG validation samples. Empty cells indicate invalid output.],
 ) <tab:vectorization-qualitative-validation>
 
 The second qualitative grid uses samples from the synthetic generator. In
@@ -1806,7 +1819,7 @@ favorable cases.
     vectorization-sample("assets/vectorization_qualitative/synthetic/starvector_8b/0004.png"),
     vectorization-sample("assets/vectorization_qualitative/synthetic/starvector_8b/0005.png"),
   ),
-  caption: [Qualitative comparison on synthetic-generator samples.],
+  caption: [Qualitative comparison on synthetic-generator samples. Empty cells indicate invalid output.],
 ) <tab:vectorization-qualitative-synthetic>
 
 The quantitative metrics are computed after rendering both SVGs to RGB images
@@ -2054,7 +2067,7 @@ the same behavior over the full generated set.
   ),
   caption: [Qualitative vectorization of generated raster images. The reference
     row contains rasters generated by the `Z-Image Base prefixed + LoRA`
-    configuration from @sec:stage1-evaluation.],
+    configuration from @sec:stage1-evaluation. Empty cells indicate invalid output.],
 ) <tab:z-image-raster-vectorization-qualitative>
 
 #figure(
@@ -2150,36 +2163,41 @@ reliable at preserving the visible raster content.
 
 #heading(level: 1, numbering: none)[Conclusion]
 
-This thesis shows that text-to-SVG generation is well served by treating it as
-two problems, not one. The first is semantic: producing an image that matches a
-prompt. The second is geometric: turning that image into a valid, compact,
-editable SVG. Separating these problems makes the system easier to train,
-easier to evaluate, and easier to improve.
+This thesis delivers _a generative-AI pipeline for producing SVG graphics from
+text prompts_. The pipeline is organized into two stages: a semantic stage that
+generates a raster image matching the prompt, and a geometric stage that
+converts the raster image into _a valid, compact, editable SVG_. This
+decomposition makes the individual stages easier to train and evaluate while
+still supporting end-to-end SVG generation from unseen prompts.
 
-The strongest visual pipeline in the experiments is the adapted Z-Image raster
-stage followed by `vtracer`. This combination preserves the generated image
-well and gives the clearest end-to-end demonstration of SVG generation from
-unseen prompts. Its weakness is not what it looks like, but what it produces:
+The strongest visual pipeline in the experiments uses _the image-generation
+model adapted in this thesis from Z-Image_, followed by `vtracer`. This
+combination preserves the generated image well and gives the clearest
+end-to-end demonstration of SVG generation from unseen prompts. Its weakness
+is not what it looks like, but what it produces:
 large SVG files with many paths and commands. Such files render correctly, but
 they are much less useful as editable vector graphics.
 
-The proposed flow-matching vectorizer addresses that structural problem. It
-does not yet match `vtracer` in pixel-level reconstruction, but it is the most
-reliable neural vectorizer in the tested setting: it produces valid SVGs
-consistently, keeps the output compact, and avoids the severe validity
-problems seen in several large autoregressive SVG models. This is the central
-result of the second stage. The model is not a replacement for classical
+The central contribution of the second stage is to formulate _neural
+vectorization as a flow-matching problem_ instead of an autoregressive sequence
+generation problem. The resulting vectorizer does not yet match `vtracer` in
+pixel-level reconstruction, but it is the most reliable neural vectorizer in
+the tested setting: it produces valid SVGs consistently, keeps the output
+compact, and avoids the severe validity problems seen in several large
+autoregressive SVG models. The model is not a replacement for classical
 tracing when visual fidelity is the only goal; it is a step toward SVGs that
 are generated as structured objects rather than as dense traces of pixels.
 
-The work therefore contributes both an implemented pipeline and a sharper view
-of the trade-off. Visual similarity is not enough. A generated SVG must also
-be valid, compact, and editable. Classical tracing currently wins on visual
-reconstruction. The proposed neural vectorizer gives weaker images but better
-structure. Scaling this approach with more data, larger models, and stronger
-conditioning may close the visual gap while preserving the compactness that
-classical tracing lacks. This remains speculative, but it is the most direct
-path suggested by the results.
+The implemented pipeline shows that text-to-SVG systems should be evaluated
+not only by rendered-image similarity, but also by _SVG validity, compactness,
+and editability_. Classical tracing currently wins on visual reconstruction.
+The proposed neural vectorizer gives weaker images but better structure.
+Scaling this approach with more data and larger models may close the visual
+gap while preserving the compactness that classical tracing lacks. This
+remains speculative, but it is the most direct path suggested by the results.
+
+The public implementation and trained model artifacts are listed in
+@app:implementation-artifacts.
 
 == Limitations
 
@@ -2217,11 +2235,8 @@ possible way to adapt the first stage.
 Finally, larger paired vector datasets
 and stronger conditioning could make it possible to revisit direct
 text-to-vector generation, but the results of this thesis indicate that the
-two-stage formulation remains a useful and data-efficient baseline for further
+two-stage formulation remains a useful and data-efficient approach for further
 research.
-
-The public implementation and trained model artifacts are listed in
-@app:implementation-artifacts.
 
 #thesis_bibliography(read("references.bib", encoding: none))
 
