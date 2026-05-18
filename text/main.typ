@@ -33,26 +33,28 @@
   abstract_body: [
     Scalable vector graphics are a natural target format for generated visual
     content: they are resolution independent, compact, and editable. However,
-    current direct text-to-SVG models still struggle to produce more complex
-    SVG images, while the strongest text-to-image models produce raster images.
-    This thesis studies this gap through a two-stage text-to-SVG pipeline that
+    direct text-to-SVG generation remains less mature than raster image
+    generation, where the strongest text-to-image models operate. This thesis
+    studies this gap through a two-stage text-to-SVG pipeline that
     separates semantic image generation from raster-to-vector conversion.
 
-    The first stage adapts a pretrained text-to-image model to generate raster
-    images in an SVG-like domain. The second stage converts these images into a
-    structured representation of cubic Bezier curves using a conditional
-    flow-matching vectorizer trained on supervised raster-vector pairs,
-    including procedurally generated synthetic data with known Bezier
-    structure. This decomposition allows the pipeline to reuse the semantic
-    strength of large raster generators while training a smaller model
-    specifically for vector geometry.
+    The first stage adapts a pretrained text-to-image model with prompt
+    conditioning and LoRA fine-tuning to generate raster images in an SVG-like
+    domain. The second stage converts these images into a structured
+    representation of cubic Bezier curves using a conditional flow-matching
+    vectorizer trained on supervised raster-vector pairs, including
+    procedurally generated synthetic data. This decomposition allows the
+    pipeline to reuse the semantic strength of large raster generators while
+    training a smaller model specifically for vector geometry.
 
     Experiments show that the proposed 0.26B-parameter vectorizer is competitive
-    with much larger neural SVG-generation systems, reducing rendered-image MSE
-    by 61.6% relative to StarVector 1B on the synthetic vectorization benchmark.
-    The results also clarify the remaining trade-offs: classical tracing remains
-    strongest for direct pixel fidelity, while flow matching offers a compact
-    neural route toward editable SVG generation from text.
+    with neural SVG-generation systems that are 4--31 times larger. In the
+    end-to-end evaluation on generated rasters, it produces renderable SVGs for
+    all inputs, while comparable neural baselines succeed for roughly half of
+    them. Compared with classical tracing, its outputs are substantially more
+    compact, but this comes at lower direct pixel fidelity. The results
+    identify conditional flow matching as a compact neural route toward
+    editable SVG generation from text.
   ],
   keywords: (
     "scalable vector graphics",
