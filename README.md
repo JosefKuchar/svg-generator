@@ -34,6 +34,7 @@ while a smaller vectorizer focuses on producing editable vector geometry.
 
 ## Links
 
+- Rendered thesis text: [thesis.pdf](thesis.pdf)
 - Model artifacts: <https://huggingface.co/JosefKuchar/svg-generator>
 - Bezier training dataset: <https://huggingface.co/datasets/JosefKuchar/bezier-dataset>
 - Source SVG/caption dataset used by the data pipeline: <https://huggingface.co/datasets/mikronai/svg-svgrepo>

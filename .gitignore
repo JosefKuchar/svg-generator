@@ -29,3 +29,4 @@ benchmark-results/
 !text/assets/wandb/**
 outputs/
 *.safetensors
+!thesis.pdf
