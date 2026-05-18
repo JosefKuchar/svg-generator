@@ -33,12 +33,10 @@
   abstract_body: [
     Scalable vector graphics are a natural target format for generated visual
     content: they are resolution independent, compact, and editable. However,
-    current neural SVG generators still struggle to combine prompt-level
-    semantic understanding with precise geometric output, while classical
-    raster-to-vector tracing preserves pixels at the cost of producing large
-    and often hard-to-edit files. This thesis addresses this gap with a
-    two-stage text-to-SVG pipeline that separates semantic image generation
-    from geometric reconstruction.
+    current direct text-to-SVG models still struggle to produce more complex
+    SVG images, while the strongest text-to-image models produce raster images.
+    This thesis studies this gap through a two-stage text-to-SVG pipeline that
+    separates semantic image generation from raster-to-vector conversion.
 
     The first stage adapts a pretrained text-to-image model to generate raster
     images in an SVG-like domain. The second stage converts these images into a
@@ -50,14 +48,11 @@
     specifically for vector geometry.
 
     Experiments show that the proposed 0.26B-parameter vectorizer is competitive
-    with much larger neural SVG-generation systems. On the synthetic
-    vectorization benchmark, it reduces rendered-image MSE from 6339.14 for
-    StarVector 1B to 2432.57, a 61.6% improvement with roughly four times fewer
-    parameters, and from 9591.49 for OmniSVG1.1 4B, a 74.6% improvement with
-    roughly fifteen times fewer parameters. The results also clarify the
-    remaining trade-offs: classical tracing remains strongest for direct pixel
-    fidelity, whereas the proposed neural vectorizer offers a compact,
-    flow-matching-based route toward editable SVG generation from text.
+    with much larger neural SVG-generation systems, reducing rendered-image MSE
+    by 61.6% relative to StarVector 1B on the synthetic vectorization benchmark.
+    The results also clarify the remaining trade-offs: classical tracing remains
+    strongest for direct pixel fidelity, while flow matching offers a compact
+    neural route toward editable SVG generation from text.
   ],
   keywords: (
     "scalable vector graphics",
