@@ -2250,31 +2250,39 @@ converts the raster image into _a valid, compact, editable SVG_. This
 decomposition makes the individual stages easier to train and evaluate while
 still supporting end-to-end SVG generation from unseen prompts.
 
-The strongest visual pipeline in the experiments uses _the image-generation
-model adapted in this thesis from Z-Image_, followed by `vtracer`. This
-combination preserves the generated image well and gives the clearest
-end-to-end demonstration of SVG generation from unseen prompts. Its weakness
-is not what it looks like, but what it produces:
-large SVG files with many paths and commands. Such files render correctly, but
-they are much less useful as editable vector graphics.
+The best rendered-image fidelity in the end-to-end experiments is achieved by
+_the image-generation model adapted in this thesis from Z-Image_, followed by
+`vtracer`. This combination preserves the generated raster well, but its SVG
+outputs are large and contain many paths and commands. Such files render
+correctly, but they are much less useful as editable vector graphics.
 
-The central contribution of the second stage is to formulate _neural
-vectorization as a flow-matching problem_ instead of an autoregressive sequence
-generation problem. The resulting vectorizer does not yet match `vtracer` in
-pixel-level reconstruction, but it is the most reliable neural vectorizer in
-the tested setting: it produces valid SVGs consistently, keeps the output
-compact, and avoids the severe validity problems seen in several large
-autoregressive SVG models. The model is not a replacement for classical
-tracing when visual fidelity is the only goal; it is a step toward SVGs that
-are generated as structured objects rather than as dense traces of pixels.
+The main methodological contribution of the second stage is a novel
+formulation of neural SVG vectorization. Publicly available neural baselines
+considered in this thesis generate SVGs autoregressively, as token or command
+sequences. This thesis instead formulates vectorization as conditional flow
+matching over a fixed-size Bezier representation. The resulting vectorizer does
+not yet match `vtracer` in pixel-level reconstruction, but it is the most
+reliable neural vectorizer in the tested setting: despite being 4--31 times
+smaller than the autoregressive baselines, it produces valid SVGs consistently,
+keeps the output compact, and avoids their severe validity failures. It is not
+a replacement for classical tracing when visual fidelity is the only goal; it
+is a step toward SVGs generated as structured objects rather than dense traces
+of pixels.
+
+The work also demonstrates supervised pretraining of an SVG vectorizer on
+procedurally generated vector data. The synthetic generator provides
+effectively unlimited raster-vector pairs with exact labels, allowing the model
+to first learn a geometric raster-to-Bezier prior and then adapt to real SVG
+collections during fine-tuning.
 
 The implemented pipeline shows that text-to-SVG systems should be evaluated
 not only by rendered-image similarity, but also by _SVG validity, compactness,
 and editability_. Classical tracing currently wins on visual reconstruction.
-The proposed neural vectorizer gives weaker images but better structure.
-Scaling this approach with more data and larger models may close the visual
-gap while preserving the compactness that classical tracing lacks. This
-remains speculative, but it is the most direct path suggested by the results.
+The proposed neural vectorizer has lower rendered fidelity than tracing, but
+better compactness and stronger validity than the tested neural baselines.
+Scaling this approach with more data and larger models may improve visual
+fidelity while preserving the validity and compactness advantages observed in
+the experiments.
 
 The public implementation and trained model artifacts are listed in
 @app:implementation-artifacts.
