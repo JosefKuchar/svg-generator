@@ -73,16 +73,39 @@
 
 #heading(level: 1, numbering: none)[Introduction]
 
-The goal of the work is to generate vector graphics from textual input. Direct
-text-to-vector generation is difficult because the model must simultaneously
-learn semantic grounding, visual composition, geometric structure, and the
-syntactic constraints of vector graphics. A two-stage pipeline offers a more
-modular alternative. First, a text prompt is converted into a raster image by a
-large pretrained generative model. Second, the raster image is translated into
-a vector representation composed of Bezier curves. This separation makes it
-possible to exploit the strengths of modern text-to-image models while
-developing a specialized vectorizer that operates in a well-defined geometric
-output space.
+Scalable Vector Graphics (SVG) is a common format for visual assets such as
+icons, logos, illustrations, diagrams, and interface elements. These assets
+often need to be resized, recolored, adjusted to a design system, or embedded
+in different documents and applications. Unlike raster images, which store a
+fixed grid of pixels, vector graphics describe images through geometric
+primitives and styling attributes @w3c2011svg11. This representation makes SVG
+images _resolution independent, compact, and editable_, and therefore suitable
+as a target format for generated visual content.
+
+Modern text-to-image models have made it increasingly easy to create images
+from textual descriptions. This progress builds on diffusion probabilistic
+models and includes latent-diffusion text-to-image systems and recent
+transformer-based diffusion generators @ho2020denoising
+@rombach2022highresolution @peebles2022dit @wu2025qwenimagetechnicalreport
+@imageteam2025zimage. However, their most mature and widely available form is
+_raster image generation_. Such models can capture the semantic content of a
+prompt and produce visually rich results, yet the output is still a bitmap. For
+many practical uses, this bitmap is only an approximation of the _desired
+editable artifact_: it can be displayed, but it does not directly provide the
+structured paths, colors, and shapes that a designer or downstream program can
+manipulate as an SVG document.
+
+This gap motivates the central problem of the thesis: _generating vector
+graphics from textual input_. Direct text-to-vector generation is difficult
+because the model must simultaneously learn semantic grounding, visual
+composition, geometric structure, and the syntactic constraints of vector
+graphics @rodriguez2024starvector @yang2025omnisvg. A _two-stage pipeline_
+offers a more modular alternative. First, a text prompt is converted into a
+raster image by a large pretrained generative model. Second, the raster image
+is translated into a vector representation composed of Bezier curves. This
+separation makes it possible to exploit the strengths of modern text-to-image
+models while developing a specialized vectorizer that operates in a
+well-defined geometric output space.
 
 In this thesis, _vectorization_ refers to raster-to-vector conversion: the
 problem of converting a pixel image into a visually similar vector graphic
@@ -97,18 +120,17 @@ images. A useful vectorizer therefore must balance image fidelity with
 structural simplicity, semantic editability, and validity of the resulting SVG
 @dziuba2023imagevectorization.
 
-An important motivation for separating raster generation from vectorization is
-the scale of available supervision. Public text-to-image systems are trained in
-data regimes that are far beyond the available SVG corpus. Stable Diffusion v1,
-for example, is documented as being trained on LAION-5B and its subsets,
-including `laion2B-en` and a 170-million-example high-resolution subset
-@compvisStableDiffusionV14ModelCard; LAION-5B itself contains 5.85 billion
-CLIP-filtered image-text pairs @schuhmann2022laion5b. Building an analogous
-corpus for direct text-to-vector training would require not only many SVG
-files, but also reliable textual descriptions aligned with their vector
-structure. Such data is not available at a comparable scale for this thesis.
-The two-stage formulation therefore uses large pretrained raster models for the
-text-conditioned part of the problem and focuses the custom training effort on
+A second reason for this separation is the _scale of available supervision_.
+Public text-to-image systems are trained in data regimes that are far beyond
+the available SVG corpus. For example, Stable Diffusion v1 was trained using
+large LAION image-text datasets, while LAION-5B contains billions of
+CLIP-filtered image-text pairs @compvisStableDiffusionV14ModelCard
+@schuhmann2022laion5b. Building an analogous corpus for direct text-to-vector
+training would require not only many SVG files, but also reliable textual
+descriptions aligned with their vector structure. Such data is not available at
+a comparable scale for this thesis. This data imbalance motivates the
+decomposition used in this work: text-conditioned generation is delegated to a
+large pretrained raster model, while the custom model is trained for
 raster-to-vector conversion, where supervised synthetic examples can be
 generated by construction.
 
@@ -126,26 +148,19 @@ questions:
 - What trade-offs arise between raster fidelity, SVG validity, compactness, and
   practical editability?
 
-The main contributions are the two-stage pipeline design, the fixed-size
-Bezier representation, the SVG normalization and conversion procedure, the
-synthetic Bezier data generator, the conditional flow-matching vectorizer, and
-the evaluation setup used to compare fidelity and structural complexity. The
-thesis first reviews related work, then formulates the task and data pipeline.
-The main technical chapters then follow the two stages directly: raster
-generation and vectorization are each described together with their training
-setup and evaluation. The final evaluation studies the complete
-pipeline before the thesis summarizes the achieved results and limitations.
+To answer these questions, the thesis develops the components needed for an
+end-to-end text-to-SVG pipeline: a training procedure for adapting a pretrained
+text-to-image model to an SVG-like raster domain, an SVG normalization
+procedure, a fixed-size Bezier representation, a synthetic Bezier data
+generator, and a conditional flow-matching vectorizer. The resulting pipeline
+is evaluated in terms of visual fidelity, SVG validity, compactness, and
+practical editability.
 
-The work also considers several alternative formulations of the problem. In
-particular, a direct adaptation of a text-to-raster model into a
-text-to-Bezier model would be an elegant solution, because it would remove the
-explicit vectorization stage. The experiments, however, indicate that
-this route is not data-efficient in the present setting. The model converged
-faster from random initialization than from pretrained image-generation
-weights, suggesting that the learned raster-generation representation does not
-transfer straightforwardly to the Bezier output space. This direction may still
-be feasible at a larger scale, but it likely requires substantially more
-paired text-vector data than is available for this thesis.
+The thesis first reviews related work, then formulates the task and data
+pipeline. The main technical chapters then follow the two stages directly:
+raster generation and vectorization are each described together with their
+training setup and evaluation. The final evaluation studies the complete
+pipeline before the thesis summarizes the achieved results and limitations.
 
 = Background and Related Work
 
