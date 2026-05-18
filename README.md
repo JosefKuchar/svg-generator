@@ -1,5 +1,7 @@
 # SVG Generator
 
+## Generative Neural Models for Scalable Vector Graphics
+
 This repository contains a two-stage neural pipeline for generating SVG images
 from text prompts. The first stage uses Z-Image with an SVG-domain LoRA to
 generate a raster image. The second stage converts the raster image to SVG,
