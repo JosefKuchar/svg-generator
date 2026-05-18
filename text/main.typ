@@ -342,17 +342,18 @@ engineering tools, but they typically optimize local image fidelity and often
 produce dense, fragmented paths when the input contains noise, compression
 artifacts, blur, or soft color transitions. The experiments use `vtracer` as
 the classical tracing baseline. Recent neural text-to-SVG systems, by contrast,
-often rely on large vision-language models fine-tuned on SVG data.
+often rely on large vision-language models fine-tuned on SVG data
+@rodriguez2024starvector @yang2025omnisvg.
 
 == Text-to-image models adapted for vector graphics
 
 Another important line of prior work concerns large text-to-image models that
 are adapted to generate images in a style suitable for graphic design,
 illustration, icons, or symbol-like imagery. Even when such models do not
-produce vector output directly, they can provide strong semantic grounding and
-composition capabilities. This idea motivates the first stage of the proposed
-pipeline, where a pretrained text-to-image model is adapted through LoRA and
-used as a controllable raster generator.
+produce vector output directly, they can already turn text prompts into images
+with the requested objects, attributes, and spatial arrangement. This idea
+motivates the first stage of the proposed pipeline, where a pretrained
+text-to-image model is adapted and used as a controllable raster generator.
 
 Modern text-to-image systems are commonly based on diffusion models. A
 diffusion model learns to reverse a gradual noising process: during training,
@@ -363,11 +364,13 @@ efficient by performing the denoising in a compressed latent image space rather
 than directly in pixel space, which is one reason they became practical for
 high-resolution conditional image synthesis @rombach2022highresolution.
 
-This category is important because it justifies the decomposition adopted in
-this thesis. If a text-to-image model can be specialized to generate
-vectorization-friendly raster images, then the semantic burden of text
-understanding can be largely delegated to that model, while the second stage
-can focus on geometric reconstruction.
+This line of work makes the decomposition adopted in this thesis plausible,
+but it does not by itself provide a raster generator specialized for subsequent
+SVG reconstruction. The first stage of this thesis therefore adapts a
+pretrained diffusion model toward simplified, illustration-like images that are
+easier to vectorize. This allows the semantic burden of text understanding to
+remain with the raster generator, while the second stage can focus on geometric
+reconstruction.
 
 Prior work on text-to-image customization shows that pretrained generators can
 be adapted to narrower visual concepts or styles without training a new model
@@ -1054,7 +1057,7 @@ The conversion begins with structural simplification. SVG files are first
 processed externally in Inkscape, a vector graphics editor
 @inkscapeCommandLine. During this
 stage, all objects are converted to paths and strokes are expanded into filled
-outlines. This step removes many forms of SVG variability and ensures that the // TODO: tady mozna nejaka ilutrace nebo neco
+outlines. This step removes many forms of SVG variability and ensures that the
 subsequent parser operates on explicit geometric contours rather than on
 higher-level drawing commands. Several classes of samples are excluded before
 conversion, namely SVGs containing gradient definitions, masks, or embedded
@@ -1068,12 +1071,11 @@ the `opacity` or `fill-opacity` attribute, with percentage values converted to
 the unit interval. The fill rule is also preserved, because it determines the
 topological interpretation of nested contours.
 
-Each shape is then rewritten as a path object and reified so that all geometric
-commands are made explicit. The resulting path is decomposed segment by
-segment, and every segment is converted to cubic Bezier form. This conversion
-is exact for native cubic Bezier segments. Straight lines and closing commands
-use the degenerate cubic representation described above.
-// TODO: Zkontrolovat jestli to neni nejak divne vyduplikovany mezi tema sekcema
+Each shape is then rewritten as a path object whose commands can be inspected
+explicitly. The resulting path is decomposed segment by segment, and every
+segment is converted to cubic Bezier form. This conversion is exact for native
+cubic Bezier segments. Straight lines and closing commands use the line-as-cubic
+special case described above.
 
 Quadratic
 Bezier segments are elevated to cubic form by the standard degree-elevation
@@ -1336,11 +1338,11 @@ and $D = 13$ is the segment dimensionality, covering coordinates, color,
 opacity, path-structure flags, and the validity flag.
 
 Each segment vector is projected by
-a learned linear layer into a hidden space of dimension $H$. The scalar flow
-time $t in [0, 1]$ is embedded separately using sinusoidal features followed by
-a multilayer perceptron @vaswani2017attention. The resulting time embedding is
-then used to modulate all transformer blocks through adaptive layer
-normalization.
+a learned linear layer into a hidden space of dimension $H$. The interpolation
+time $t in [0, 1]$ from the rectified-flow objective is embedded separately
+using sinusoidal features followed by a multilayer perceptron
+@vaswani2017attention. The resulting time embedding is then used to modulate
+all transformer blocks through adaptive layer normalization.
 
 The backbone itself is a stack of transformer blocks of DiT type
 @peebles2022dit. Each block
