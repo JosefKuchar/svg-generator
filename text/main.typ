@@ -544,7 +544,7 @@ Examples from the rasterized dataset are shown in
 )
 
 #figure(
-  grid(
+  align(center, box(width: 70%, grid(
     columns: (1fr, 1fr, 1fr, 1fr),
     gutter: 4pt,
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_01.png"),
@@ -566,7 +566,7 @@ Examples from the rasterized dataset are shown in
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_14.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_15.png"),
     svg-repo-dataset-image("assets/svg_repo_dataset/svg_repo_16.png"),
-  ),
+  ))),
   caption: [Examples of rasterized images from the SVG Repo-derived dataset.],
 ) <fig:svg-repo-dataset-examples>
 
@@ -696,7 +696,7 @@ selection are evaluated in @sec:stage1-evaluation.
 == Evaluation <sec:stage1-evaluation>
 
 Both CLIP and DINO scores are computed as cosine similarities between
-normalized feature vectors,
+normalized feature vectors
 $ "sim"(a, b) = (a dot b) / (||a||_2 ||b||_2) $
 CLIP-based similarity uses a joint image-text representation learned from
 natural-language supervision and is therefore useful for measuring semantic
@@ -730,19 +730,6 @@ SVG may differ slightly at the pixel level @selinger2003potrace
 @rodriguez2024starvector. The metric is therefore used here as a practical
 proxy for traceability, not as a replacement for evaluating path count,
 primitive structure, or editability.
-
-The LoRA adaptation was first evaluated separately in order to select a rank
-and checkpoint for the Stage 1 comparison. Three LoRA ranks, namely 4, 16, and
-64, were evaluated at checkpoints saved every 500 steps. The resulting CLIP
-similarity, DINO similarity, and vectorization MSE values are summarized in
-@tab:lora-experiment. Due to computational
-constraints, the experiment was evaluated on a subset of 100 validation samples
-rather than on the full validation set of 1010 samples. The explored grid of
-ranks and checkpoints is therefore intentionally coarse.
-
-A more fine-grained sweep over ranks, training durations, and sampling seeds
-would provide a more precise model-selection criterion, but was outside the
-available compute budget.
 
 #let lora-table-text(body, weight: "regular") = text(size: 10pt, weight: weight, body)
 
@@ -844,6 +831,19 @@ available compute budget.
 
 #v(1fr)
 #pagebreak()
+
+The LoRA adaptation was first evaluated separately in order to select a rank
+and checkpoint for the Stage 1 comparison. Three LoRA ranks, namely 4, 16, and
+64, were evaluated at checkpoints saved every 500 steps. The resulting CLIP
+similarity, DINO similarity, and vectorization MSE values are summarized in
+@tab:lora-experiment. Due to computational
+constraints, the experiment was evaluated on a subset of 100 validation samples
+rather than on the full validation set of 1010 samples. The explored grid of
+ranks and checkpoints is therefore intentionally coarse.
+
+A more fine-grained sweep over ranks, training durations, and sampling seeds
+would provide a more precise model-selection criterion, but was outside the
+available compute budget.
 
 Based on the rank and checkpoint experiment, the LoRA model with rank 16 at
 3000 training steps was selected for subsequent Stage 1 experiments. This
@@ -1306,15 +1306,14 @@ soon as the next object would exceed the allowed number of segments. This
 ensures that every produced scene is valid without altering already generated
 geometry.
 
-The dataset interface is implemented by the `SyntheticBezierDataset` class,
-which generates samples on the fly during training. The stream of synthetic
-scenes is effectively unbounded, so pretraining is not limited to a fixed
-corpus of generated files. Each generated scene is converted to the tensor
-representation using `shapes_to_tensor`, serialized back to SVG, rasterized to
-an RGB image, and finally processed by the DINOv3 image processor. The dataset
-therefore returns the same type of data as the real dataset, namely a tensor of
-Bezier segments and a corresponding conditioning raster image. The same
-training and sampling code can therefore consume synthetic and real data.
+The synthetic dataset interface generates samples on the fly during training.
+The stream of synthetic scenes is effectively unbounded, so pretraining is not
+limited to a fixed corpus of generated files. Each generated scene is converted
+to the internal tensor representation, serialized back to SVG, rasterized to an
+RGB image, and finally processed by the image encoder preprocessing pipeline.
+The dataset therefore returns the same type of data as the real dataset, namely
+a tensor of Bezier segments and a corresponding conditioning raster image. The
+same training and sampling code can therefore consume synthetic and real data.
 
 == Model architecture
 
@@ -1353,6 +1352,7 @@ in rectified-flow transformer training @esser2024rectifiedflowtransformers.
 
 The noisy intermediate point is then constructed by linear interpolation
 $ x_t = t x_1 + (1 - t) x_0 $
+#pagebreak()
 The target velocity is defined as
 $ v^ast = x_1 - x_0 $
 Given $x_t$, $t$, and the image-conditioning tokens, the network predicts a
@@ -1370,7 +1370,6 @@ the network both conditional and unconditional velocity fields within a single
 set of parameters. Preliminary experiments also showed that conditioning dropout
 improved generalization to validation inputs, so it was retained as part of the
 final training setup.
-
 During inference, the two predictions can be combined as
 $ v = v_u + w (v_c - v_u) $
 where $w$ is the guidance scale. When $w = 1$, standard conditional sampling is
@@ -2257,6 +2256,53 @@ pipeline because an invalid second-stage SVG breaks the generated result. The
 0.26B flow-matching model avoids this failure while being about 4 times smaller
 than StarVector 1B, about 15 times smaller than OmniSVG 4B, and about 31 times
 smaller than the 8B baselines.
+
+== Text-to-SVG examples with the proposed pipeline
+
+The quantitative evaluation above measures the behavior of the vectorization
+stage on generated rasters, but the full goal of the thesis is a text-to-SVG
+system. It is therefore useful to also inspect complete outputs where a text
+prompt is first rendered by the adapted Z-Image stage and then converted into
+SVG by the proposed flow-matching vectorizer.
+
+@fig:text-svg-proposed-pipeline shows examples produced by the public
+end-to-end pipeline. The prompts are the same prompts used in the project
+README. This figure is limited to the proposed pipeline; OmniSVG examples are
+left for a later comparison.
+
+#let text-svg-output(path) = box(
+  width: 54pt,
+  inset: 4pt,
+  stroke: 0.4pt + gray,
+  image(path, width: 100%),
+)
+
+#let text-svg-prompt(body) = text(size: 8.5pt, body)
+
+#let text-svg-row(prompt, path) = (
+  text-svg-prompt(prompt),
+  text-svg-output(path),
+)
+
+#figure(
+  table(
+    columns: (1fr, 72pt),
+    align: (left + horizon, center),
+    inset: 4pt,
+    stroke: (x, y) => (
+      left: none,
+      top: if y == 0 { none } else { 0.4pt },
+    ),
+    table.header([Prompt], [`Z-Image Base + LoRA + vtracer` SVG]),
+    ..text-svg-row([a simple lighthouse icon], "assets/text_svg_pipeline/lighthouse.svg"),
+    ..text-svg-row([A minimal rocket icon], "assets/text_svg_pipeline/rocket.svg"),
+    ..text-svg-row([A cute cat face icon], "assets/text_svg_pipeline/cat.svg"),
+    ..text-svg-row([A magic potion bottle with bubbles, sparkles, cork, and label], "assets/text_svg_pipeline/potion.svg"),
+    ..text-svg-row([A cozy cabin in the woods with a chimney, pine trees, and a crescent moon], "assets/text_svg_pipeline/cabin.svg"),
+    ..text-svg-row([A steampunk hot air balloon with gears, ropes, basket, and brass details], "assets/text_svg_pipeline/steampunk.svg"),
+  ),
+  caption: [Text-to-SVG examples generated by the proposed end-to-end pipeline.],
+) <fig:text-svg-proposed-pipeline>
 
 #heading(level: 1, numbering: none)[Conclusion]
 
