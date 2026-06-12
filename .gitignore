@@ -30,3 +30,4 @@ benchmark-results/
 outputs/
 *.safetensors
 !thesis.pdf
+.DS_Store
