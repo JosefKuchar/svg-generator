@@ -1,0 +1,125 @@
+\documentclass[
+]{beamer}
+
+\usepackage[czech]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{csquotes}
+\usepackage{expl3,biblatex}
+\addbibresource{example.bib}
+\usepackage{booktabs}
+\usetheme[
+  workplace=fi,
+]{MU}
+
+\title[Název prezentace]{Dlouhý název prezentace}
+\subtitle[Alternativní název prezentace]{Dlouhý alternativní název prezentace}
+\author[J.\,Příjmení]{Jméno Příjmení\texorpdfstring{\\}{, }učo@mail.muni.cz}
+\institute[FI MU]{Fakulta informatiky Masarykovy univerzity}
+\date{\today}
+\subject{Předmět prezentace}
+\keywords{klíčová, slova, prezentace}
+\begin{document}
+
+\begin{frame}[plain]
+\maketitle
+\end{frame}
+
+\section[Název sekce 1]{Dlouhý název sekce 1}
+\subsection[Název podsekce 1]{Dlouhý název podsekce 1}
+
+\begin{frame}{Nadpis}{Podnadpis}
+běžný text, \structure{struktura stránky}, \alert{zvýrazněný text}
+\begin{itemize}
+  \item položka odrážkového seznamu na jeden řádek
+  \item položka odrážkového seznamu dlouhá, moc dlouhá (to aby se zalomila),
+    která navíc obsahuje \alert{zvýrazněný text}
+  \begin{itemize}
+    \item odrážka druhé úrovně
+    \begin{itemize}
+      \item odrážka třetí úrovně
+    \end{itemize}
+    \item \alert{zvýrazněná odrážka druhé úrovně}
+  \end{itemize}
+\end{itemize}
+\begin{enumerate}
+  \item a číslovaná odrážka
+  \begin{enumerate}
+    \item odrážka druhé úrovně se vzorečkem
+      \[ E = mc^2 \]
+      a s odkazem na bibliografickou citaci \cite{einstein1905tragheit}
+  \end{enumerate}
+\end{enumerate}
+\end{frame}
+
+\subsection[Název podsekce 2]{Dlouhý název podsekce 2}
+
+\begin{frame}{Textové bloky}
+text nad blokem\footnote{text poznámky s \url{https://adresou.cz}}
+\begin{block}{Blok}
+  text v bloku
+\end{block}
+\begin{exampleblock}{Blok s příkladem}
+  text v bloku
+\end{exampleblock}
+\begin{alertblock}{Zvýrazněný blok}
+  text v bloku
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{Obrázky}
+\begin{figure}
+  \includegraphics[width=.5\textwidth,height=.5\textheight,keepaspectratio]{cow-black.mps}
+  \caption{Kráva černostrakatého holštýnského skotu ve stoje%
+    \footnote{%
+      Kdy že si ta kráva znovu lehne?
+      Odpověď vás překvapí.
+      \cite{tolkamp10cows}
+    }%
+  }
+\end{figure}
+\end{frame}
+
+\subsection[Název podsekce 3]{Dlouhý název podsekce 3}
+
+\def\age(#1-#2-#3){%
+  \the\numexpr(
+    \year - #1
+    \ifnum\month<#2
+      - 1
+    \else
+      \ifnum\month=#2
+        \ifnum\day<#3
+          - 1
+        \fi
+      \fi
+    \fi
+  )%
+}
+
+\begin{frame}{Tabulky}
+\begin{table}
+  \begin{tabular}{llc}
+    Jméno & Příjmení & Věk \\ \midrule
+    Albert & Einstein & \age(1879-03-14) \\
+    Marie & Curie & \age(1867-11-07) \\
+    Thomas & Edison & \age(1847-02-11) \\
+  \end{tabular}
+  \caption{Velcí vědci 19. století}
+\end{table}
+\end{frame}
+
+\section{\bibname}
+\begin{frame}[t, allowframebreaks]{\bibname}
+\printbibliography[heading=none]
+\end{frame}
+
+\begin{frame}[plain]
+\vfill
+\centerline{Děkuji vám za pozornost!}
+\vfill\vfill
+\end{frame}
+
+\makeoutro
+
+\end{document}
