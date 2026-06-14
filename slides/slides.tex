@@ -416,29 +416,24 @@ The two-stage pipeline usually preserves the requested object and icon-like comp
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Limitations and Future Work}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{.48\textwidth}
-    \structure{Current limitations}
-    \begin{itemize}
-      \tightitems
-      \item Bezier-only geometry loses primitive semantics.
-      \item No gradients, masks, filters, or complex style rules.
-      \item Fixed segment budget limits complex graphics.
-      \item Generated rasters remain a source of artifacts.
-    \end{itemize}
-  \end{column}
-  \begin{column}{.48\textwidth}
-    \structure{Next steps}
-    \begin{itemize}
-      \tightitems
-      \item Recover higher-level primitives after Bezier prediction.
-      \item Extend the representation to richer SVG styling.
-      \item Train on larger paired vector datasets.
-      \item Improve transparent and foreground-asset generation.
-    \end{itemize}
-  \end{column}
-\end{columns}
+\begin{frame}{Limitations}
+\begin{itemize}
+  \tightitems
+  \item Bezier-only geometry loses primitive semantics.
+  \item No gradients, masks, filters, or complex style rules.
+  \item Fixed segment budget limits complex graphics.
+  \item Generated rasters remain a source of artifacts.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Future Work}
+\begin{itemize}
+  \tightitems
+  \item Recover higher-level primitives after Bezier prediction.
+  \item Extend the representation to richer SVG styling.
+  \item Train on larger paired vector datasets.
+  \item Improve transparent and foreground-asset generation.
+\end{itemize}
 \end{frame}
 
 \begin{frame}[plain]
