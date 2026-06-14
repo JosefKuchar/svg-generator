@@ -39,10 +39,10 @@
   \begin{column}{.52\textwidth}
     \begin{itemize}
       \tightitems
-      \item SVG is the native format for icons, logos, illustrations, diagrams, and UI assets.
-      \item Vector graphics are resolution independent, compact, and editable.
-      \item Modern text-to-image models are strong, but their output is still a bitmap.
-      \item The target artifact is not only an image; it is a structured object that can be modified.
+      \item Native format for icons, logos, illustrations, diagrams, and UI assets
+      \item Resolution independence, compactness, and editability
+      \item Strong text-to-image models, but bitmap outputs
+      \item Structured graphics, not only rendered images
     \end{itemize}
   \end{column}
   \begin{column}{.42\textwidth}
@@ -58,10 +58,10 @@
     Direct text-to-SVG generation must solve several hard problems at once:
     \begin{itemize}
       \tightitems
-      \item semantic grounding from text,
-      \item visual composition,
-      \item geometric structure,
-      \item valid SVG syntax and rendering behavior.
+      \item semantic grounding from text
+      \item visual composition
+      \item geometric structure
+      \item valid SVG syntax and rendering behavior
     \end{itemize}
   \end{column}
   \begin{column}{.44\textwidth}
@@ -82,10 +82,10 @@ Design, implement, and evaluate a modular text-to-SVG pipeline.
 \vspace{.6em}
 \begin{itemize}
   \tightitems
-  \item Adapt a pretrained raster generator to produce SVG-like images.
-  \item Train a custom raster-to-vector model with synthetic and SVG-derived supervision.
-  \item Compare flow matching with autoregressive and classical vectorization baselines.
-  \item Evaluate not only rendered similarity, but also SVG validity, compactness, and editability.
+  \item Raster-generator adaptation for SVG-like images
+  \item Custom raster-to-vector training on synthetic and SVG-derived data
+  \item Flow matching vs. autoregressive and classical baselines
+  \item Evaluation of fidelity, validity, compactness, and editability
 \end{itemize}
 \end{frame}
 
@@ -105,9 +105,9 @@ Semantic image generation is delegated to a pretrained raster model; geometry re
   \begin{column}{.47\textwidth}
     \begin{itemize}
       \tightitems
-      \item Starting point: pretrained Z-Image text-to-image model.
-      \item Adaptation: fixed SVG-style prompt prefix and LoRA fine-tuning.
-      \item Selection metrics: CLIP similarity, DINO similarity, and traceability by vectorization MSE.
+      \item Pretrained Z-Image text-to-image model
+      \item SVG-style prompt prefix and LoRA fine-tuning
+      \item CLIP, DINO, and vectorization MSE selection metrics
     \end{itemize}
   \end{column}
   \begin{column}{.48\textwidth}
@@ -161,10 +161,10 @@ Prompting and LoRA move the raster generator toward cleaner icon-like outputs.
   \begin{column}{.5\textwidth}
     \begin{itemize}
       \tightitems
-      \item The model predicts a fixed-size representation of cubic Bezier curves.
-      \item Fixed dimensionality makes flow matching practical.
-      \item The representation directly renders to SVG paths.
-      \item Capacity and primitive semantics are intentionally constrained.
+      \item Fixed-size cubic Bezier representation
+      \item Flow-compatible dimensionality
+      \item Direct rendering to SVG paths
+      \item Constrained capacity and primitive semantics
     \end{itemize}
   \end{column}
   \begin{column}{.44\textwidth}
@@ -233,9 +233,9 @@ Synthetic pretraining supplies exact raster-vector pairs; fine-tuning adapts the
   \begin{column}{.39\textwidth}
     \begin{itemize}
       \tightitems
-      \item Same model scale and image encoder.
-      \item Autoregressive variant predicts Bezier sequence step by step.
-      \item Flow matching gives lower image-space reconstruction error.
+      \item Same model scale and image encoder
+      \item Stepwise Bezier prediction for autoregressive baseline
+      \item Lower image-space error with flow matching
     \end{itemize}
   \end{column}
 \end{columns}
@@ -409,30 +409,30 @@ The two-stage pipeline usually preserves the requested object and icon-like comp
 \begin{frame}{Contributions}
 \begin{itemize}
   \tightitems
-  \item Implemented a two-stage text-to-SVG pipeline using adapted raster generation and raster-to-vector conversion.
-  \item Designed a conditional flow-matching vectorizer over a fixed Bezier representation.
-  \item Built a synthetic Bezier data generator for supervised vectorizer pretraining.
-  \item Evaluated SVG generation with fidelity, validity, compactness, and editability-oriented metrics.
+  \item Two-stage text-to-SVG pipeline
+  \item Conditional flow-matching Bezier vectorizer
+  \item Synthetic Bezier data generator
+  \item Fidelity, validity, compactness, and editability evaluation
 \end{itemize}
 \end{frame}
 
 \begin{frame}{Limitations}
 \begin{itemize}
   \tightitems
-  \item Bezier-only geometry loses primitive semantics.
-  \item No gradients, masks, filters, or complex style rules.
-  \item Fixed segment budget limits complex graphics.
-  \item Generated rasters remain a source of artifacts.
+  \item Bezier-only geometry without primitive semantics
+  \item Missing gradients, masks, filters, and complex styles
+  \item Fixed segment budget for complex graphics
+  \item Raster artifacts propagated to vectorization
 \end{itemize}
 \end{frame}
 
 \begin{frame}{Future Work}
 \begin{itemize}
   \tightitems
-  \item Recover higher-level primitives after Bezier prediction.
-  \item Extend the representation to richer SVG styling.
-  \item Train on larger paired vector datasets.
-  \item Improve transparent and foreground-asset generation.
+  \item Higher-level primitive recovery
+  \item Richer SVG styling support
+  \item Larger paired vector datasets
+  \item Transparent and foreground-asset generation
 \end{itemize}
 \end{frame}
 
