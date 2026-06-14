@@ -456,8 +456,19 @@ The two-stage pipeline usually preserves the requested object and icon-like comp
 pipeline, where the outputs of the second stage would be simplified into more
 easily editable structures?''}
 
-\vfill
-\structure{Answer materials to be added.}
+\vspace{.8em}
+\begin{itemize}
+  \tightitems
+  \item Considered; related semantic SVG rewriting work exists~\cite{kim2026meol}
+  \item Different research focus
+    \begin{itemize}
+      \tightitems
+      \item Thesis focus: direct neural vectorizer architecture
+    \end{itemize}
+  \item Fine-tuned pretrained LLM for structure-aware SVG rewriting
+  \item Path simplification, grouping, primitive recovery
+  \item Alternative direction for future work
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Opponent Question 2}
@@ -465,16 +476,49 @@ easily editable structures?''}
 images. Did you also consider or experiment with Stage 2 trained on Stage 1
 outputs, i.e., a model that would also try to correct mistakes in Stage 1?''}
 
-\vfill
-\structure{Answer materials to be added.}
+\vspace{.8em}
+\begin{itemize}
+  \tightitems
+  \item Considered
+  \item Main difficulty: Stage 1 output has no exact ground-truth SVG
+    \begin{itemize}
+      \tightitems
+  \item The generated raster may differ from any reference SVG
+    \end{itemize}
+  \item Possible direction: end-to-end preference optimization of Stage 1 + Stage 2
+  \item Prefer outputs with better rendered fidelity, valid SVGs, and simpler structure
+  \item Problematic: each update requires rolling out both stages before the backward pass
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Opponent Question 3}
 \textit{``Stage 2 was trained from scratch; was fine-tuning existing models
 also attempted?''}
 
-\vfill
-\structure{Answer materials to be added.}
+\vspace{.8em}
+\begin{itemize}
+  \tightitems
+  \item Fine-tuning a pretrained text-to-raster diffusion model was attempted
+    \begin{itemize}
+      \tightitems
+      \item Results were not promising
+      \item More data could make this route viable
+    \end{itemize}
+  \item Fine-tuning pretrained vision LLMs for SVG was not attempted
+    \begin{itemize}
+      \tightitems
+      \item StarVector~\cite{rodriguez2024starvector} and
+      OmniSVG~\cite{yang2025omnisvg}
+      \item They are already trained on SVG data at a much larger scale than
+      the dataset used in this work
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+\footnotesize
+\bibliographystyle{plain}
+\bibliography{slides}
 \end{frame}
 
 \makeoutro
