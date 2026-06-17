@@ -7,6 +7,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{listings}
 \usetheme[
   workplace=fi,
 ]{MU}
@@ -23,8 +24,21 @@
 \newcommand{\tightitems}{\setlength{\itemsep}{0.35em}}
 \newcommand{\smallimg}[1]{\includegraphics[width=.085\textwidth,height=.085\textwidth,keepaspectratio]{#1}}
 \newcommand{\tinyimg}[1]{\includegraphics[width=.066\textwidth,height=.066\textwidth,keepaspectratio]{#1}}
+\newcommand{\dataimg}[1]{\includegraphics[width=.15\textwidth,height=.15\textwidth,keepaspectratio]{#1}}
 \newcommand{\svgout}[1]{\fbox{\includegraphics[width=.068\textwidth,height=.068\textwidth,keepaspectratio]{#1}}}
 \newcommand{\metricbest}[1]{\textbf{#1}}
+
+\lstdefinestyle{svgcode}{
+  basicstyle=\ttfamily\tiny,
+  columns=fullflexible,
+  keywordstyle=\color{blue!70!black},
+  stringstyle=\color{orange!80!black},
+  identifierstyle=\color{green!45!black},
+  alsoletter={-},
+  morekeywords={svg,rect,circle,path,viewBox,x,y,width,height,fill,cx,cy,r,d,stroke,stroke-width,stroke-linecap},
+  morestring=[b]",
+  showstringspaces=false
+}
 
 \begin{document}
 
@@ -34,22 +48,60 @@
 
 \section{Motivation}
 
-\begin{frame}{Why Generate SVG?}
+\begin{frame}[fragile]{SVG}
 \begin{columns}[T,onlytextwidth]
   \begin{column}{.52\textwidth}
     \begin{itemize}
       \tightitems
       \item Native format for icons, logos, illustrations, diagrams, and UI assets
       \item Resolution independence, compactness, and editability
-      \item Strong text-to-image models, but bitmap outputs
-      \item Structured graphics, not only rendered images
     \end{itemize}
   \end{column}
   \begin{column}{.42\textwidth}
     \centering
-    \includegraphics[width=.95\linewidth,height=.62\textheight,keepaspectratio]{svg_primitives_example.pdf}
+    \includegraphics[width=.95\linewidth,height=.4\textheight,keepaspectratio]{svg_primitives_example.pdf}
+
+    \vspace{.6em}
+    \begin{lstlisting}[style=svgcode]
+<svg viewBox="0 0 120 80">
+  <rect x="12" y="14" width="32" height="32"
+        fill="#f97316"/>
+  <circle cx="80" cy="30" r="18"
+          fill="#22c55e"/>
+  <path d="M 18 66 C 42 44, 76 86, 104 58"
+        fill="none" stroke="#2563eb"
+        stroke-width="6" stroke-linecap="round"/>
+</svg>
+    \end{lstlisting}
   \end{column}
 \end{columns}
+\end{frame}
+
+\begin{frame}{Objective}
+\begin{itemize}
+  \tightitems
+  \item Design, implement, and evaluate a modular text-to-SVG pipeline
+\end{itemize}
+
+\vspace{1.0em}
+\centering
+\begin{tabular}{c@{\hspace{1.4em}$\longrightarrow$\hspace{1.4em}}c}
+  \begin{minipage}{.28\textwidth}
+    \centering
+    \large \texttt{"a simple lighthouse icon"}
+
+    \vspace{.35em}
+    \scriptsize \textcolor{blue}{Prompt}
+  \end{minipage}
+  &
+  \begin{minipage}{.28\textwidth}
+    \centering
+    \fbox{\includegraphics[width=.85\linewidth,height=.34\textheight,keepaspectratio]{lighthouse.pdf}}
+
+    \vspace{.35em}
+    \scriptsize \textcolor{blue}{SVG}
+  \end{minipage}
+\end{tabular}
 \end{frame}
 
 \begin{frame}{Central Problem}
@@ -74,30 +126,11 @@
 \end{columns}
 \end{frame}
 
-\begin{frame}{Objective}
-\begin{block}{Goal}
-Design, implement, and evaluate a modular text-to-SVG pipeline.
-\end{block}
-
-\vspace{.6em}
-\begin{itemize}
-  \tightitems
-  \item Raster-generator adaptation for SVG-like images
-  \item Custom raster-to-vector training on synthetic and SVG-derived data
-  \item Flow matching vs. autoregressive and classical baselines
-  \item Evaluation of fidelity, validity, compactness, and editability
-\end{itemize}
-\end{frame}
-
 \section{Pipeline}
 
 \begin{frame}{Two-Stage Pipeline}
 \centering
-\includegraphics[width=.95\textwidth,height=.72\textheight,keepaspectratio]{pipeline.pdf}
-
-\vspace{.3em}
-\small
-Semantic image generation is delegated to a pretrained raster model; geometry recovery is handled by a specialized vectorizer.
+\includegraphics[width=.95\textwidth,height=.72\textheight,keepaspectratio]{assets/pipeline.pdf}
 \end{frame}
 
 \begin{frame}{Stage 1: Raster Generation}
@@ -148,10 +181,6 @@ The final evaluation uses \structure{Base + prefix + LoRA}; the turbo variant re
    \smallimg{raster/omnisvg_4b/0003.png} & \smallimg{raster/omnisvg_4b/0004.png} \\
 \scriptsize OmniSVG 4B \\
 \end{tabular}
-
-\vspace{.4em}
-\small
-Prompting and LoRA move the raster generator toward cleaner icon-like outputs.
 \end{frame}
 
 \section{Vectorization}
@@ -176,11 +205,7 @@ Prompting and LoRA move the raster generator toward cleaner icon-like outputs.
 
 \begin{frame}{Stage 2: Conditional Flow-Matching Vectorizer}
 \centering
-\includegraphics[width=.95\textwidth,height=.7\textheight,keepaspectratio]{architecture.pdf}
-
-\vspace{.2em}
-\small
-The vectorizer is conditioned on DINOv3 image features and learns a continuous vector field over Bezier descriptors.
+\includegraphics[width=.95\textwidth,height=.7\textheight,keepaspectratio]{assets/architecture.pdf}
 \end{frame}
 
 \begin{frame}{Training Data}
@@ -189,39 +214,39 @@ The vectorizer is conditioned on DINOv3 image features and learns a continuous v
     \centering
     \structure{SVG-derived data}
 
-    \vspace{.35em}
-    \begin{tabular}{cccc}
-      \tinyimg{svg_repo_dataset/svg_repo_01.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_02.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_03.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_04.png} \\
-      \tinyimg{svg_repo_dataset/svg_repo_05.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_06.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_07.png} &
-      \tinyimg{svg_repo_dataset/svg_repo_08.png}
+    \vspace{.7em}
+    \setlength{\tabcolsep}{0pt}
+    \begin{tabular}{ccc}
+      \dataimg{svg_repo_dataset/svg_repo_01.png} &
+      \dataimg{svg_repo_dataset/svg_repo_02.png} &
+      \dataimg{svg_repo_dataset/svg_repo_03.png} \\
+      \dataimg{svg_repo_dataset/svg_repo_04.png} &
+      \dataimg{svg_repo_dataset/svg_repo_05.png} &
+      \dataimg{svg_repo_dataset/svg_repo_06.png} \\
+      \dataimg{svg_repo_dataset/svg_repo_07.png} &
+      \dataimg{svg_repo_dataset/svg_repo_08.png} &
+      \dataimg{svg_repo_dataset/svg_repo_09.png}
     \end{tabular}
   \end{column}
   \begin{column}{.48\textwidth}
     \centering
     \structure{Synthetic Bezier data}
 
-    \vspace{.35em}
-    \begin{tabular}{cccc}
-      \tinyimg{syntetic_generator/synthetic_generator_01.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_02.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_03.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_04.png} \\
-      \tinyimg{syntetic_generator/synthetic_generator_05.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_06.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_07.png} &
-      \tinyimg{syntetic_generator/synthetic_generator_08.png}
+    \vspace{.7em}
+    \setlength{\tabcolsep}{0pt}
+    \begin{tabular}{ccc}
+      \dataimg{syntetic_generator/synthetic_generator_01.png} &
+      \dataimg{syntetic_generator/synthetic_generator_02.png} &
+      \dataimg{syntetic_generator/synthetic_generator_03.png} \\
+      \dataimg{syntetic_generator/synthetic_generator_04.png} &
+      \dataimg{syntetic_generator/synthetic_generator_05.png} &
+      \dataimg{syntetic_generator/synthetic_generator_06.png} \\
+      \dataimg{syntetic_generator/synthetic_generator_07.png} &
+      \dataimg{syntetic_generator/synthetic_generator_08.png} &
+      \dataimg{syntetic_generator/synthetic_generator_09.png}
     \end{tabular}
   \end{column}
 \end{columns}
-
-\vspace{.8em}
-\small
-Synthetic pretraining supplies exact raster-vector pairs; fine-tuning adapts the prior to real SVG collections.
 \end{frame}
 
 \begin{frame}{Architecture Ablation}
@@ -273,10 +298,6 @@ Synthetic pretraining supplies exact raster-vector pairs; fine-tuning adapts the
  & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0005.png} \\
 \scriptsize OmniSVG 4B \\
 \end{tabular}
-
-\vspace{.35em}
-\small
-On synthetic controlled inputs, the flow-matching vectorizer is more reliable than the tested neural baselines.
 \end{frame}
 
 \begin{frame}{Vectorization Metrics}
@@ -356,10 +377,6 @@ Classical tracing gives the best pixel fidelity; the proposed neural vectorizer 
  & \tinyimg{z_image_vectorization/vtracer/0005.png} \\
 \scriptsize vtracer \\
 \end{tabular}
-
-\vspace{.35em}
-\small
-Generated rasters contain texture and imperfect boundaries; tracing follows them, while the neural model suppresses detail.
 \end{frame}
 
 \begin{frame}{End-to-End Text-to-SVG Examples}
@@ -374,10 +391,6 @@ Generated rasters contain texture and imperfect boundaries; tracing follows them
 \scriptsize potion bottle & \svgout{potion.pdf} & \svgout{omnisvg4_potion.pdf} & \svgout{omnisvg8_potion.pdf} \\
 \bottomrule
 \end{tabular}
-
-\vspace{.35em}
-\small
-The two-stage pipeline usually preserves the requested object and icon-like composition more completely.
 \end{frame}
 
 \begin{frame}{What the Results Show}
