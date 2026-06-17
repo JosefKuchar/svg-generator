@@ -8,24 +8,30 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{listings}
+\usepackage{csquotes}
+\usepackage[backend=bibtex,style=numeric]{biblatex}
 \usetheme[
   workplace=fi,
 ]{MU}
 
 \graphicspath{{../text/assets/}{generated/}}
+\addbibresource{slides.bib}
 
 \title[Generative Neural Models for SVG]{Generative Neural Models\\for Scalable Vector Graphics}
 \author[J.\,Kuchař]{Josef Kuchař\texorpdfstring{\\}{, }567769@mail.muni.cz}
-\institute[FI MU]{Faculty of Informatics, Masaryk University}
+\institute[FI MU]{Faculty of Informatics, Masaryk University\texorpdfstring{\\[.5em]\scriptsize Advisor: Mgr. Michal Štefánik, Ph.D.\\Consultant: Mgr. Marek Kadlčík}{}}
 \date{June 18, 2026}
 \subject{Master's Thesis Defense}
 \keywords{scalable vector graphics, text-to-vector generation, neural vectorization}
 
 \newcommand{\tightitems}{\setlength{\itemsep}{0.35em}}
 \newcommand{\smallimg}[1]{\includegraphics[width=.085\textwidth,height=.085\textwidth,keepaspectratio]{#1}}
+\newcommand{\stageoneimg}[1]{\raisebox{-.5\height}{\smallimg{#1}}}
 \newcommand{\tinyimg}[1]{\includegraphics[width=.066\textwidth,height=.066\textwidth,keepaspectratio]{#1}}
 \newcommand{\dataimg}[1]{\includegraphics[width=.15\textwidth,height=.15\textwidth,keepaspectratio]{#1}}
 \newcommand{\svgout}[1]{\fbox{\includegraphics[width=.068\textwidth,height=.068\textwidth,keepaspectratio]{#1}}}
+\newcommand{\plainout}[1]{\includegraphics[width=.068\textwidth,height=.068\textwidth,keepaspectratio]{#1}}
+\newcommand{\thanksimg}[1]{\includegraphics[width=.5\textwidth,height=.5\textwidth,keepaspectratio]{#1}}
 \newcommand{\metricbest}[1]{\textbf{#1}}
 
 \lstdefinestyle{svgcode}{
@@ -105,25 +111,64 @@
 \end{frame}
 
 \begin{frame}{Central Problem}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{.5\textwidth}
-    Direct text-to-SVG generation must solve several hard problems at once:
-    \begin{itemize}
-      \tightitems
-      \item semantic grounding from text
-      \item visual composition
-      \item geometric structure
-      \item valid SVG syntax and rendering behavior
-    \end{itemize}
-  \end{column}
-  \begin{column}{.44\textwidth}
-    \begin{block}{Vectorization is ambiguous}
-      Many different sets of paths, fills, and curves can render to nearly the same pixels.
-    \end{block}
-    \vspace{.6em}
-    A useful model must balance raster fidelity with validity, compactness, and editability.
-  \end{column}
-\end{columns}
+\begin{itemize}
+  \tightitems
+  \item semantic grounding from text
+  \item visual composition
+  \item geometric structure
+  \item valid SVG syntax and rendering behavior
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Previous text-to-SVG work}
+\centering
+\includegraphics[width=.95\textwidth,height=.43\textheight,keepaspectratio]{omnisvg_teaser.jpg}
+
+\vspace{.2em}
+{\tiny Source: OmniSVG~\cite{yang2025omnisvg}}
+
+\vspace{.45em}
+\begin{tabular}{c@{\hspace{1.4em}$\longrightarrow$\hspace{1.4em}}c}
+  \begin{minipage}{.23\textwidth}
+    \centering
+    \footnotesize \texttt{"A minimal rocket icon"}
+
+    \vspace{.25em}
+    \tiny \textcolor{blue}{Prompt}
+  \end{minipage}
+  &
+  \begin{minipage}{.18\textwidth}
+    \centering
+    \fbox{\includegraphics[width=.8\linewidth,height=.15\textheight,keepaspectratio]{omnisvg4_rocket.pdf}}
+
+    \vspace{.25em}
+    \tiny \textcolor{blue}{SVG}
+  \end{minipage}
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Diffusion models}
+\centering
+\includegraphics[width=.95\textwidth,height=.43\textheight,keepaspectratio]{assets/diffusion.jpg}
+
+\vspace{.85em}
+\begin{tabular}{c@{\hspace{1.4em}$\longrightarrow$\hspace{1.4em}}c}
+  \begin{minipage}{.23\textwidth}
+    \centering
+    \footnotesize \texttt{"A minimal rocket icon"}
+
+    \vspace{.25em}
+    \tiny \textcolor{blue}{Prompt}
+  \end{minipage}
+  &
+  \begin{minipage}{.18\textwidth}
+    \centering
+    \fbox{\includegraphics[width=.8\linewidth,height=.15\textheight,keepaspectratio]{assets/z-image-rocket-icon.jpeg}}
+
+    \vspace{.25em}
+    \tiny \textcolor{blue}{Raster image}
+  \end{minipage}
+\end{tabular}
 \end{frame}
 
 \section{Pipeline}
@@ -140,7 +185,6 @@
       \tightitems
       \item Pretrained Z-Image text-to-image model
       \item SVG-style prompt prefix and LoRA fine-tuning
-      \item CLIP, DINO, and vectorization MSE selection metrics
     \end{itemize}
   \end{column}
   \begin{column}{.48\textwidth}
@@ -160,26 +204,22 @@
   \end{column}
 \end{columns}
 
-\vspace{.7em}
-\small
-The final evaluation uses \structure{Base + prefix + LoRA}; the turbo variant remains the faster alternative.
 \end{frame}
 
-\begin{frame}{Stage 1: Qualitative Effect}
+\begin{frame}{Stage 1: Qualitative Results}
 \centering
 \begin{tabular}{lcccc}
- & \smallimg{raster/reference/0001.png} & \smallimg{raster/reference/0002.png} &
-   \smallimg{raster/reference/0003.png} & \smallimg{raster/reference/0004.png} \\
-\scriptsize Reference \\
- & \smallimg{raster/base/0001.png} & \smallimg{raster/base/0002.png} &
-   \smallimg{raster/base/0003.png} & \smallimg{raster/base/0004.png} \\
-\scriptsize Z-Image Base \\
- & \smallimg{raster/base_prefixed_lora/0001.png} & \smallimg{raster/base_prefixed_lora/0002.png} &
-   \smallimg{raster/base_prefixed_lora/0003.png} & \smallimg{raster/base_prefixed_lora/0004.png} \\
-\scriptsize Base + prefix + LoRA \\
- & \smallimg{raster/omnisvg_4b/0001.png} & \smallimg{raster/omnisvg_4b/0002.png} &
-   \smallimg{raster/omnisvg_4b/0003.png} & \smallimg{raster/omnisvg_4b/0004.png} \\
-\scriptsize OmniSVG 4B \\
+\scriptsize Reference &
+   \stageoneimg{raster/reference/0001.png} & \stageoneimg{raster/reference/0002.png} &
+   \stageoneimg{raster/reference/0003.png} & \stageoneimg{raster/reference/0004.png} \\
+\noalign{\vskip 1.2em}
+\scriptsize Z-Image Base &
+   \stageoneimg{raster/base/0001.png} & \stageoneimg{raster/base/0002.png} &
+   \stageoneimg{raster/base/0003.png} & \stageoneimg{raster/base/0004.png} \\
+\noalign{\vskip 1.2em}
+\scriptsize Base + prefix + LoRA &
+   \stageoneimg{raster/base_prefixed_lora/0001.png} & \stageoneimg{raster/base_prefixed_lora/0002.png} &
+   \stageoneimg{raster/base_prefixed_lora/0003.png} & \stageoneimg{raster/base_prefixed_lora/0004.png} \\
 \end{tabular}
 \end{frame}
 
@@ -381,40 +421,22 @@ Classical tracing gives the best pixel fidelity; the proposed neural vectorizer 
 
 \begin{frame}{End-to-End Text-to-SVG Examples}
 \centering
-\begin{tabular}{lccc}
-\toprule
-\scriptsize Prompt & \scriptsize Proposed pipeline & \scriptsize OmniSVG 4B & \scriptsize OmniSVG 8B \\
-\midrule
-\scriptsize lighthouse & \svgout{lighthouse.pdf} & \svgout{omnisvg4_lighthouse.pdf} & \svgout{omnisvg8_lighthouse.pdf} \\
-\scriptsize rocket & \svgout{rocket.pdf} & \svgout{omnisvg4_rocket.pdf} & \svgout{omnisvg8_rocket.pdf} \\
-\scriptsize cat face & \svgout{cat.pdf} & \svgout{omnisvg4_cat.pdf} & \svgout{omnisvg8_cat.pdf} \\
-\scriptsize potion bottle & \svgout{potion.pdf} & \svgout{omnisvg4_potion.pdf} & \svgout{omnisvg8_potion.pdf} \\
-\bottomrule
+{
+\setlength{\tabcolsep}{.75em}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{
+  >{\centering\arraybackslash\scriptsize}m{.28\textwidth}
+  >{\centering\arraybackslash}m{.13\textwidth}
+  >{\centering\arraybackslash}m{.13\textwidth}
+  >{\centering\arraybackslash}m{.13\textwidth}
+}
+\scriptsize\textbf{Prompt} & \scriptsize\textbf{Proposed pipeline} & \scriptsize\textbf{OmniSVG 4B} & \scriptsize\textbf{OmniSVG 8B} \\[.45em]
+\scriptsize a simple lighthouse icon & \plainout{lighthouse.pdf} & \plainout{omnisvg4_lighthouse.pdf} & \plainout{omnisvg8_lighthouse.pdf} \\
+\scriptsize A minimal rocket icon & \plainout{rocket.pdf} & \plainout{omnisvg4_rocket.pdf} & \plainout{omnisvg8_rocket.pdf} \\
+\scriptsize A cute cat face icon & \plainout{cat.pdf} & \plainout{omnisvg4_cat.pdf} & \plainout{omnisvg8_cat.pdf} \\
+\scriptsize A magic potion bottle with bubbles, sparkles, cork, and label & \plainout{potion.pdf} & \plainout{omnisvg4_potion.pdf} & \plainout{omnisvg8_potion.pdf} \\
 \end{tabular}
-\end{frame}
-
-\begin{frame}{What the Results Show}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{.31\textwidth}
-    \begin{block}{vtracer}
-      Best raster reconstruction, but large SVGs with many paths and commands.
-    \end{block}
-  \end{column}
-  \begin{column}{.31\textwidth}
-    \begin{block}{Autoregressive baselines}
-      Sometimes compact and faithful, but less reliable and more prone to invalid outputs.
-    \end{block}
-  \end{column}
-  \begin{column}{.31\textwidth}
-    \begin{block}{Flow vectorizer}
-      Lower pixel fidelity than tracing, but compact and valid across tested settings.
-    \end{block}
-  \end{column}
-\end{columns}
-
-\vspace{.8em}
-\centering
-\structure{The contribution is not a better tracer; it is a step toward neural SVGs as structured editable objects.}
+}
 \end{frame}
 
 \section{Conclusion}
@@ -452,8 +474,15 @@ Classical tracing gives the best pixel fidelity; the proposed neural vectorizer 
 \begin{frame}[plain]
 \vfill
 \centerline{\Large Thank You for Your Attention}
-\vspace{1em}
-\centerline{Questions}
+\vspace{1.8em}
+\centering
+\setlength{\tabcolsep}{.8em}
+\begin{tabular}{cccc}
+  \begin{minipage}[t]{.2\textwidth}\centering\thanksimg{cat.pdf}\vspace{.8em}\par\tiny A cute cat face icon\end{minipage} &
+  \begin{minipage}[t]{.2\textwidth}\centering\thanksimg{potion.pdf}\vspace{.8em}\par\tiny A magic potion bottle with bubbles, sparkles, cork, and label\end{minipage} &
+  \begin{minipage}[t]{.2\textwidth}\centering\thanksimg{cabin.pdf}\vspace{.8em}\par\tiny A cozy cabin in the woods with a chimney, pine trees, and a crescent moon\end{minipage} &
+  \begin{minipage}[t]{.2\textwidth}\centering\thanksimg{steampunk.pdf}\vspace{.8em}\par\tiny A steampunk hot air balloon with gears, ropes, basket, and brass details\end{minipage}
+\end{tabular}
 \vfill
 \end{frame}
 
@@ -523,10 +552,9 @@ also attempted?''}
 \end{itemize}
 \end{frame}
 
-\begin{frame}[allowframebreaks]{References}
-\footnotesize
-\bibliographystyle{plain}
-\bibliography{slides}
+\section{\bibname}
+\begin{frame}[t, allowframebreaks]{\bibname}
+\printbibliography[heading=none]
 \end{frame}
 
 \makeoutro
