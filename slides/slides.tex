@@ -28,6 +28,8 @@
 \newcommand{\smallimg}[1]{\includegraphics[width=.085\textwidth,height=.085\textwidth,keepaspectratio]{#1}}
 \newcommand{\stageoneimg}[1]{\raisebox{-.5\height}{\smallimg{#1}}}
 \newcommand{\tinyimg}[1]{\includegraphics[width=.066\textwidth,height=.066\textwidth,keepaspectratio]{#1}}
+\newcommand{\benchimg}[1]{\raisebox{-.5\height}{\tinyimg{#1}}}
+\newcommand{\benchlabel}[1]{\raisebox{-.5\height}{\makebox[.14\textwidth][r]{\scriptsize #1}}}
 \newcommand{\dataimg}[1]{\includegraphics[width=.15\textwidth,height=.15\textwidth,keepaspectratio]{#1}}
 \newcommand{\svgout}[1]{\fbox{\includegraphics[width=.068\textwidth,height=.068\textwidth,keepaspectratio]{#1}}}
 \newcommand{\plainout}[1]{\includegraphics[width=.068\textwidth,height=.068\textwidth,keepaspectratio]{#1}}
@@ -151,7 +153,10 @@
 \centering
 \includegraphics[width=.95\textwidth,height=.43\textheight,keepaspectratio]{assets/diffusion.jpg}
 
-\vspace{.85em}
+\vspace{.2em}
+{\tiny Source: NVIDIA Technical Blog~\cite{vahdat2022improvingdiffusion}}
+
+\vspace{.45em}
 \begin{tabular}{c@{\hspace{1.4em}$\longrightarrow$\hspace{1.4em}}c}
   \begin{minipage}{.23\textwidth}
     \centering
@@ -171,11 +176,32 @@
 \end{tabular}
 \end{frame}
 
-\section{Pipeline}
+\section{Raster}
 
 \begin{frame}{Two-Stage Pipeline}
 \centering
 \includegraphics[width=.95\textwidth,height=.72\textheight,keepaspectratio]{assets/pipeline.pdf}
+\end{frame}
+
+\begin{frame}{Dataset}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{.55\textwidth}
+    \begin{itemize}
+      \tightitems
+      \item SVG Repo-derived HF dataset~\cite{mikronaiSvgSvgrepo}
+      \item Approximately 216k SVG examples
+      \item Raw SVG markup with titles, tags, licenses, and generated captions
+      \item Shared source for raster LoRA adaptation and Bezier supervision
+    \end{itemize}
+  \end{column}
+  \begin{column}{.4\textwidth}
+    \centering
+    \includegraphics[width=.96\linewidth,height=.62\textheight,keepaspectratio]{assets/dataset-slide.png}
+
+    \vspace{.2em}
+    {\tiny Examples from mikronai/svg-svgrepo~\cite{mikronaiSvgSvgrepo}}
+  \end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Stage 1: Raster Generation}
@@ -225,27 +251,41 @@
 
 \section{Vectorization}
 
-\begin{frame}{Stage 2: Bezier Representation}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{.5\textwidth}
-    \begin{itemize}
-      \tightitems
-      \item Fixed-size cubic Bezier representation
-      \item Flow-compatible dimensionality
-      \item Direct rendering to SVG paths
-      \item Constrained capacity and primitive semantics
-    \end{itemize}
-  \end{column}
-  \begin{column}{.44\textwidth}
-    \centering
-    \includegraphics[width=.92\linewidth,height=.6\textheight,keepaspectratio]{svg_bezier_example.pdf}
-  \end{column}
-\end{columns}
-\end{frame}
-
 \begin{frame}{Stage 2: Conditional Flow-Matching Vectorizer}
 \centering
 \includegraphics[width=.95\textwidth,height=.7\textheight,keepaspectratio]{assets/architecture.pdf}
+\end{frame}
+
+\begin{frame}{Stage 2: Bezier Representation}
+\small
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{.48\textwidth}
+    \structure{Output tensor}
+
+    \vspace{.35em}
+    \begin{itemize}
+      \tightitems
+      \item Fixed-length sequence of cubic Bezier segments
+      \item One sample is represented as $X \in \mathbb{R}^{N \times 13}$
+      \item Every dimension is normalized to $[-1, 1]$
+      \item Padding rows are ignored through a validity flag
+    \end{itemize}
+  \end{column}
+  \begin{column}{.48\textwidth}
+    \structure{Segment descriptor}
+
+    \vspace{.35em}
+    \[
+      s=(x_0,y_0,x_1,y_1,x_2,y_2,r,g,b,\alpha,f_p,f_s,f_r)
+    \]
+    \begin{itemize}
+      \tightitems
+      \item $(x_0,y_0)$ start point, $(x_1,y_1),(x_2,y_2)$ control points
+      \item Endpoint is implicit from the next segment start point
+      \item $f_p$ starts a path, $f_s$ starts a subpath, $f_r$ marks real data
+    \end{itemize}
+  \end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Training Data}
@@ -289,58 +329,50 @@
 \end{columns}
 \end{frame}
 
-\begin{frame}{Architecture Ablation}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{.55\textwidth}
-    \centering
-    \includegraphics[width=\linewidth,height=.63\textheight,keepaspectratio]{wandb/flow-matching-vs-autoregressive_image_mse.pdf}
-  \end{column}
-  \begin{column}{.39\textwidth}
-    \begin{itemize}
-      \tightitems
-      \item Same model scale and image encoder
-      \item Stepwise Bezier prediction for autoregressive baseline
-      \item Lower image-space error with flow matching
-    \end{itemize}
-  \end{column}
-\end{columns}
-\end{frame}
+\section{Evaluation}
 
-\begin{frame}{Vectorization Benchmark}
+\begin{frame}{Synthetic Vectorization Comparison}
 \centering
-\begin{tabular}{lcccccc}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0000.png}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0001.png}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0002.png}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0003.png}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0004.png}
- & \tinyimg{vectorization_qualitative/synthetic/reference/0005.png} \\
-\scriptsize Reference \\
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0000.png}
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0001.png}
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0002.png}
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0003.png}
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0004.png}
- & \tinyimg{vectorization_qualitative/synthetic/proposed/0005.png} \\
-\scriptsize Ours 0.26B \\
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0000.png}
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0001.png}
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0002.png}
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0003.png}
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0004.png}
- & \tinyimg{vectorization_qualitative/synthetic/starvector_1b/0005.png} \\
-\scriptsize StarVector 1B \\
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0000.png}
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0001.png}
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0002.png}
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0003.png}
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0004.png}
- & \tinyimg{vectorization_qualitative/synthetic/omnisvg_4b/0005.png} \\
-\scriptsize OmniSVG 4B \\
+\begin{tabular}{rcccccc}
+\benchlabel{Reference}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0000.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0001.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0002.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0003.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0004.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0005.png} \\
+\benchlabel{Ours 0.26B}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0000.png}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0001.png}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0002.png}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0003.png}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0004.png}
+ & \benchimg{vectorization_qualitative/synthetic/proposed/0005.png} \\
+\benchlabel{StarVector 1B}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0000.png}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0001.png}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0002.png}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0003.png}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0004.png}
+ & \benchimg{vectorization_qualitative/synthetic/starvector_1b/0005.png} \\
+\benchlabel{OmniSVG 4B}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0000.png}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0001.png}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0002.png}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0003.png}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0004.png}
+ & \benchimg{vectorization_qualitative/synthetic/omnisvg_4b/0005.png} \\
+\benchlabel{vtracer}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0000.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0001.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0002.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0003.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0004.png}
+ & \benchimg{vectorization_qualitative/synthetic/reference/0005.png} \\
 \end{tabular}
 \end{frame}
 
-\begin{frame}{Vectorization Metrics}
+\begin{frame}{Synthetic Vectorization Metrics}
 \small
 \begin{columns}[T,onlytextwidth]
   \begin{column}{.52\textwidth}
@@ -377,46 +409,85 @@
   \end{column}
 \end{columns}
 
-\vspace{.8em}
-\begin{block}{Main trade-off}
-Classical tracing gives the best pixel fidelity; the proposed neural vectorizer trades fidelity for compact, valid structured output.
-\end{block}
 \end{frame}
 
-\section{End-to-End Evaluation}
-
-\begin{frame}{Generated Raster Vectorization}
+\begin{frame}{Z-Image Raster Vectorization Comparison}
 \centering
-\begin{tabular}{lcccccc}
- & \tinyimg{z_image_vectorization/reference/0000.png}
- & \tinyimg{z_image_vectorization/reference/0001.png}
- & \tinyimg{z_image_vectorization/reference/0002.png}
- & \tinyimg{z_image_vectorization/reference/0003.png}
- & \tinyimg{z_image_vectorization/reference/0004.png}
- & \tinyimg{z_image_vectorization/reference/0005.png} \\
-\scriptsize Raster input \\
- & \tinyimg{z_image_vectorization/proposed/0000.png}
- & \tinyimg{z_image_vectorization/proposed/0001.png}
- & \tinyimg{z_image_vectorization/proposed/0002.png}
- & \tinyimg{z_image_vectorization/proposed/0003.png}
- & \tinyimg{z_image_vectorization/proposed/0004.png}
- & \tinyimg{z_image_vectorization/proposed/0005.png} \\
-\scriptsize Ours 0.26B \\
- & \tinyimg{z_image_vectorization/starvector_1b/0000.png}
- & \tinyimg{z_image_vectorization/starvector_1b/0001.png}
- & \tinyimg{z_image_vectorization/starvector_1b/0002.png}
- & \tinyimg{z_image_vectorization/starvector_1b/0003.png}
- & \tinyimg{z_image_vectorization/starvector_1b/0004.png}
- & \tinyimg{z_image_vectorization/starvector_1b/0005.png} \\
-\scriptsize StarVector 1B \\
- & \tinyimg{z_image_vectorization/vtracer/0000.png}
- & \tinyimg{z_image_vectorization/vtracer/0001.png}
- & \tinyimg{z_image_vectorization/vtracer/0002.png}
- & \tinyimg{z_image_vectorization/vtracer/0003.png}
- & \tinyimg{z_image_vectorization/vtracer/0004.png}
- & \tinyimg{z_image_vectorization/vtracer/0005.png} \\
-\scriptsize vtracer \\
+\begin{tabular}{rcccccc}
+\benchlabel{Raster input}
+ & \benchimg{z_image_vectorization/reference/0000.png}
+ & \benchimg{z_image_vectorization/reference/0001.png}
+ & \benchimg{z_image_vectorization/reference/0002.png}
+ & \benchimg{z_image_vectorization/reference/0003.png}
+ & \benchimg{z_image_vectorization/reference/0004.png}
+ & \benchimg{z_image_vectorization/reference/0005.png} \\
+\benchlabel{Ours 0.26B}
+ & \benchimg{z_image_vectorization/proposed/0000.png}
+ & \benchimg{z_image_vectorization/proposed/0001.png}
+ & \benchimg{z_image_vectorization/proposed/0002.png}
+ & \benchimg{z_image_vectorization/proposed/0003.png}
+ & \benchimg{z_image_vectorization/proposed/0004.png}
+ & \benchimg{z_image_vectorization/proposed/0005.png} \\
+\benchlabel{StarVector 1B}
+ & \benchimg{z_image_vectorization/starvector_1b/0000.png}
+ & \benchimg{z_image_vectorization/starvector_1b/0001.png}
+ & \benchimg{z_image_vectorization/starvector_1b/0002.png}
+ & \benchimg{z_image_vectorization/starvector_1b/0003.png}
+ & \benchimg{z_image_vectorization/starvector_1b/0004.png}
+ & \benchimg{z_image_vectorization/starvector_1b/0005.png} \\
+\benchlabel{OmniSVG 4B}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0000.png}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0001.png}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0002.png}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0003.png}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0004.png}
+ & \benchimg{z_image_vectorization/omnisvg_4b/0005.png} \\
+\benchlabel{vtracer}
+ & \benchimg{z_image_vectorization/vtracer/0000.png}
+ & \benchimg{z_image_vectorization/vtracer/0001.png}
+ & \benchimg{z_image_vectorization/vtracer/0002.png}
+ & \benchimg{z_image_vectorization/vtracer/0003.png}
+ & \benchimg{z_image_vectorization/vtracer/0004.png}
+ & \benchimg{z_image_vectorization/vtracer/0005.png} \\
 \end{tabular}
+\end{frame}
+
+\begin{frame}{Z-Image Raster Vectorization Metrics}
+\small
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{.52\textwidth}
+    \structure{Generated-raster fidelity}
+
+    \vspace{.3em}
+    \begin{tabular}{lccc}
+      \toprule
+      Method & MSE $\downarrow$ & SSIM $\uparrow$ & IoU $\uparrow$ \\
+      \midrule
+      Ours 0.26B & 6004.4 & .681 & .651 \\
+      OmniSVG 4B & 8973.1 & .550 & .549 \\
+      StarVector 1B & \metricbest{5057.5} & \metricbest{.729} & \metricbest{.690} \\
+      \midrule
+      vtracer & 145.5 & .984 & .971 \\
+      \bottomrule
+    \end{tabular}
+  \end{column}
+  \begin{column}{.43\textwidth}
+    \structure{Validity and compactness}
+
+    \vspace{.3em}
+    \begin{tabular}{lcc}
+      \toprule
+      Method & Valid & Commands \\
+      \midrule
+      Ours 0.26B & \metricbest{100\%} & 80 \\
+      OmniSVG 4B & 99\% & 244 \\
+      StarVector 1B & 49\% & \metricbest{40} \\
+      \midrule
+      vtracer & 100\% & 1779 \\
+      \bottomrule
+    \end{tabular}
+  \end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{End-to-End Text-to-SVG Examples}
